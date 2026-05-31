@@ -29,6 +29,7 @@ try:
     import mcp.server as mcp_server
     import mcp.types as types
     from mcp.server.lowlevel import Server
+    from mcp.server.stdio import stdio_server
 except ImportError:
     print("ERROR: mcp package not installed. Run: pip install mcp", file=sys.stderr)
     sys.exit(1)
@@ -248,7 +249,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
 # ── Startup ───────────────────────────────────────────────
 async def main():
-    async with mcp_server.stdio_server() as (read_stream, write_stream):
+    async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
 
 

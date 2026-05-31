@@ -17,6 +17,7 @@ import os
 import sys
 import httpx
 from typing import Any, Optional
+from mcp.server.stdio import stdio_server
 
 # ── Mnemosyne API 地址 ─────────────────────────────────
 MNEMOSYNE_URL = os.getenv("MNEMOSYNE_URL", "http://127.0.0.1:18010")
@@ -48,6 +49,7 @@ def _call(method: str, path: str, **kwargs) -> dict:
         if hasattr(e, "response") and e.response is not None:
             detail = e.response.text
         return {"error": str(e), "detail": detail}
+
 
 
 # ── MCP Server 定义 ────────────────────────────────────
@@ -347,7 +349,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
 # ── 启动 ────────────────────────────────────────────────
 async def main():
-    async with mcp_server.stdio_server() as (read_stream, write_stream):
+    async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
 
 
