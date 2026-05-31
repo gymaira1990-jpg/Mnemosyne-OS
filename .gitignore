@@ -1,0 +1,14 @@
+# 系统文件
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# 脚本执行权限无关
+*.sh
+
+# 日志和临时文件
+*.log
+*.tmp
+蒸馏日志/*
+!蒸馏日志/.gitkeep
