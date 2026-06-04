@@ -147,6 +147,22 @@ WIKI_SCHEMA = {
     },
 }
 
+MEDIA_SCHEMA = {
+    "name": "mnemosyne_media",
+    "description": "管理媒体记忆（文件/图片/链接）。支持 list(列表), get(查看), create(创建)。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "description": "list/get/create", "default": "list"},
+            "media_id": {"type": "integer", "description": "get模式: 媒体ID"},
+            "content": {"type": "string", "description": "create模式: 内容描述"},
+            "media_type": {"type": "string", "description": "create模式: file/image/link", "default": "file"},
+            "media_url": {"type": "string", "description": "create模式: 文件路径/URL"},
+            "limit": {"type": "integer", "description": "list模式: 返回条数", "default": 10},
+        },
+    },
+}
+
 
 # ── HTTP 客户端 ──────────────────────────────────────────
 
@@ -227,6 +243,22 @@ class _MnemosyneClient:
 
     def get_wiki_page(self, page_id: int) -> dict:
         return self._call("GET", f"/wiki/{page_id}")
+
+    def list_media(self, limit: int = 20, media_type: str = "") -> list:
+        params = {"user_id": self._user_id, "limit": limit}
+        if media_type:
+            params["media_type"] = media_type
+        return self._call("GET", "/media", params=params)
+
+    def get_media(self, media_id: int) -> dict:
+        return self._call("GET", f"/media/{media_id}")
+
+    def create_media(self, content: str, media_type: str = "file",
+                     media_url: str = "", media_hash: str = "") -> dict:
+        return self._call("POST", "/media", params={
+            "content": content, "media_type": media_type, "media_url": media_url,
+            "media_hash": media_hash, "user_id": self._user_id
+        })
 
     def store_memory(self, content: str, category: str = "fact",
                      importance: float = 0.5, source: str = "hermes") -> dict:
@@ -332,15 +364,32 @@ class MnemosyneMemoryProvider(MemoryProvider):
         self._user_id = os.environ.get("MNEMOSYNE_USER_ID", _DEFAULT_USER_ID)
         self._session_id = session_id
         self._turn_count = 0
+        self._hot_cache = []  # 预热缓存
 
         try:
             self._client = _MnemosyneClient(self._endpoint, self._user_id)
             if not self._client.health():
                 logger.warning("Mnemosyne at %s not reachable", self._endpoint)
                 self._client = None
+            else:
+                # P3-T2a: 启动预热 — 预加载热门记忆
+                self._preheat_memories()
         except ImportError:
             logger.warning("httpx not installed — Mnemosyne plugin disabled")
             self._client = None
+
+    def _preheat_memories(self) -> None:
+        """启动时预加载热度最高的记忆到缓存。"""
+        try:
+            hot = self._client.get_hot_memories(limit=5, min_heat=0.5)
+            if hot:
+                self._hot_cache = [
+                    {"content": m.get("content", "")[:200], "heat": m.get("heat_score", 0)}
+                    for m in hot if isinstance(m, dict)
+                ]
+                logger.info("preheat: %d hot memories loaded", len(self._hot_cache))
+        except Exception as e:
+            logger.debug("preheat failed: %s", e)
 
     def system_prompt_block(self) -> str:
         if not self._client:
@@ -529,7 +578,7 @@ class MnemosyneMemoryProvider(MemoryProvider):
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA,
-                DIALECTIC_SCHEMA, TIERED_READ_SCHEMA, CONFLICT_SCHEMA, WIKI_SCHEMA]
+                DIALECTIC_SCHEMA, TIERED_READ_SCHEMA, CONFLICT_SCHEMA, WIKI_SCHEMA, MEDIA_SCHEMA]
 
     def handle_tool_call(self, tool_name: str, args: dict, **kwargs) -> str:
         if not self._client:
@@ -554,6 +603,8 @@ class MnemosyneMemoryProvider(MemoryProvider):
                 return self._tool_conflicts(args)
             elif tool_name == "mnemosyne_wiki":
                 return self._tool_wiki(args)
+            elif tool_name == "mnemosyne_media":
+                return self._tool_media(args)
             return tool_error(f"未知工具: {tool_name}")
         except Exception as e:
             return tool_error(str(e))
@@ -714,6 +765,29 @@ class MnemosyneMemoryProvider(MemoryProvider):
             limit = args.get("limit", 10)
             data = self._client.list_wiki(limit)
             result = {"pages": data, "total": len(data)} if isinstance(data, list) else data
+        if isinstance(result, dict) and result.get("error"):
+            return tool_error(result["error"])
+        return json.dumps(result, ensure_ascii=False)
+
+    def _tool_media(self, args: dict) -> str:
+        action = args.get("action", "list")
+        if action == "get":
+            mid = args.get("media_id", 0)
+            if not mid:
+                return tool_error("media_id required")
+            result = self._client.get_media(mid)
+        elif action == "create":
+            content = args.get("content", "")
+            if not content:
+                return tool_error("content required for create")
+            result = self._client.create_media(
+                content, args.get("media_type", "file"),
+                args.get("media_url", ""),
+            )
+        else:
+            limit = args.get("limit", 10)
+            data = self._client.list_media(limit)
+            result = {"media": data, "total": len(data)} if isinstance(data, list) else data
         if isinstance(result, dict) and result.get("error"):
             return tool_error(result["error"])
         return json.dumps(result, ensure_ascii=False)

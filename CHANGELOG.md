@@ -20,15 +20,15 @@
 ### 📋 变更文件
 | 文件 | 变更 |
 |:----|:----:|
-| GZ `main.py` | 🆕 矛盾metadata存储 + conflicts端点 + wiki三端点 |
-| `mnemosyne_provider.py` | 🆕 CONFLICT_SCHEMA + WIKI_SCHEMA + `_tool_conflicts` + `_tool_wiki` |
+| GZ `main.py` | 🆕 矛盾metadata存储 + conflicts端点 + wiki三端点 + media四端点 |
+| `mnemosyne_provider.py` | 🆕 CONFLICT_SCHEMA + WIKI_SCHEMA + MEDIA_SCHEMA + preheat初始化 |
 
-Line routing map update:
+### 📊 当前路由与工具统计
 ```
-GZ main.py: 34 routes (from 30)
+GZ main.py: 38 routes (from 34)
     memories/search, dialectic, tiered, conflicts
-    wiki (list/get/create)
-Provider: 10 tools (search/remember/recall/tree/hot/dialectic/tiered/conflicts/wiki)
+    wiki (list/get/create), media (list/get/create/delete)
+Provider: 11 tools (search/remember/recall/tree/hot/dialectic/tiered/conflicts/wiki/media)
 ```
 
 ---
