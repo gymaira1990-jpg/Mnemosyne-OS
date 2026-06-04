@@ -97,6 +97,19 @@ HOT_SCHEMA = {
     },
 }
 
+DIALECTIC_SCHEMA = {
+    "name": "mnemosyne_dialectic",
+    "description": "辨证推理：搜索记忆并附带L2/L3会话上下文，返回结构化记忆树以便LLM综合分析。比search更深入，包含时序关系。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "搜索关键词"},
+            "limit": {"type": "integer", "description": "返回条数", "default": 3},
+        },
+        "required": ["query"],
+    },
+}
+
 
 # ── HTTP 客户端 ──────────────────────────────────────────
 
@@ -140,7 +153,7 @@ class _MnemosyneClient:
             return False
 
     def search_memories(self, query: str, limit: int = 5, category: str = "") -> list:
-        payload = {"query": query, "user_id": self._user_id, "limit": limit}
+        payload = {"query": query, "user_id": self._user_id, "top_k": limit}
         if category:
             payload["category"] = category
         result = self._call("POST", "/memories/search", json=payload)
@@ -150,6 +163,14 @@ class _MnemosyneClient:
         if isinstance(result, dict):
             return result.get("memories", result.get("results", result.get("items", [])))
         return result if isinstance(result, list) else []
+
+    def dialectic_search(self, query: str, limit: int = 3) -> dict:
+        """辨证推理：搜索+会话上下文，返回结构化记忆树。"""
+        payload = {"query": query, "user_id": self._user_id, "max_memories": limit}
+        result = self._call("POST", "/dialectic", json=payload)
+        if "error" in result:
+            return {"memories": [], "context": [], "error": result["error"]}
+        return result
 
     def store_memory(self, content: str, category: str = "fact",
                      importance: float = 0.5, source: str = "hermes") -> dict:
@@ -338,31 +359,64 @@ class MnemosyneMemoryProvider(MemoryProvider):
 
     def sync_turn(self, user_content: str, assistant_content: str, *,
                   session_id: str = "", messages: Optional[List[Dict[str, Any]]] = None) -> None:
-        """每轮对话后自动存储到 Mnemosyne。"""
+        """每轮对话后自动存储到 Mnemosyne（经持久写队列，crash-safe）。"""
         if not self._client:
             return
 
         self._turn_count += 1
 
+        # 清理消息（剥离注入标签 + 过滤临时消息）
+        from .message_cleaner import prepare_for_storage
+        clean_user = prepare_for_storage(user_content) if user_content else ""
+        clean_asst = prepare_for_storage(assistant_content) if assistant_content else ""
+
+        # 写入持久队列（立即 SQLite 落地，不丢数据）
+        from .write_queue import get_queue
+        q = get_queue()
+
+        if clean_user:
+            q.enqueue(user_content=clean_user[:500], assistant_content="",
+                      category="chat", source="hermes-sync")
+
+        if clean_asst:
+            q.enqueue(user_content="", assistant_content=clean_asst[:800],
+                      category="note" if len(clean_asst) > 100 else "chat",
+                      source="hermes-sync")
+
+        # 后台发送线程（从队列消费）
         def _sync():
+            from .write_queue import get_queue
+            q = get_queue()
+
+            if q.is_circuit_open():
+                logger.debug("Mnemosyne 熔断器 OPEN，跳过本轮发送")
+                return
+
             try:
                 client = _MnemosyneClient(self._endpoint, self._user_id)
-                # 存储用户消息作为记忆片段
-                if user_content and len(user_content) > 10:
-                    client.store_memory(
-                        content=f"用户提问: {user_content[:500]}",
-                        category="chat", importance=0.4, source="hermes-sync"
-                    )
-                # 存储助手回复作为记忆片段
-                if assistant_content and len(assistant_content) > 10:
-                    # 提取关键信息（仅存前 800 字避免冗余）
-                    client.store_memory(
-                        content=assistant_content[:800],
-                        category="note" if len(assistant_content) > 100 else "chat",
-                        importance=0.3, source="hermes-sync"
-                    )
+                items = q.dequeue(batch_size=3)
+                for item in items:
+                    try:
+                        if item["user_content"]:
+                            client.store_memory(
+                                content=f"用户提问: {item['user_content'][:500]}",
+                                category="chat", importance=0.4, source=item["source"]
+                            )
+                        if item["assistant_content"]:
+                            client.store_memory(
+                                content=item["assistant_content"],
+                                category="note" if len(item["assistant_content"]) > 100 else "chat",
+                                importance=0.3, source=item["source"]
+                            )
+                        q.mark_done(item["id"])
+                        q.record_success()
+                    except Exception as e:
+                        q.mark_failed(item["id"], str(e))
+                        q.record_failure()
+                        logger.debug("Mnemosyne 发送失败 (id=%d): %s", item["id"], e)
             except Exception as e:
-                logger.debug("Mnemosyne sync_turn failed: %s", e)
+                q.record_failure()
+                logger.debug("Mnemosyne sync_turn client failed: %s", e)
 
         if self._sync_thread and self._sync_thread.is_alive():
             self._sync_thread.join(timeout=5.0)
@@ -418,7 +472,7 @@ class MnemosyneMemoryProvider(MemoryProvider):
         t.start()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
-        return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA]
+        return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA, DIALECTIC_SCHEMA]
 
     def handle_tool_call(self, tool_name: str, args: dict, **kwargs) -> str:
         if not self._client:
@@ -435,6 +489,8 @@ class MnemosyneMemoryProvider(MemoryProvider):
                 return self._tool_tree(args)
             elif tool_name == "mnemosyne_hot_memories":
                 return self._tool_hot(args)
+            elif tool_name == "mnemosyne_dialectic":
+                return self._tool_dialectic(args)
             return tool_error(f"未知工具: {tool_name}")
         except Exception as e:
             return tool_error(str(e))
@@ -481,10 +537,17 @@ class MnemosyneMemoryProvider(MemoryProvider):
         content = args.get("content", "")
         if not content:
             return tool_error("content 必填")
+
+        # 清理消息后存储
+        from .message_cleaner import prepare_for_storage
+        clean = prepare_for_storage(content)
+        if not clean:
+            return tool_error("清理后内容为空，跳过存储")
+
         category = args.get("category", "fact")
         importance = args.get("importance", 0.5)
 
-        result = self._client.store_memory(content, category, importance)
+        result = self._client.store_memory(clean, category, importance)
         if "error" in result:
             return tool_error(f"存储失败: {result['error']}")
         return json.dumps({
@@ -528,6 +591,16 @@ class MnemosyneMemoryProvider(MemoryProvider):
                 })
 
         return json.dumps({"hot_memories": formatted, "total": len(formatted)}, ensure_ascii=False)
+
+    def _tool_dialectic(self, args: dict) -> str:
+        query = args.get("query", "")
+        limit = args.get("limit", 3)
+        if not query:
+            return tool_error("query required")
+        result = self._client.dialectic_search(query, limit)
+        if isinstance(result, dict) and result.get("error"):
+            return tool_error(result["error"])
+        return json.dumps(result, ensure_ascii=False)
 
 
 # ── 插件入口 ────────────────────────────────────────────
