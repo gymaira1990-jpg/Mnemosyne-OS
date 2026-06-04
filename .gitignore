@@ -4,8 +4,11 @@ Thumbs.db
 *.swp
 *~
 
-# 脚本执行权限无关
+# 脚本执行权限无关（排除自动同步相关）
 *.sh
+!日常运维/auto-sync.sh
+!日常运维/pre-commit-hook.sh
+!日常运维/status.sh
 
 # 日志和临时文件
 *.log
