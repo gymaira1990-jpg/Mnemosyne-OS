@@ -110,6 +110,19 @@ DIALECTIC_SCHEMA = {
     },
 }
 
+TIERED_READ_SCHEMA = {
+    "name": "mnemosyne_tiered_read",
+    "description": "三级读取记忆：L5摘要(200字)/L3概览(800字+会话摘要)/L1全文(关联片段+每日摘要)。比直接查更智能分级。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "memory_id": {"type": "integer", "description": "记忆ID"},
+            "level": {"type": "string", "description": "读取级别: L5/L3/L1", "default": "L3"},
+        },
+        "required": ["memory_id"],
+    },
+}
+
 
 # ── HTTP 客户端 ──────────────────────────────────────────
 
@@ -170,6 +183,14 @@ class _MnemosyneClient:
         result = self._call("POST", "/dialectic", json=payload)
         if "error" in result:
             return {"memories": [], "context": [], "error": result["error"]}
+        return result
+
+    def tiered_read(self, memory_id: int, level: str = "L3") -> dict:
+        """三级读取：L5摘要 / L3概览 / L1全文+上下文。"""
+        result = self._call("GET", f"/memories/{memory_id}/tiered",
+                           params={"level": level, "user_id": self._user_id})
+        if "error" in result:
+            return {"error": result["error"]}
         return result
 
     def store_memory(self, content: str, category: str = "fact",
@@ -472,7 +493,7 @@ class MnemosyneMemoryProvider(MemoryProvider):
         t.start()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
-        return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA, DIALECTIC_SCHEMA]
+        return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA, DIALECTIC_SCHEMA, TIERED_READ_SCHEMA]
 
     def handle_tool_call(self, tool_name: str, args: dict, **kwargs) -> str:
         if not self._client:
@@ -491,6 +512,8 @@ class MnemosyneMemoryProvider(MemoryProvider):
                 return self._tool_hot(args)
             elif tool_name == "mnemosyne_dialectic":
                 return self._tool_dialectic(args)
+            elif tool_name == "mnemosyne_tiered_read":
+                return self._tool_tiered(args)
             return tool_error(f"未知工具: {tool_name}")
         except Exception as e:
             return tool_error(str(e))
@@ -499,6 +522,27 @@ class MnemosyneMemoryProvider(MemoryProvider):
         for t in (self._sync_thread, self._prefetch_thread):
             if t and t.is_alive():
                 t.join(timeout=5.0)
+
+    def on_session_switch(
+        self,
+        new_session_id: str,
+        *,
+        parent_session_id: str = "",
+        reset: bool = False,
+        rewound: bool = False,
+        **kwargs,
+    ) -> None:
+        """会话切换时自动刷新：检查队列 + 更新 session ID。"""
+        try:
+            from .write_queue import get_queue
+            q = get_queue()
+            pending = q.pending_count()
+            if pending > 0:
+                logger.info("session_switch: %d pending (consumer active)", pending)
+                q.replay_pending()  # 确保消费者继续处理
+        except Exception as e:
+            logger.debug("session_switch queue check: %s", e)
+        logger.debug("session_switch → %s (parent=%s, reset=%s)", new_session_id, parent_session_id, reset)
 
     # ── 工具实现 ──────────────────────────────────────────
 
@@ -598,6 +642,16 @@ class MnemosyneMemoryProvider(MemoryProvider):
         if not query:
             return tool_error("query required")
         result = self._client.dialectic_search(query, limit)
+        if isinstance(result, dict) and result.get("error"):
+            return tool_error(result["error"])
+        return json.dumps(result, ensure_ascii=False)
+
+    def _tool_tiered(self, args: dict) -> str:
+        memory_id = args.get("memory_id", 0)
+        level = args.get("level", "L3")
+        if not memory_id:
+            return tool_error("memory_id required")
+        result = self._client.tiered_read(memory_id, level)
         if isinstance(result, dict) and result.get("error"):
             return tool_error(result["error"])
         return json.dumps(result, ensure_ascii=False)

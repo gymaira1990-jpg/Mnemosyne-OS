@@ -1,5 +1,36 @@
 # 📜 记忆宫殿 · 变更日志
 
+## 2026-06-04 — Phase 2 T1+T2+T3 完成！三级读取 + 会话切换 🚀
+
+### ✨ P2-T1: 辨证推理层
+- **GZ 端点** `POST /api/v1/dialectic` — 搜索 + L2 会话上下文综合 ✅（上期）
+- **Hermes 工具** `mnemosyne_dialectic` — 返回结构化记忆树供 LLM 综合分析
+
+### ✨ P2-T2: 三级读取 (Tiered Read) ✅
+- **GZ 端点** `GET /api/v1/memories/{id}/tiered?level=L5|L3|L1`
+  - **L5 摘要** (200字)：截取内容 + session_label，快速回忆
+  - **L3 概览** (800字)：内容 + session_summary，理解上下文
+  - **L1 全文**：完整内容 + session 全信息 + **同会话其他片段列表**（自动图谱遍历）
+    - 还抓取 daily 摘要（如果有）
+- **Hermes 工具** `mnemosyne_tiered_read(memory_id, level)`
+
+### ✨ P2-T3: 会话切换 (Session Switch) ✅
+- **Provider 回调** `on_session_switch` — Hermes 原生接口
+- 切换时检查写队列状态 + 触发 `replay_pending` 确保不丢数据
+- 配合 systemd `Restart=always` + 持久队列，断电重启不丢记忆
+
+### 🔧 Provider 持续迭代
+- `mnemosyne_provider.py` 已 650+ 行：search → dialectic → tiered → session_switch
+- 所有工具新会话自动生效
+
+### 🤖 自动工作区同步
+- 🆕 `日常运维/auto-sync.sh` — 一键状态报告 + Git 提交
+- 🆕 `日常运维/pre-commit-hook.sh` — 提交前自动更新
+- ⏰ Cron 每日 23:00 自动同步
+- 📦 Git 完整可追溯
+
+---
+
 ## 2026-06-03 — Phase 1 根基加固完成 + GZ Search 全面修复 🚀
 
 ### GZ Search 全面修复（最大坑）
