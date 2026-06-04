@@ -123,6 +123,30 @@ TIERED_READ_SCHEMA = {
     },
 }
 
+CONFLICT_SCHEMA = {
+    "name": "mnemosyne_conflicts",
+    "description": "查看存在矛盾/冲突的记忆列表。检测到矛盾时会自动标记旧记忆为过期并存证。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "limit": {"type": "integer", "description": "返回条数", "default": 10},
+        },
+    },
+}
+
+WIKI_SCHEMA = {
+    "name": "mnemosyne_wiki",
+    "description": "查询知识库(Wiki)页面。支持列表查看和按ID查看全文。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "description": "list(列表) 或 get(查看)", "default": "list"},
+            "page_id": {"type": "integer", "description": "get模式必填: 页面ID"},
+            "limit": {"type": "integer", "description": "list模式: 返回条数", "default": 10},
+        },
+    },
+}
+
 
 # ── HTTP 客户端 ──────────────────────────────────────────
 
@@ -192,6 +216,17 @@ class _MnemosyneClient:
         if "error" in result:
             return {"error": result["error"]}
         return result
+
+    def get_conflicts(self, limit: int = 10) -> dict:
+        """查看矛盾/冲突记忆。"""
+        return self._call("GET", "/memories/conflicts",
+                         params={"user_id": self._user_id, "limit": limit})
+
+    def list_wiki(self, limit: int = 10) -> list:
+        return self._call("GET", "/wiki", params={"user_id": self._user_id, "limit": limit})
+
+    def get_wiki_page(self, page_id: int) -> dict:
+        return self._call("GET", f"/wiki/{page_id}")
 
     def store_memory(self, content: str, category: str = "fact",
                      importance: float = 0.5, source: str = "hermes") -> dict:
@@ -493,7 +528,8 @@ class MnemosyneMemoryProvider(MemoryProvider):
         t.start()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
-        return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA, DIALECTIC_SCHEMA, TIERED_READ_SCHEMA]
+        return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA,
+                DIALECTIC_SCHEMA, TIERED_READ_SCHEMA, CONFLICT_SCHEMA, WIKI_SCHEMA]
 
     def handle_tool_call(self, tool_name: str, args: dict, **kwargs) -> str:
         if not self._client:
@@ -514,6 +550,10 @@ class MnemosyneMemoryProvider(MemoryProvider):
                 return self._tool_dialectic(args)
             elif tool_name == "mnemosyne_tiered_read":
                 return self._tool_tiered(args)
+            elif tool_name == "mnemosyne_conflicts":
+                return self._tool_conflicts(args)
+            elif tool_name == "mnemosyne_wiki":
+                return self._tool_wiki(args)
             return tool_error(f"未知工具: {tool_name}")
         except Exception as e:
             return tool_error(str(e))
@@ -652,6 +692,28 @@ class MnemosyneMemoryProvider(MemoryProvider):
         if not memory_id:
             return tool_error("memory_id required")
         result = self._client.tiered_read(memory_id, level)
+        if isinstance(result, dict) and result.get("error"):
+            return tool_error(result["error"])
+        return json.dumps(result, ensure_ascii=False)
+
+    def _tool_conflicts(self, args: dict) -> str:
+        limit = args.get("limit", 10)
+        result = self._client.get_conflicts(limit)
+        if isinstance(result, dict) and result.get("error"):
+            return tool_error(result["error"])
+        return json.dumps(result, ensure_ascii=False)
+
+    def _tool_wiki(self, args: dict) -> str:
+        action = args.get("action", "list")
+        if action == "get":
+            page_id = args.get("page_id", 0)
+            if not page_id:
+                return tool_error("page_id required for get action")
+            result = self._client.get_wiki_page(page_id)
+        else:
+            limit = args.get("limit", 10)
+            data = self._client.list_wiki(limit)
+            result = {"pages": data, "total": len(data)} if isinstance(data, list) else data
         if isinstance(result, dict) and result.get("error"):
             return tool_error(result["error"])
         return json.dumps(result, ensure_ascii=False)

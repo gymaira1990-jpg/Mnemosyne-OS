@@ -1,5 +1,38 @@
 # 📜 记忆宫殿 · 变更日志
 
+## 2026-06-04 — Phase 3 启动：矛盾检测 + Wiki 知识库 🚀
+
+### ✨ P3-T1: 矛盾检测 (Conflict Detection) ✅
+- **写入时自动检测**：已有 `detect_conflict` 函数对比语义相似度 + 文本差异
+  - `dist < 0.15 + ratio > 0.85` → 合并：增加访问计数
+  - `dist < 0.12 + ratio < 0.5` → 矛盾：旧标记过期 + 新标记 `metadata.conflicts_with`
+- **查询端点** `GET /api/v1/memories/conflicts` — 列出所有带矛盾标记的记忆
+- **Hermes 工具** `mnemosyne_conflicts(limit)` — 新会话可用
+
+### ✨ P3-T3: LLM Wiki 知识库 ✅
+- **表已存在** `wiki_pages` — 含 title/content/user_id
+- **端点三件套**：
+  - `GET /api/v1/wiki` — 列表
+  - `GET /api/v1/wiki/{id}` — 全文
+  - `POST /api/v1/wiki` — 创建
+- **Hermes 工具** `mnemosyne_wiki(action=list|get, page_id, limit)`
+
+### 📋 变更文件
+| 文件 | 变更 |
+|:----|:----:|
+| GZ `main.py` | 🆕 矛盾metadata存储 + conflicts端点 + wiki三端点 |
+| `mnemosyne_provider.py` | 🆕 CONFLICT_SCHEMA + WIKI_SCHEMA + `_tool_conflicts` + `_tool_wiki` |
+
+Line routing map update:
+```
+GZ main.py: 34 routes (from 30)
+    memories/search, dialectic, tiered, conflicts
+    wiki (list/get/create)
+Provider: 10 tools (search/remember/recall/tree/hot/dialectic/tiered/conflicts/wiki)
+```
+
+---
+
 ## 2026-06-04 — Phase 2 T1+T2+T3 完成！三级读取 + 会话切换 🚀
 
 ### ✨ P2-T1: 辨证推理层
