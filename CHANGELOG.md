@@ -95,6 +95,12 @@
 - `edges` 查询因 tmt_tree_edges 表 parent_id/child_id 混用 bigint + UUID 暂跳
 - 后续统一类型后开启
 
+### 🤖 自动工作区同步
+- 🆕 `日常运维/auto-sync.sh` — 一键状态报告 + Git 提交
+- 🆕 `日常运维/pre-commit-hook.sh` — 提交前自动更新路线图
+- ⏰ Cron 每日 23:00 自动同步（防止遗忘）
+- 📦 Git 仓库完整（9 commits），`git log` 可追溯每次变更
+
 ### 📋 变更文件
 | 文件 | 状态 |
 |:----|:----:|
