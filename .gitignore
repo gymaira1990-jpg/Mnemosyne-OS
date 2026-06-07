@@ -15,3 +15,5 @@ Thumbs.db
 *.tmp
 蒸馏日志/*
 !蒸馏日志/.gitkeep
+*.pyc
+__pycache__/
