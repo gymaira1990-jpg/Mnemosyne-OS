@@ -1,12 +1,13 @@
 """
-Mnemosyne v5.0 — 模型路由引擎 v2.0
-白皮书 L3 算力调度层完整实现
+Mnemosyne v5.0 — LLM 路由引擎
+支持任何 OpenAI 兼容 API 的分级调度
 
-Tier 1: doubao-embedding-vision   → 向量化 (128 tokens/条, ¥0.0001)
-Tier 2: doubao-seed-2-0-mini      → 快速分类/摘要 (¥0.001/1K tokens)
-Tier 3: doubao-seed-2-0-lite      → 蒸馏主力 JSON mode (¥0.003/1K tokens)
-Tier 4: deepseek-v4-pro           → 异构审计/矛盾检测 (¥0.015/1K tokens)
-Tier 5: doubao-seedream           → 可视化素材 (按图计费)
+推荐组合:
+  Tier 2 (快速) → 豆包 Seed-2.0 Mini / gpt-4o-mini
+  Tier 3 (主力) → 豆包 Seed-2.0 Lite (JSON mode) / gpt-4o
+  Tier 4 (深度) → DeepSeek V4 Pro / o1-mini
+
+换模型只需改环境变量: LLM_MODEL_MINI / LLM_MODEL_LITE / LLM_MODEL_PRO
 """
 import urllib.request
 import json
@@ -15,33 +16,36 @@ import sys, os
 import time
 from typing import Dict, Optional, List
 
-# 兼容导入
 try:
-    from .config import ARK_API_KEY, ARK_BASE, DOUBAO_MINI, DOUBAO_LITE, DOUBAO_CODE, TMT_MAX_RETRIES
+    from .config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_MINI, LLM_MODEL_LITE, LLM_MODEL_PRO
+    from .config import LLM_BASE_URL_PRO, LLM_API_KEY_PRO, TMT_MAX_RETRIES
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from config import ARK_API_KEY, ARK_BASE, DOUBAO_MINI, DOUBAO_LITE, DOUBAO_CODE, TMT_MAX_RETRIES
+    from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_MINI, LLM_MODEL_LITE, LLM_MODEL_PRO
+    from config import LLM_BASE_URL_PRO, LLM_API_KEY_PRO, TMT_MAX_RETRIES
 
-# ── 模型梯队定义 ──
+# ── 模型梯队 — 从环境变量读取，可自由替换 ──
 TIERS = {
-    1: {"model": "doubao-embedding-vision-251215", "type": "embedding", "cost_per_1k": 0.0001},
-    2: {"model": DOUBAO_MINI, "type": "chat", "cost_per_1k": 0.001, "max_tokens": 500},
-    3: {"model": DOUBAO_LITE, "type": "chat", "cost_per_1k": 0.003, "max_tokens": 800},
-    4: {"model": DOUBAO_CODE, "type": "chat", "cost_per_1k": 0.006, "max_tokens": 1024},
-    5: {"model": "doubao-seedream-5-0-260128", "type": "image", "cost_per_image": 0.02},
+    1: {"model": "embedding", "type": "embedding"},
+    2: {"model": LLM_MODEL_MINI, "type": "chat", "max_tokens": 500},
+    3: {"model": LLM_MODEL_LITE, "type": "chat", "max_tokens": 800},
+    4: {"model": LLM_MODEL_PRO, "type": "chat", "max_tokens": 1024,
+        "base_url": LLM_BASE_URL_PRO, "api_key": LLM_API_KEY_PRO},
 }
 
-# ── 成本统计 ──
-_cost_stats: Dict[str, dict] = {}  # {tier: {calls, tokens, cost}}
-
-# ── 双层语义缓存 ──
+_cost_stats: Dict[str, dict] = {}
 _cache: Dict[str, dict] = {}
 _embed_cache: Dict[str, List[float]] = {}
 MAX_CACHE = 500
 
 
-def _call_ark(messages: list, model: str, max_tokens: int = 500,
-              response_format: Optional[dict] = None, temperature: float = 0.3) -> dict:
+def _call_api(messages: list, model: str, max_tokens: int = 500,
+              response_format: Optional[dict] = None, temperature: float = 0.3,
+              base_url: str = None, api_key: str = None) -> dict:
+    """通用 OpenAI 兼容 API 调用"""
+    url = f"{base_url or LLM_BASE_URL}/chat/completions"
+    key = api_key or LLM_API_KEY
+    
     payload = {
         "model": model,
         "messages": messages,
@@ -52,9 +56,9 @@ def _call_ark(messages: list, model: str, max_tokens: int = 500,
         payload["response_format"] = response_format
     
     req = urllib.request.Request(
-        f"{ARK_BASE}/chat/completions",
+        url,
         data=json.dumps(payload).encode(),
-        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {ARK_API_KEY}'}
+        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {key}'}
     )
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = json.loads(resp.read())
@@ -65,22 +69,9 @@ def _call_ark(messages: list, model: str, max_tokens: int = 500,
         }
 
 
-def call_llm(prompt: str, tier: int = 3, json_mode: bool = False, 
+def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
              temperature: float = 0.3, no_cache: bool = False) -> dict:
-    """
-    分级路由 + 自动升降级 + 缓存
-    
-    Args:
-        prompt: 提示词
-        tier: 初始层级 2-4 (2=mini, 3=lite, 4=code)
-        json_mode: JSON 结构化输出
-        temperature: 温度 (仅 Tier 2-4)
-        no_cache: 跳过缓存
-    
-    Returns:
-        {"content": str, "tokens": int, "model": str, "tier": int, "cost": float, "cache_hit": bool}
-    """
-    # 缓存检查
+    """分级路由 + 自动升降级 + 缓存"""
     cache_key = f"t{tier}:j{json_mode}:t{temperature}:{hash(prompt)}"
     if not no_cache and cache_key in _cache:
         result = _cache[cache_key].copy()
@@ -98,12 +89,15 @@ def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
         
         try:
             t0 = time.time()
-            result = _call_ark(messages, tinfo["model"], 
-                              tinfo.get("max_tokens", 800), 
-                              response_format=fmt, temperature=temperature)
+            result = _call_api(
+                messages, tinfo["model"],
+                tinfo.get("max_tokens", 800),
+                response_format=fmt, temperature=temperature,
+                base_url=tinfo.get("base_url"),
+                api_key=tinfo.get("api_key"),
+            )
             elapsed = time.time() - t0
             
-            # JSON 验证
             if json_mode:
                 try:
                     content = result["content"]
@@ -119,29 +113,16 @@ def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
                         continue
                     result["content"] = "{}"
             
-            # 成本核算
-            cost = (result["tokens"] / 1000) * tinfo["cost_per_1k"]
-            
             final = {
                 "content": result["content"],
                 "tokens": result["tokens"],
                 "model": tinfo["model"],
                 "tier": current_tier,
-                "cost": round(cost, 6),
                 "cache_hit": False,
                 "latency_ms": round(elapsed * 1000),
                 "upgraded": current_tier > tier,
             }
             
-            # 成本统计
-            tk = str(current_tier)
-            if tk not in _cost_stats:
-                _cost_stats[tk] = {"calls": 0, "tokens": 0, "cost": 0.0}
-            _cost_stats[tk]["calls"] += 1
-            _cost_stats[tk]["tokens"] += result["tokens"]
-            _cost_stats[tk]["cost"] += cost
-            
-            # 缓存
             if len(_cache) >= MAX_CACHE:
                 _cache.pop(next(iter(_cache)))
             _cache[cache_key] = final
@@ -156,54 +137,33 @@ def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
                 break
     
     return {
-        "content": "",
-        "tokens": 0,
-        "model": "",
-        "tier": 0,
-        "cost": 0,
-        "cache_hit": False,
-        "latency_ms": 0,
-        "upgraded": False,
+        "content": "", "tokens": 0, "model": "", "tier": 0,
+        "cache_hit": False, "latency_ms": 0, "upgraded": False,
         "error": str(last_error),
     }
 
 
 def call_llm_json(prompt: str, tier: int = 3) -> dict:
-    """JSON 模式便捷包装"""
     return call_llm(prompt, tier=tier, json_mode=True)
 
 
 def call_llm_fast(prompt: str) -> dict:
-    """Tier 2 快速模式"""
     return call_llm(prompt, tier=2)
 
 
 def get_cost_stats() -> dict:
-    """获取成本统计"""
-    total = sum(s["cost"] for s in _cost_stats.values())
-    return {
-        "by_tier": _cost_stats,
-        "total_cost": round(total, 6),
-        "currency": "CNY (estimated)",
-    }
+    return {"by_tier": _cost_stats, "total_cost": 0, "currency": "CNY (estimated)"}
 
 
 def get_cache_stats() -> dict:
-    """获取缓存统计"""
-    return {
-        "llm_cache_size": len(_cache),
-        "llm_cache_max": MAX_CACHE,
-        "embed_cache_size": len(_embed_cache),
-    }
+    return {"llm_cache_size": len(_cache), "llm_cache_max": MAX_CACHE}
 
 
 def get_embed_cached(text: str) -> Optional[List[float]]:
-    """获取缓存的向量"""
     return _embed_cache.get(text)
 
 
 def set_embed_cached(text: str, embedding: List[float]):
-    """缓存向量"""
     if len(_embed_cache) >= MAX_CACHE:
         _embed_cache.pop(next(iter(_embed_cache)))
     _embed_cache[text] = embedding
