@@ -977,8 +977,8 @@ async def capabilities():
         "auth": "X-API-Key (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
         "endpoints": [
-            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Key: *** -H 'Content-Type: application/json' -d '{\"user_id\":\"your-username\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
-            {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories/search -H 'X-API-Key: *** -H 'Content-Type: application/json' -d '{\"user_id\":\"your-username\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
+            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Key: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
+            {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories/search -H 'X-API-Key: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories", "purpose": "按热度/分类列出记忆", "params": {"user_id": "str", "limit": "int(20)", "tier": "str?", "category": "str?"}, "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories/{id}", "purpose": "获取单条记忆详情", "tags": ["core", "read"]},
             {"path": "DELETE /api/v1/memories/{id}", "purpose": "软删除记忆", "tags": ["core", "write"]},
