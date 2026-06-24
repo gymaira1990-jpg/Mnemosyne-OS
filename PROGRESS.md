@@ -1,7 +1,7 @@
 # Mnemosyne OS v5.0 进度
 
-## 状态: ✅ 全部缺口修复完成 (2026-06-25)
-## 版本: v5.0.4 — Release Candidate
+## 状态: 🎉 Release Candidate — 全部完成 (2026-06-25)
+## 版本: v5.0.5 — GitHub 打磨版
 
 ## 已完成 Phase
 - [x] P1 地基 — GZ迁移 + 豆包API全替代
@@ -14,32 +14,23 @@
 - [x] 🔧 v5.0.2: TMT 蒸馏恢复
 - [x] 🆕 v5.0.3: RAG Chunking
 - [x] 🆕 v5.0.4: 端云增量同步
+- [x] 🎨 v5.0.5: GitHub 打磨 — 灵魂README + 仓库美颜 + 网站链接
 
-## 端云同步架构
+## 最终验收 (2026-06-25 15:05 CST)
 ```
-WSL ──[GZ在线→直写]──→ GZ Mnemosyne
-  │
-  └──[GZ离线→SQLite]──→ 本地缓存 (sync/local_cache.db)
-                            │
-        cron每10min ← sync_push.py ←──┘ (GZ恢复后自动推送)
+✅ GZ 服务: active, Mnemosyne OS v5.0.0
+✅ TMT: L1=9 L2=147 L3=6 L4=3 L5=1
+✅ Chunk: 330条 → 765块
+✅ AGE: ag_label=3, mnemosyne_graph 活跃
+✅ 同步: local=1条已推送, GZ在线
+✅ GitHub: 9 tags, 新README已推送
+✅ 描述: 已更新, 主页→my.g-cat.cn
 ```
 
-## 新增文件
-- sync/local_cache.py — SQLite 本地缓存引擎
-- sync/memory_gateway.py — 智能路由(store/status/push/check)
-- sync/sync_push.py — 批量推送到 GZ
-
-## Cron 总览
-| 位置 | 任务 | 频率 |
-|------|------|------|
-| GZ | Reflector light (衰减+去重) | 每4h |
-| GZ | Reflector deep (实体提取) | 每天4am |
-| GZ | TMT session→daily | 每天1am |
-| GZ | TMT daily→weekly | 周日1:30 |
-| GZ | TMT weekly→profile | 1号2am |
-| GZ | RAG auto-chunk | 每2h |
-| WSL | 端云同步推送 | 每10min |
+## GitHub 仓库
+https://github.com/gymaira1990-jpg/Mnemosyne-OS
+- 描述: Mnemosyne OS v5.0.4 — 认知型记忆操作系统 · AI长期记忆宫殿
+- 主页: https://my.g-cat.cn
 
 ## 版本链
-- v5.0.1 → v5.0.2 → v5.0.3 → v5.0.4
-- GitHub: github.com/gymaira1990-jpg/Mnemosyne-OS
+v5.0.1 → v5.0.2 → v5.0.3 → v5.0.4 → v5.0.5
