@@ -1,8 +1,7 @@
 # Mnemosyne OS v5.0 进度
 
-## 状态: ✅ RAG Chunking 完成 (2026-06-25)
-## 上次修复: RAG Chunking 管道 (2026-06-25)
-## 下次: 端云增量同步
+## 状态: ✅ 全部缺口修复完成 (2026-06-25)
+## 版本: v5.0.4 — Release Candidate
 
 ## 已完成 Phase
 - [x] P1 地基 — GZ迁移 + 豆包API全替代
@@ -11,35 +10,36 @@
 - [x] P4 集成 — Hermes SDK + MCP + API规范
 - [x] P5 打磨 — GitHub开源 + 安装指引 + 使用技能
 - [x] Reranker — Qwen3-Embed 0.6B (GZ:11436, 3.7G)
-- [x] 🔧 AGE ag_label — v5.0.1
-- [x] 🔧 TMT 蒸馏恢复 — v5.0.2
-- [x] 🆕 RAG Chunking — v5.0.3
+- [x] 🔧 v5.0.1: AGE ag_label
+- [x] 🔧 v5.0.2: TMT 蒸馏恢复
+- [x] 🆕 v5.0.3: RAG Chunking
+- [x] 🆕 v5.0.4: 端云增量同步
 
-## RAG Chunking 状态
+## 端云同步架构
 ```
-覆盖记忆: 330/1166 条 (358条中长)
-总 chunks: 765 块
-算法: 段落→句子分割 + 50字重叠窗口
-搜索降级: chunk级优先 → 记忆级兜底
+WSL ──[GZ在线→直写]──→ GZ Mnemosyne
+  │
+  └──[GZ离线→SQLite]──→ 本地缓存 (sync/local_cache.db)
+                            │
+        cron每10min ← sync_push.py ←──┘ (GZ恢复后自动推送)
 ```
 
-## 新增端点
-- POST /api/v1/memories/{id}/chunk     — 单条chunk
-- POST /api/v1/memories/chunk-all       — 批量处理
-- GET  /api/v1/memories/chunks/stats    — 覆盖率
-- POST /api/v1/memories/search-chunks   — chunk级搜索
+## 新增文件
+- sync/local_cache.py — SQLite 本地缓存引擎
+- sync/memory_gateway.py — 智能路由(store/status/push/check)
+- sync/sync_push.py — 批量推送到 GZ
 
 ## Cron 总览
-| 任务 | 频率 | 功能 |
+| 位置 | 任务 | 频率 |
 |------|------|------|
-| Reflector light | 每4h | 热度衰减+去重 |
-| Reflector deep | 每天4am | 实体提取 |
-| TMT daily | 每天1am | session→daily 蒸馏 |
-| TMT weekly | 周日1:30 | daily→weekly |
-| TMT monthly | 1号2am | weekly→profile |
-| RAG chunk | 每2h | 新记忆自动chunk |
+| GZ | Reflector light (衰减+去重) | 每4h |
+| GZ | Reflector deep (实体提取) | 每天4am |
+| GZ | TMT session→daily | 每天1am |
+| GZ | TMT daily→weekly | 周日1:30 |
+| GZ | TMT weekly→profile | 1号2am |
+| GZ | RAG auto-chunk | 每2h |
+| WSL | 端云同步推送 | 每10min |
 
-## 版本
-- v5.0.1: AGE ag_label 修复
-- v5.0.2: TMT 蒸馏恢复
-- v5.0.3: RAG Chunking 管道
+## 版本链
+- v5.0.1 → v5.0.2 → v5.0.3 → v5.0.4
+- GitHub: github.com/gymaira1990-jpg/Mnemosyne-OS
