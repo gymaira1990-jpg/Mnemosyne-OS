@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict li9qdJqWpqAY4NHBTx1BgZRsnjB2nkTGaOo8Nps9hLRcNuRiOobsAqLDIry6ZRL
+\restrict 335tMNSU1WL4rFVR1BPhGu0N2UI6z5Kmf59MO6Vhk5uaAFaWwGlL0KMlp3VscMY
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
@@ -331,6 +331,62 @@ CREATE TABLE mnemosyne_graph._ag_label_edge (
     end_id ag_catalog.graphid NOT NULL,
     properties ag_catalog.agtype DEFAULT ag_catalog.agtype_build_map() NOT NULL
 );
+
+
+--
+-- Name: MENTIONS; Type: TABLE; Schema: mnemosyne_graph; Owner: -
+--
+
+CREATE TABLE mnemosyne_graph."MENTIONS" (
+)
+INHERITS (mnemosyne_graph._ag_label_edge);
+
+
+--
+-- Name: MENTIONS_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
+--
+
+CREATE SEQUENCE mnemosyne_graph."MENTIONS_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    MAXVALUE 281474976710655
+    CACHE 1;
+
+
+--
+-- Name: MENTIONS_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER SEQUENCE mnemosyne_graph."MENTIONS_id_seq" OWNED BY mnemosyne_graph."MENTIONS".id;
+
+
+--
+-- Name: Memory; Type: TABLE; Schema: mnemosyne_graph; Owner: -
+--
+
+CREATE TABLE mnemosyne_graph."Memory" (
+)
+INHERITS (mnemosyne_graph._ag_label_vertex);
+
+
+--
+-- Name: Memory_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
+--
+
+CREATE SEQUENCE mnemosyne_graph."Memory_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    MAXVALUE 281474976710655
+    CACHE 1;
+
+
+--
+-- Name: Memory_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER SEQUENCE mnemosyne_graph."Memory_id_seq" OWNED BY mnemosyne_graph."Memory".id;
 
 
 --
@@ -894,6 +950,34 @@ ALTER TABLE ONLY mnemosyne_graph."Entity" ALTER COLUMN properties SET DEFAULT ag
 
 
 --
+-- Name: MENTIONS id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER TABLE ONLY mnemosyne_graph."MENTIONS" ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, 'MENTIONS'::name))::integer, nextval('mnemosyne_graph."MENTIONS_id_seq"'::regclass));
+
+
+--
+-- Name: MENTIONS properties; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER TABLE ONLY mnemosyne_graph."MENTIONS" ALTER COLUMN properties SET DEFAULT ag_catalog.agtype_build_map();
+
+
+--
+-- Name: Memory id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER TABLE ONLY mnemosyne_graph."Memory" ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, 'Memory'::name))::integer, nextval('mnemosyne_graph."Memory_id_seq"'::regclass));
+
+
+--
+-- Name: Memory properties; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER TABLE ONLY mnemosyne_graph."Memory" ALTER COLUMN properties SET DEFAULT ag_catalog.agtype_build_map();
+
+
+--
 -- Name: _ag_label_edge id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
 --
 
@@ -1094,6 +1178,14 @@ ALTER TABLE ONLY ag_catalog.users
 
 ALTER TABLE ONLY mnemosyne_graph."Entity"
     ADD CONSTRAINT "Entity_pkey" PRIMARY KEY (id);
+
+
+--
+-- Name: Memory Memory_pkey; Type: CONSTRAINT; Schema: mnemosyne_graph; Owner: -
+--
+
+ALTER TABLE ONLY mnemosyne_graph."Memory"
+    ADD CONSTRAINT "Memory_pkey" PRIMARY KEY (id);
 
 
 --
@@ -1330,6 +1422,20 @@ CREATE INDEX idx_tmt_weekly_heat ON ag_catalog.tmt_weekly USING btree (user_id, 
 --
 
 CREATE INDEX idx_tmt_weekly_hnsw ON ag_catalog.tmt_weekly USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+
+
+--
+-- Name: MENTIONS_end_id_idx; Type: INDEX; Schema: mnemosyne_graph; Owner: -
+--
+
+CREATE INDEX "MENTIONS_end_id_idx" ON mnemosyne_graph."MENTIONS" USING btree (end_id);
+
+
+--
+-- Name: MENTIONS_start_id_idx; Type: INDEX; Schema: mnemosyne_graph; Owner: -
+--
+
+CREATE INDEX "MENTIONS_start_id_idx" ON mnemosyne_graph."MENTIONS" USING btree (start_id);
 
 
 --
@@ -1598,5 +1704,5 @@ ALTER TABLE ONLY public.wiki_versions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict li9qdJqWpqAY4NHBTx1BgZRsnjB2nkTGaOo8Nps9hLRcNuRiOobsAqLDIry6ZRL
+\unrestrict 335tMNSU1WL4rFVR1BPhGu0N2UI6z5Kmf59MO6Vhk5uaAFaWwGlL0KMlp3VscMY
 
