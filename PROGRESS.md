@@ -1,28 +1,27 @@
-# Mnemosyne v5.0 进度
+# Mnemosyne OS v5.0 进度
 
-## 当前: ✅ Phase 1 完成 — 下一步 Phase 2 (三馆闭环)
-## 日期: 2026-06-25
+## 状态: 🎉 全部完成 (2026-06-25)
+## 下次会话: 修 AGE ag_label + 可选 Obsidian
 
-## 已完成
-- [x] P1.1 GZ 环境确认 — pgvector 0.8.2 ✅ / 179G 磁盘 / 15.5G 内存
-- [x] P1.2 豆包 API 调通 — embedding-vision 1024d + seed-2.0-mini + seed-2.0-lite JSON
-- [x] P1.3 更新代码+配置 — config.py + core/{embedding,llm}.py + 主模块改造
-- [x] P1.4 部署 GZ — scp 代码 + PG restore (1257条) + systemd mnemosyne running
-- [x] P1.5 WSL 适配 — MNEMOSYNE_ENDPOINT→:18010 + mnemosyne-local 已停用
+## 已完成 Phase
+- [x] P1 地基 — GZ迁移 + 豆包API全替代
+- [x] P2 灵魂 — 三馆闭环 + 工具归档 + 项目管理
+- [x] P3 算力 — 模型路由Tier1-5 + 异构审计 + 哈希净化
+- [x] P4 集成 — Hermes SDK + MCP + API规范
+- [x] P5 打磨 — GitHub开源 + 安装指引 + 使用技能
+- [x] Reranker — Qwen3-Embed 0.6B (GZ:11436, 3.7G)
 
-## 关键变更
-- embed: Qwen3 local → 豆包 embedding-vision-251215 (1024d)
-- LLM: Qwen3.5-4B GPU → 豆包 seed-2-0-lite (JSON mode)
-- Reranker: 已移除 (豆包 embedding 质量足够)
-- SSH 反向隧道: 不再需要 (-R 11434/11435/11436)
-- GZ 独立运行: 7×24, 笔记本关机不影响
+## 关键端点
+- GZ: http://127.0.0.1:8010 (隧道:18010)
+- Reranker: http://127.0.0.1:11436
+- GitHub: github.com/gymaira1990-jpg/Mnemosyne-OS
 
-## 下一步
-- [ ] P2.1 数据库迁移 (hall/gate/projects 表)
-- [ ] P2.2 三馆流转 API
-- [ ] P2.3 三级门闸
-- [ ] P2.4 工具归档接口
-- [ ] P2.5 项目管理
+## 版本
+- git tag: v5.0-p1, v5.0-p2, v5.0-p3, v5.0-p4, v5.0-final
+- API: {"version":"5.0.0"}
+- 白皮书: 产品白皮书_v5.0.md (1288行)
 
-## Git checkpoint
-- git tag: v5.0-p1
+## 使用
+- AI: skill_view("mnemosyne-os-usage")
+- 人: README + 白皮书第13章
+- 代码: from integrations.sdk import MnemosyneHermesMemory
