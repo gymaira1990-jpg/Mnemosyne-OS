@@ -474,8 +474,37 @@ async def get_embedding(texts: List[str]) -> List[List[float]]:
     return await get_embedding_async(texts)
 
 async def rerank_docs(query: str, documents: List[str], top_k: int = 5) -> List[str]:
-    """v5.0: 豆包 embedding 质量足够，移除独立 reranker。直接返回前 top_k 条。"""
-    return documents[:top_k]
+    """
+    v5.0: Qwen3-Reranker (GZ :11436) 主用 + Doubao cosine fallback
+    
+    优先调用本地 reranker API (llama-server --rerank)
+    失败时降级到 embedding cosine similarity
+    """
+    import httpx
+    RERANK_URL = "http://127.0.0.1:11436/rerank"
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                RERANK_URL,
+                json={"query": query, "documents": documents},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if "results" in data:
+                results = sorted(data["results"], key=lambda r: r["relevance_score"], reverse=True)
+                return [documents[r["index"]] for r in results[:top_k]]
+    except Exception:
+        pass  # Fall through to cosine fallback
+    
+    # Fallback: embedding cosine similarity
+    try:
+        from core.backends import rerank_by_similarity
+        q_emb = (await get_embedding([query]))[0]
+        d_embs = await get_embedding(documents)
+        return rerank_by_similarity(q_emb, documents, d_embs, top_k)
+    except Exception:
+        return documents[:top_k]
 
 # ── 信念模型 ──
 class BeliefCreate(BaseModel):
