@@ -1170,6 +1170,69 @@ async def search_chunks(req: ChunkSearchRequest):
     return {"query": req.q, "total": len(results), "results": results}
 
 
+
+
+class SessionArchiveRequest(BaseModel):
+    user_id: str = "default"
+    session_id: str = ""
+    title: str = ""
+    content: str  # 完整对话文本
+
+@app.post("/api/v1/sessions/archive")
+async def archive_session(req: SessionArchiveRequest):
+    """归档完整对话到记忆宫殿 — 自动向量化+入TMT蒸馏"""
+    content = req.content.strip()
+    if not content:
+        return {"archived": False, "reason": "empty_content"}
+    
+    async with pool.acquire() as conn:
+        # 生成 embedding
+        raw = (await get_embedding([content[:2000]]))[0]
+        vec_str = "[" + ",".join(str(x) for x in raw) + "]"
+        
+        # 检测冲突
+        conflict = await detect_conflict(conn, req.user_id, content, vec_str)
+        
+        if conflict["action"] == "merge":
+            return {"archived": False, "reason": "duplicate", "merged_into": conflict["id"]}
+        
+        # 存入记忆
+        row = await conn.fetchrow(
+            "INSERT INTO memories (user_id, content, category, embedding, heat_score, "
+            "metadata, tmt_level) VALUES ($1,$2,$3,$4::vector,$5,$6,$7) RETURNING id",
+            req.user_id, content, "session", vec_str, 0.6,
+            json.dumps({"session_id": req.session_id, "title": req.title}),
+            1  # tmt_level=1，纳入蒸馏
+        )
+        memory_id = row["id"]
+        
+        # 实体提取 (异步，不阻塞)
+        try:
+            from core.llm import call_llm_json
+            entities_prompt = f"从以下对话中提取关键实体(项目名/人名/技术名/概念)，输出JSON: {{\"entities\": [\"实体1\", \"实体2\"]}}\n\n对话片段:\n{content[:1500]}"
+            entities_result = call_llm_json(entities_prompt, tier=2)
+            entities_data = json.loads(entities_result.get("content", "{}"))
+            entities = entities_data.get("entities", [])
+            if entities:
+                await sync_entities_to_age(conn, memory_id, entities, req.user_id)
+        except Exception:
+            pass
+        
+        # 生成一句话摘要
+        summary = ""
+        try:
+            from core.llm import call_llm_fast
+            summary_result = call_llm_fast(f"用一句话概括这段对话(不超过30字):\n{content[:1000]}")
+            summary = summary_result.get("content", "")[:100]
+        except Exception:
+            summary = content[:100]
+        
+        return {
+            "archived": True,
+            "memory_id": memory_id,
+            "summary": summary,
+            "content_length": len(content)
+        }
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8010, log_level="info")
