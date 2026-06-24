@@ -1,0 +1,9 @@
+{
+  "记忆宫殿": ["记忆宫殿", "mnemosyne", "TMT", "蒸馏", "AGE", "ag_label", "chunking", "三馆", "知识图谱", "pgvector", "记忆OS", "记忆系统"],
+  "猫窝": ["猫窝", "catnest", "经验分享", "MANIFEST", "代理架构", "三节点"],
+  "G-CAT个人研究网站": ["网站", "g-cat.cn", "topnav", "common.css", "sitemap", "SEO", "Google Search Console"],
+  "你的故事": ["你的故事", "小说", "数字文明", "日常番"],
+  "系统运维自检": ["运维", "health check", "自检", "三环境", "WSL", "GZ", "HK", "xray", "代理链路"],
+  "本地模型管理": ["llama.cpp", "Qwen", "GPU", "RTX", "本地模型", "GGUF", "ollama", "vLLM", "embedding", "reranker"],
+  "noah-gen3-type2": ["noah-gen3", "抽屉级联", "自主进化"]
+}

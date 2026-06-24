@@ -19,6 +19,25 @@ HERMES_DB = os.path.expanduser("~/.hermes/state.db")
 MNEMOSYNE_API = "http://127.0.0.1:18010/api/v1/sessions/archive"
 TRACKING_FILE = os.path.expanduser("~/.hermes/archived_sessions.json")
 
+# 项目关键词 (用于自动标记)
+PROJECT_KEYWORDS = {
+    "记忆宫殿": ["记忆宫殿", "mnemosyne", "TMT", "蒸馏", "AGE", "chunking"],
+    "猫窝": ["猫窝", "catnest", "经验分享", "代理架构"],
+    "G-CAT个人研究网站": ["网站", "g-cat.cn", "topnav", "sitemap"],
+    "系统运维自检": ["运维", "health check", "xray", "代理链路"],
+    "本地模型管理": ["llama", "Qwen", "GPU", "本地模型", "GGUF"],
+}
+
+def _detect_project(text: str) -> str:
+    """根据文本检测所属项目"""
+    t = text.lower()
+    best, best_score = None, 0
+    for proj, words in PROJECT_KEYWORDS.items():
+        s = sum(1 for w in words if w.lower() in t)
+        if s > best_score:
+            best, best_score = proj, s
+    return best if best_score >= 2 else None
+
 
 def get_session(db_path: str, session_id: str = None) -> dict:
     """从 Hermes DB 取会话"""

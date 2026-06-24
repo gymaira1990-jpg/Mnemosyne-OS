@@ -97,6 +97,32 @@ async def destroy_project(project_id: int):
         return {"id": project_id, "status": "destroyed", "message": "项目沙箱已销毁 (记忆已保留)"}
 
 
+class ProjectRegister(BaseModel):
+    name: str
+    workspace_path: str = ""
+    description: str = ""
+    tenant_id: str = "default"
+
+@router.post("/register")
+async def register_project(req: ProjectRegister):
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT id FROM projects WHERE name=$1 AND tenant_id=$2 AND status='active'", req.name, req.tenant_id)
+        if existing:
+            await conn.execute("UPDATE projects SET description=$1, updated_at=NOW() WHERE id=$2", req.description, existing["id"])
+            return {"action": "updated", "id": existing["id"], "name": req.name}
+        pid = f"proj_{uuid.uuid4().hex[:12]}"
+        row = await conn.fetchrow("INSERT INTO projects (project_id, tenant_id, name, description) VALUES ($1,$2,$3,$4) RETURNING id", pid, req.tenant_id, req.name, req.description)
+        return {"action": "created", "id": row["id"], "name": req.name, "project_id": pid}
+
+@router.get("/by-name/{name}")
+async def get_project_by_name(name: str):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT id FROM projects WHERE name=$1 AND status=$2", name, "active")
+        if not row:
+            raise HTTPException(404, "项目不存在")
+        memories = await conn.fetch("SELECT id, content, category, heat_score, created_at FROM memories WHERE project_id=$1 AND is_deleted=FALSE ORDER BY created_at DESC LIMIT 50", row["id"])
+        return {"project": name, "memories": [{"id": m["id"], "content": m["content"][:200], "category": m["category"], "heat": m["heat_score"], "created": str(m["created_at"])[:19]} for m in memories]}
+
 @router.get("/")
 async def list_projects(tenant_id: str = "default"):
     """列出所有项目"""
