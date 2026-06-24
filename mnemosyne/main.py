@@ -29,8 +29,26 @@ from tmt.router import router as tmt_router
 
 app = FastAPI(title="Mnemosyne v5.0 — 认知型记忆操作系统")
 
-# ── 挂载 TMT 蒸馏路由器 ──
+# ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
+
+# 三馆闭环 (Phase 2)
+import api.halls as halls_module
+from api.halls import router as halls_router
+app.include_router(halls_router)
+halls_module.pool = None  # startup 时注入
+
+# 工具归档 (Phase 2)
+import api.tools as tools_module
+from api.tools import router as tools_router
+app.include_router(tools_router)
+tools_module.pool = None
+
+# 项目管理 (Phase 2)
+import api.projects as projects_module
+from api.projects import router as projects_router
+app.include_router(projects_router)
+projects_module.pool = None
 
 # 数据库连接池
 
@@ -426,8 +444,12 @@ async def startup():
         min_size=2,
         max_size=10
     )
-    # 初始化 TMT 模块
+    # 注入 TMT 模块
     tmt_module.pool = pool
+    # 注入 v5.0 模块
+    halls_module.pool = pool
+    tools_module.pool = pool
+    projects_module.pool = pool
     tmt_module.embed_fn = get_embedding
     tmt_module.llm_url = "http://127.0.0.1:11435/v1/chat/completions"
 
