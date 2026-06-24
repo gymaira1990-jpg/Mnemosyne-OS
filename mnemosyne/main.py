@@ -965,7 +965,7 @@ async def root():
 async def capabilities():
     return {
         "service": "Mnemosyne OS v5.0",
-        "version": "2.1.0",
+        "version": "5.0.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Key (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
