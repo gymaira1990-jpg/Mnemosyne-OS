@@ -475,36 +475,40 @@ async def get_embedding(texts: List[str]) -> List[List[float]]:
 
 async def rerank_docs(query: str, documents: List[str], top_k: int = 5) -> List[str]:
     """
-    v5.0: Qwen3-Reranker (GZ :11436) 主用 + Doubao cosine fallback
+    v5.0 Reranker: Qwen3-Embed 0.6B (GZ :11436) 主用 + 豆包 fallback
     
-    优先调用本地 reranker API (llama-server --rerank)
-    失败时降级到 embedding cosine similarity
+    策略: 用本地 Qwen3-Embedding 做 query+docs 向量化 → 余弦相似度排序
+    失败时降级到豆包 embedding (已缓存在 core.llm)
     """
-    import httpx
-    RERANK_URL = "http://127.0.0.1:11436/rerank"
+    RERANK_URL = "http://127.0.0.1:11436/v1/embeddings"
     
-    try:
+    async def _embed_local(texts):
+        """调用本地 Qwen3-Embedding"""
+        import httpx
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                RERANK_URL,
-                json={"query": query, "documents": documents},
-            )
+            resp = await client.post(RERANK_URL, json={"input": texts})
             resp.raise_for_status()
             data = resp.json()
-            if "results" in data:
-                results = sorted(data["results"], key=lambda r: r["relevance_score"], reverse=True)
-                return [documents[r["index"]] for r in results[:top_k]]
-    except Exception:
-        pass  # Fall through to cosine fallback
+            return [d["embedding"] for d in data["data"]]
     
-    # Fallback: embedding cosine similarity
     try:
+        # 本地 Qwen3-Embedding 向量化
+        q_emb = (await _embed_local([query]))[0]
+        d_embs = await _embed_local(documents)
+        
+        # 余弦相似度排序
         from core.backends import rerank_by_similarity
-        q_emb = (await get_embedding([query]))[0]
-        d_embs = await get_embedding(documents)
         return rerank_by_similarity(q_emb, documents, d_embs, top_k)
+        
     except Exception:
-        return documents[:top_k]
+        # Fallback: 豆包 embedding (已有缓存加速)
+        try:
+            from core.backends import rerank_by_similarity
+            q_emb = (await get_embedding([query]))[0]
+            d_embs = await get_embedding(documents)
+            return rerank_by_similarity(q_emb, documents, d_embs, top_k)
+        except Exception:
+            return documents[:top_k]
 
 # ── 信念模型 ──
 class BeliefCreate(BaseModel):
