@@ -50,6 +50,15 @@ from api.projects import router as projects_router
 app.include_router(projects_router)
 projects_module.pool = None
 
+# 安全模块 (Phase 3)
+import security.audit as audit_module
+import security.purifier as purifier_module
+
+import api.security as security_module
+from api.security import router as security_router
+app.include_router(security_router)
+security_module.pool = None
+
 # 数据库连接池
 
 # ── AGE 图同步 ──
@@ -450,6 +459,7 @@ async def startup():
     halls_module.pool = pool
     tools_module.pool = pool
     projects_module.pool = pool
+    security_module.pool = pool
     tmt_module.embed_fn = get_embedding
     tmt_module.llm_url = "http://127.0.0.1:11435/v1/chat/completions"
 
