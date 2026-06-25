@@ -7,6 +7,10 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license">
 </p>
 
+<p align="center">
+  <img src="docs/poster.png" alt="Mnemosyne OS Architecture" width="720">
+</p>
+
 ---
 
 ## 这是什么
