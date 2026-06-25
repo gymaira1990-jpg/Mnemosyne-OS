@@ -1,19 +1,19 @@
-# 系统文件
+# 系统
 .DS_Store
 Thumbs.db
 *.swp
 *~
 
-# 脚本执行权限无关（排除自动同步相关）
-*.sh
-!日常运维/auto-sync.sh
-!日常运维/pre-commit-hook.sh
-!日常运维/status.sh
-
-# 日志和临时文件
-*.log
-*.tmp
-蒸馏日志/*
-!蒸馏日志/.gitkeep
-*.pyc
+# Python
 __pycache__/
+*.pyc
+*.pyo
+
+# 数据
+*.db
+*.dump
+*.log
+
+# IDE
+.vscode/
+.idea/
