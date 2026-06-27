@@ -19,14 +19,15 @@ HERMES_DB = os.path.expanduser("~/.hermes/state.db")
 MNEMOSYNE_API = "http://127.0.0.1:18010/api/v1/sessions/archive"
 TRACKING_FILE = os.path.expanduser("~/.hermes/archived_sessions.json")
 
-# 项目关键词 (用于自动标记)
-PROJECT_KEYWORDS = {
-    "记忆宫殿": ["记忆宫殿", "mnemosyne", "TMT", "蒸馏", "AGE", "chunking"],
-    "猫窝": ["猫窝", "catnest", "经验分享", "代理架构"],
-    "G-CAT个人研究网站": ["网站", "g-cat.cn", "topnav", "sitemap"],
-    "系统运维自检": ["运维", "health check", "xray", "代理链路"],
-    "本地模型管理": ["llama", "Qwen", "GPU", "本地模型", "GGUF"],
-}
+# 项目关键词 (从配置文件加载, 不存在返回空)
+KEYWORDS_FILE = os.path.join(os.path.dirname(__file__), "project_keywords.json")
+try:
+    with open(KEYWORDS_FILE) as f:
+        PROJECT_KEYWORDS = json.load(f)
+    # 去掉注释键
+    PROJECT_KEYWORDS = {k: v for k, v in PROJECT_KEYWORDS.items() if not k.startswith("_")}
+except (FileNotFoundError, json.JSONDecodeError):
+    PROJECT_KEYWORDS = {}
 
 def _detect_project(text: str) -> str:
     """根据文本检测所属项目"""
