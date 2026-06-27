@@ -22,3 +22,5 @@ backup/
 Thumbs.db
 lib/
 *.bak
+*.bak*
+.env.bak*
