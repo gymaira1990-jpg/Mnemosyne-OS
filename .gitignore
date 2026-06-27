@@ -1,19 +1,24 @@
-# 系统
-.DS_Store
-Thumbs.db
-*.swp
-*~
-
 # Python
 __pycache__/
 *.pyc
-*.pyo
+venv/
+.env
+secrets/
 
-# 数据
-*.db
-*.dump
-*.log
+# System
+*.bak
+*.swp
+*.swo
 
-# IDE
-.vscode/
-.idea/
+# Models (GZ has no local models)
+models/
+bin/
+
+# Backups
+backup/
+
+# OS
+.DS_Store
+Thumbs.db
+lib/
+*.bak
