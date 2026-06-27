@@ -24,3 +24,6 @@ lib/
 *.bak
 *.bak*
 .env.bak*
+.env
+.env.*
+!.env.template
