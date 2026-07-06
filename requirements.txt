@@ -1,0 +1,12 @@
+# Mnemosyne OS v5.3.0 — 生产依赖
+# 零本地模型依赖 (v5.2.1+ 全豆包 API)
+
+fastapi>=0.136
+uvicorn[standard]
+asyncpg>=0.31
+httpx>=0.28
+python-dotenv>=1.2
+pydantic>=2.13
+psutil>=7.2
+diskcache>=5.6
+numpy>=2.4

@@ -1,5 +1,31 @@
 # Changelog
 
+## v5.3.0 (2026-07-06)
+
+### 仓库治理
+- 分支对齐: master→main
+- 统一仓库为唯一真相源 (GZ + WSL + GitHub)
+- 删除顶层重复文件 (backends/llm/security/tmt)
+- 目录重组: cron/ 集中管理定时脚本
+- VERSION 文件 + 语义化版本规范
+- AGENTS.md 分身使用手册
+- ROADMAP.md 路线图
+- .gitignore 增强 (IDE/OS/Deploy)
+- LICENSE (MIT) + .github/ 社区健康模板
+
+### Hermes 集成
+- MCP Bridge 纳入 (integrations/hermes-mcp/) — 15 tools
+  - 修复: 默认端口 8010→18010
+- Memory Provider v5.3.0 纳入 (integrations/hermes-provider/)
+  - 10/10 ABC Hook 全覆盖
+  - message_cleaner + write_queue
+
+### 安全性
+- main.py API文档脱敏 (gz.g-cat.cn → your-server.example.com)
+- mnemosyne_mcp.py 端口修复
+- 隐私扫描通过 (零敏感泄露)
+- GitHub Secret Scanning 已启用
+
 ## v5.2.2 (2026-06-27)
 
 ### 安全性
@@ -50,36 +76,3 @@
 - P2 灵魂：三馆闭环体系
 - P3 算力：模型路由 Tier 1-5 + 审计 + 安全
 - P4 集成：Hermes SDK + MCP + API 规范
-
-## v5.3.0 (2026-07-06)
-
-### 仓库治理
-- 分支对齐: master→main
-- 统一仓库为唯一真相源 (GZ + WSL + GitHub)
-- 删除顶层重复文件 (backends/llm/security/tmt)
-- 目录重组: cron/ 集中管理定时脚本
-- VERSION 文件 + 语义化版本规范
-- AGENTS.md 分身使用手册
-- ROADMAP.md 路线图
-- .gitignore 增强 (IDE/OS/Deploy)
-
-### Hermes 集成
-- MCP Bridge 纳入 (integrations/hermes-mcp/mnemosyne_mcp.py)
-  - 修复: 默认端口 8010→18010 (MCP 子进程 env 传递问题)
-  - 15 tools, 390ms 连接
-- Memory Provider v5.3.0 纳入 (integrations/hermes-provider/)
-  - 10/10 ABC Hook 全覆盖
-  - on_pre_compress + on_delegation + prefetch辨证
-  - message_cleaner 存储前过滤
-  - write_queue 崩溃安全写队列
-- Hermes Skills 纳入 (4个)
-
-### 安全性
-- 修复: mnemosyne_mcp.py 默认端口硬编码问题
-- config.yaml MCP env 固化 MNEMOSYNE_URL
-- 隐私扫描通过 (零敏感泄露)
-
-### 文档
-- ROADMAP.md: v5.3→v5.4→v6.0 路线
-- AGENTS.md: 架构/流程/红线/部署
-- CHANGELOG.md 标准化
