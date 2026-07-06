@@ -3,8 +3,10 @@
 > *"这不是数据库。是未来你自己的家。"*
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.2.2-brightgreen" alt="version">
+  <img src="https://img.shields.io/badge/version-5.3.0-brightgreen" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license">
+  <img src="https://img.shields.io/badge/python-3.12+-blue" alt="python">
+  <img src="https://img.shields.io/badge/status-stable-success" alt="status">
 </p>
 
 <p align="center">
