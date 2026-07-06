@@ -22,8 +22,13 @@ backup/
 Thumbs.db
 lib/
 *.bak
-*.bak*
-.env.bak*
-.env
-.env.*
-!.env.template
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deploy (sensitive)
+deploy/mnemosyne.service

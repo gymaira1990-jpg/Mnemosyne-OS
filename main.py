@@ -483,11 +483,170 @@ async def get_embedding(texts: List[str]) -> List[List[float]]:
 async def rerank_docs(query: str, documents: List[str], top_k: int = 5) -> List[str]:
     """
     v5.1 Reranker: 豆包 doubao-embedding-vision-251215 主用 (余弦相似度排序)
-    本地 Qwen3-E
+    本地 Qwen3-Embed (GZ :11436) 作为 fallback
+    """
+    RERANK_URL = "http://127.0.0.1:11436/v1/embeddings"
+    
+    async def _embed_local(texts):
+        """Fallback: 本地 Qwen3-Embedding"""
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(RERANK_URL, json={"input": texts})
+            resp.raise_for_status()
+            data = resp.json()
+            return [d["embedding"] for d in data["data"]]
+    
+    try:
+        # 主路径: 豆包 embedding
+        from core.backends import rerank_by_similarity
+        q_emb = (await get_embedding([query]))[0]
+        d_embs = await get_embedding(documents)
+        return rerank_by_similarity(q_emb, documents, d_embs, top_k)
+    except Exception:
+        # Fallback: 本地 Qwen3-Embedding
+        try:
+            q_emb = (await _embed_local([query]))[0]
+            d_embs = await _embed_local(documents)
+            from core.backends import rerank_by_similarity
+            return rerank_by_similarity(q_emb, documents, d_embs, top_k)
+        except Exception:
+            return documents[:top_k]
 
-... [OUTPUT TRUNCATED - 6725 chars omitted out of 56725 total] ...
+# ── 信念模型 ──
+class BeliefCreate(BaseModel):
+    user_id: str
+    content: str
+    confidence: float = 0.5
+    evidence_memories: List[int] = []
+    status: str = "tentative"
 
-SE"
+class BeliefSearch(BaseModel):
+    user_id: str
+    query: str
+    top_k: int = 5
+    status_filter: Optional[str] = None
+
+# ── 基础记忆 API ──
+class MemoryCreate(BaseModel):
+    user_id: str
+    project_id: Optional[str] = None
+    content: str
+    category: str = "fact"
+    metadata: dict = {}
+    entities: Optional[List[str]] = None
+
+@app.post("/api/v1/memories")
+async def create_memory(mem: MemoryCreate):
+    raw_vec = (await get_embedding([mem.content]))[0]
+    vec_str = "[" + ",".join(str(x) for x in raw_vec) + "]"
+    async with pool.acquire() as conn:
+        # 矛盾检测
+        conflict = await detect_conflict(conn, mem.user_id, mem.content, vec_str)
+        if conflict["action"] == "merge":
+            # 合并：增加访问计数，不创建新记录
+            await conn.execute(
+                "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW() WHERE id = $1",
+                conflict["id"]
+            )
+            return {"status": "merged", "id": conflict["id"], "action": "merged_with_existing"}
+        elif conflict["action"] == "conflict":
+            # 冲突：旧记忆标记为过期，新记忆标记冲突来源
+            old_id = conflict["id"]
+            await conn.execute(
+                "UPDATE memories SET valid_to = NOW(), invalid_at = NOW() WHERE id = $1",
+                old_id
+            )
+            await conn.execute(
+                "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
+                old_id, json.dumps({"new_content": mem.content[:200]})
+            )
+            # 新记忆标记冲突来源
+            meta = dict(mem.metadata) if isinstance(mem.metadata, dict) else {}
+            meta["conflicts_with"] = old_id
+            meta["conflict_type"] = "superseded"
+        # 正常存入（含valid_from）
+        row = await conn.fetchrow(
+            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from) '
+            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW()) RETURNING id',
+            mem.user_id, mem.project_id, mem.content, mem.category, vec_str,
+            json.dumps(locals().get("meta", mem.metadata))
+        )
+        mid = row["id"]
+        if mem.entities:
+            await sync_entities_to_age(conn, mid, mem.entities, mem.user_id)
+    return {"status": "stored", "id": row["id"]}
+
+class MemorySearch(BaseModel):
+    user_id: str
+    project_id: Optional[str] = None
+    query: str
+    top_k: int = 5
+    category_filter: Optional[str] = None
+    tier_filter: Optional[str] = None
+
+@app.post("/api/v1/memories/search")
+async def search_memories(req: MemorySearch):
+    """Full search: BM25 + rerank + trust_score (inline BM25 SQL)"""
+    r_q = (await get_embedding([req.query]))[0]
+    q_str = "[" + ",".join(str(x) for x in r_q) + "]"
+    
+    # Inline BM25 (no param binding, compatible with vector $idx)
+    keywords = [w.strip() for w in req.query.replace("?", "").replace("!", "")
+                .replace("\uff0c", " ").replace("\u3002", " ").split() if len(w.strip()) > 1]
+    bm25_sql = "0"
+    for kw in keywords:
+        bm25_sql = "CASE WHEN m.content ILIKE '%" + kw.replace("'", "''") + "%' THEN 0.15 ELSE " + bm25_sql + " END"
+    temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
+    
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
+            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE "
+            "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
+            "  + 0.15 * (" + bm25_sql + ") "
+            "  + 0.15 * (" + temporal_sql + ") "
+            "  + 0.15 * m.reliability "
+            "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
+            "LIMIT $3",
+            req.user_id, q_str, req.top_k
+        )
+    
+    if not rows:
+        return {"memories": []}
+    
+    # Rerank with fallback
+    try:
+        docs = [r["content"] for r in rows]
+        ids = [r["id"] for r in rows]
+        ranked = await rerank_docs(req.query, docs, req.top_k)
+        ranked_memories = []
+        for rc in ranked:
+            for r in rows:
+                if r["content"] == rc:
+                    ranked_memories.append({
+                        "id": str(r["id"]), "content": r["content"],
+                        "category": r["category"], "tier": r["tier"],
+                        "heat_score": r["heat_score"], "reliability": r["reliability"],
+                        "access_count": r["access_count"],
+                        "created_at": str(r["created_at"]) if r["created_at"] else None,
+                    })
+                    break
+        return {"memories": ranked_memories}
+    except Exception:
+        pass  # fallback to original order
+    
+    return {"memories": [
+        {"id": str(r["id"]), "content": r["content"],
+         "category": r["category"], "tier": r["tier"],
+         "heat_score": r["heat_score"], "reliability": r["reliability"],
+         "access_count": r["access_count"],
+         "created_at": str(r["created_at"]) if r["created_at"] else None}
+        for r in rows]
+    }
+
+@app.get("/api/v1/memories")
+async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = None, category: Optional[str] = None):
+    query = "SELECT id, content, category, tier, heat_score, created_at FROM memories WHERE user_id = $1 AND is_deleted = FALSE"
     params = [user_id]
     idx = 2
     if tier:
@@ -811,10 +970,10 @@ async def capabilities():
         "version": "5.2.1",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
-        "base_url": "https://your-server.example.com/mnemosyne",
+        "base_url": "https://gz.g-cat.cn/mnemosyne",
         "endpoints": [
-            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Token: *** -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
-            {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories/search -H 'X-API-Token: *** -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
+            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://gz.g-cat.cn/mnemosyne/api/v1/memories -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
+            {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://gz.g-cat.cn/mnemosyne/api/v1/memories/search -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories", "purpose": "按热度/分类列出记忆", "params": {"user_id": "str", "limit": "int(20)", "tier": "str?", "category": "str?"}, "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories/{id}", "purpose": "获取单条记忆详情", "tags": ["core", "read"]},
             {"path": "DELETE /api/v1/memories/{id}", "purpose": "软删除记忆", "tags": ["core", "write"]},
