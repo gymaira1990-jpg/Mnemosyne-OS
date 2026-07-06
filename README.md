@@ -55,22 +55,38 @@ L1 碎片  ── 具体记忆
 
 ## 文档
 
-- [简明白皮书](docs/WHITEPAPER.md) — 产品介绍，非技术人员/投资者/学习者
-- [完整白皮书](docs/WHITEPAPER_FULL.md) — 学术论文，架构设计/安全体系/认知演进
+- [简明白皮书](docs/WHITEPAPER.md) — 产品介绍
+- [完整白皮书](docs/WHITEPAPER_FULL.md) — 学术论文
+- [路线图](ROADMAP.md) — v5.3 → v5.4 → v6.0
+- [更新日志](CHANGELOG.md) — 完整版本历史
+- [安全政策](.github/SECURITY.md) — 漏洞报告
 
 ---
 
 ## 快速开始
 
+### Hermes Agent 集成
+
+```bash
+# MCP Bridge — 15 个记忆工具
+hermes mcp add mnemosyne --command python3 \
+  --args integrations/hermes-mcp/mnemosyne_mcp.py
+
+# Memory Provider — 自动记忆挂钩
+cp integrations/hermes-provider/*.py \
+  ~/.hermes/hermes-agent/plugins/memory/mnemosyne/
+```
+
+### Python SDK
+
 ```python
 from integrations.sdk import MnemosyneHermesMemory
 m = MnemosyneHermesMemory(endpoint="http://127.0.0.1:18010")
-
 m.add("今天学会了一个新技巧", category="笔记")
 m.get_relevant("那个技巧怎么用来着")
 ```
 
-Hermes Agent 用户：`skill_view("mnemosyne-os-usage")` 获取完整操作指引。
+> 📖 [AGENTS.md](AGENTS.md) — AI 分身使用手册 · [CONTRIBUTING.md](.github/CONTRIBUTING.md) — 开发规范
 
 ---
 
@@ -121,7 +137,7 @@ Mnemosyne OS 是 G-CAT 生态的记忆层，与 Hermes Agent 配合使用。
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
-| v5.2.2 | 2026-06-27 | 豆包全家桶 + 仓库清理 |
+| v5.3.0 | 2026-07-06 | 🎉 仓库统一 + Hermes 集成 + 治理 |
 | v5.2.1 | 2026-06-27 | 全模块豆包化(5/5) + 零本地模型 |
 | v5.2.0 | 2026-06-26 | 项目记忆绑定 |
 | v5.1.0 | 2026-06-26 | 会话自动归档 |
