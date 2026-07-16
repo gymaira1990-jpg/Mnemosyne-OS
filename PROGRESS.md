@@ -1,29 +1,29 @@
-# Mnemosyne OS v5.3.0 状态
+# Mnemosyne OS v5.3.1 状态
 
-**状态: ✅ 仓库统一完成** (2026-07-06)
+## 状态: ✅ 稳定运行 (2026-07-16)
 
-## 当前版本: v5.3.0 — 仓库治理 + Hermes 集成
+## 当前版本: v5.3.1 — 时间排序检索端点 + 双轴检索协议后端支持
 
 ## 已完成
-- [x] 统一仓库 (GZ v5.2.1 + GitHub v5.2.2 → 合并为 v5.3.0)
-- [x] MCP Bridge 纳入仓库
-- [x] Memory Provider v5.3.0 纳入
-- [x] Hermes Skills (4个) 纳入
-- [x] ROADMAP.md 创建
-- [x] AGENTS.md 创建
-- [x] VERSION 文件
-- [x] CHANGELOG 更新
-- [x] 分支 master→main
+- [x] P1-P5 全部 Phase (v5.0.x)
+- [x] v5.1.0: 会话自动归档
+- [x] v5.2.0: 项目记忆绑定
+- [x] v5.2.1: 全模块豆包化 (embedding/LLM/reflector/consolidate/reranker → 5/5)
+- [x] v5.2.2: 仓库清理 + systemd enable + GitHub 同步
+- [x] v5.2.3: 宕机告警 + MCP重连 + message_cleaner v1.1 + L3蒸馏强化
+- [x] v5.3.0: Memory Provider 10 hook 全覆盖 + 仓库治理(LICENSE+模板)
+- [x] v5.3.1: 时间排序检索端点 + 双轴检索协议后端
 
-## 待完成
-- [ ] GZ 部署同步到 v5.3.0
-- [ ] 测试覆盖
-- [ ] API 文档
+## 运行状态 (2026-07-16)
+```
+✅ GZ 服务: active, Mnemosyne OS v5.3.1
+✅ TMT: L1(323) L2(1810) L3(111) L4(3) L5(1)
+✅ 记忆: 1,921 条 (41 已删除)
+✅ GZ cron: 8 条定时任务正常运行
+✅ systemd: enabled (自动重启)
+✅ 本地模型: 零依赖 (全部豆包替代)
+✅ SSH 隧道: 通过 xray VLESS+WS 稳定
+```
 
-## 版本历史
-- v5.0.x: P1-P5 Phase (豆包全家桶)
-- v5.1.0: 会话自动归档
-- v5.2.0: 项目记忆绑定
-- v5.2.1: 豆包迁移完成 (GZ running)
-- v5.2.2: 安全清理 (GitHub)
-- v5.3.0: 仓库统一 + Hermes 集成 ← 当前
+## GitHub 仓库
+https://github.com/gymaira1990-jpg/Mnemosyne-OS
