@@ -1,5 +1,20 @@
 # Changelog
 
+## v5.3.1 (2026-07-16)
+
+### 核心
+- **时间排序检索** — 双轴检索协议后端支持
+  - `GET /api/v1/memories` 新增 `sort` 参数：created_at(默认)/heat/updated_at
+  - `GET /api/v1/memories` 新增 `search` 参数：关键词 ILIKE 过滤
+  - `POST /api/v1/memories/search` 新增 `sort=created_at` 模式（纯时间排序，跳过 embedding）
+  - 返回结构统一化：{memories, total, sort}
+- 解决热度与时间维度混淆问题：热度=max(大事件)，时间=max(最近)
+
+### 项目
+- 本地 Workspace 文档同步至 v5.3.0（README/CHANGELOG/PROGRESS/ROADMAP）
+- ROADMAP v5.3 新增时间排序检索任务 (#0, 🔧)
+- 沙箱环境建立：~/mnemosyne-dev/
+
 ## v5.3.0 (2026-07-06)
 
 ### 仓库治理
