@@ -1036,7 +1036,7 @@ async def root():
 async def capabilities():
     return {
         "service": "Mnemosyne OS v5.3.0",
-        "version": "5.3.0",
+        "version": "5.3.1",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1073,7 +1073,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "5.3.0"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "5.3.1"}
 
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
