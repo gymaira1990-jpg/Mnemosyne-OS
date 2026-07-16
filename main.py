@@ -1297,6 +1297,67 @@ async def archive_session(req: SessionArchiveRequest):
             "summary": summary,
             "content_length": len(content)
         }
+# ── 会话消息同步 (Hermes state.db → Mnemosyne) ──
+
+class SessionMessagesUpload(BaseModel):
+    messages: list  # [{role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning}, ...]
+
+@app.post("/api/v1/sessions/{session_id}/messages")
+async def upload_session_messages(session_id: str, req: SessionMessagesUpload):
+    """批量写入会话消息 — Hermes on_session_end 调用"""
+    async with pool.acquire() as conn:
+        count = 0
+        for msg in req.messages:
+            await conn.execute(
+                "INSERT INTO conversation_messages (session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning) "
+                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING",
+                session_id,
+                msg.get("role", ""),
+                msg.get("content", ""),
+                msg.get("tool_call_id"),
+                json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
+                msg.get("tool_name"),
+                msg.get("timestamp", 0.0),
+                msg.get("token_count"),
+                msg.get("finish_reason"),
+                msg.get("reasoning")
+            )
+            count += 1
+    return {"status": "stored", "session_id": session_id, "messages": count}
+
+
+@app.get("/api/v1/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str, limit: int = 200, before_id: int = None):
+    """读取会话消息 — UI 前端加载历史"""
+    async with pool.acquire() as conn:
+        if before_id:
+            rows = await conn.fetch(
+                "SELECT id, session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning, created_at "
+                "FROM conversation_messages WHERE session_id=$1 AND id < $2 ORDER BY timestamp ASC LIMIT $3",
+                session_id, before_id, limit
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT id, session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning, created_at "
+                "FROM conversation_messages WHERE session_id=$1 ORDER BY timestamp ASC LIMIT $2",
+                session_id, limit
+            )
+    return {"session_id": session_id, "messages": [dict(r) for r in rows], "count": len(rows)}
+
+
+@app.get("/api/v1/sessions")
+async def list_sessions(user_id: str = "default", limit: int = 20):
+    """列出最近会话 — UI 会话列表"""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT session_id, MIN(timestamp) as start_time, MAX(timestamp) as end_time, "
+            "COUNT(*) as msg_count, SUM(COALESCE(token_count,0)) as total_tokens "
+            "FROM conversation_messages GROUP BY session_id "
+            "ORDER BY MIN(timestamp) DESC LIMIT $1", limit
+        )
+    return {"sessions": [dict(r) for r in rows], "count": len(rows)}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8010, log_level="info")
