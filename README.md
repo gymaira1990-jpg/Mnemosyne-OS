@@ -3,7 +3,7 @@
 > *"这不是数据库。是未来你自己的家。"*
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.3.1-brightgreen" alt="version">
+  <img src="https://img.shields.io/badge/version-5.3.2-brightgreen" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue" alt="python">
   <img src="https://img.shields.io/badge/status-stable-success" alt="status">
@@ -137,8 +137,8 @@ Mnemosyne OS 是 G-CAT 生态的记忆层，与 Hermes Agent 配合使用。
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
-| v5.3.1 | 2026-07-16 | 时间排序检索端点 + 双轴检索协议后端 |
-| v5.3.0 | 2026-07-06 | 🎉 仓库统一 + Hermes 集成 + 治理 |
+| [v5.3.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.1) | 2026-07-16 | 时间排序检索端点 + 双轴检索协议后端 |
+| [v5.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.0) | 2026-07-06 | 🎉 仓库统一 + Hermes 集成 + 治理 |
 | v5.2.1 | 2026-06-27 | 全模块豆包化(5/5) + 零本地模型 |
 | v5.2.0 | 2026-06-26 | 项目记忆绑定 |
 | v5.1.0 | 2026-06-26 | 会话自动归档 |
