@@ -9,6 +9,8 @@ secrets/
 *.bak
 *.swp
 *.swo
+*.pem
+*.key
 
 # Models (GZ has no local models)
 models/
