@@ -13,6 +13,8 @@
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2" alt="hermes">
 </p>
 
+<p align="center">[🇨🇳 中文版](README_CN.md)</p>
+
 <p align="center">
   <img src="docs/poster.png" alt="Mnemosyne OS Architecture" width="720">
 </p>
@@ -279,61 +281,5 @@ Built for a single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 <p align="center">
   <i>"Memory isn't for storing. It's for living."</i><br>
-  🐾 G-CAT & Hermes Agent · MIT · 2026
-</p>
-
----
-
-# 🇨🇳 中文版
-
-## 🏛️ Mnemosyne OS — 认知型记忆操作系统
-
-**给 AI Agent 用的长期记忆系统。不是向量数据库，不是 RAG 管道。是会自己整理、提炼、老化的记忆 OS。**
-
-### 它解决了什么
-
-每个 AI Agent 都健忘：会话一关全忘光，上下文窗口溢出，重要决策消失在滚动条里。现有方案（向量数据库 + RAG + prompt 拼接）都是打补丁——能存数据，但不懂"什么重要、什么该忘"。
-
-Mnemosyne OS 把记忆当作一等公民：**捕获 → 蒸馏 → 老化 → 遗忘 → 浮现**。你的 Agent 记的不是碎片，是有生命周期的知识。
-
-### 核心能力
-
-**五维搜索** — 不是简单的余弦相似度。每次查询同时评估：语义向量(40%) + 全文关键词(15%) + 时间新鲜度(15%) + 可信度(15%) + 热度(15%)。也支持纯时间排序（`sort=created_at`），热度轴和时间轴分开不混淆。
-
-**五层蒸馏** — 对话结束自动触发：原始碎片(L1) → 会话摘要(L2) → 日报(L3) → 周报(L4) → 用户画像(L5)。每层都是 LLM 自动生成的，不是模板填空。
-
-**三馆闭环** — 知识有生命周期：研究馆（待验证）→ 工程馆（踩过的坑）→ 档案馆（已沉淀的真理）。矛盾检测自动标记过时记忆。
-
-**知识图谱** — 实体和关系构成 Apache AGE 图。不是孤立的记忆卡片，而是一张可多跳遍历的网。
-
-**会话永久记忆** — Hermes 每次会话结束，所有消息（user/assistant/tool/reasoning）同步到 PostgreSQL `conversation_messages`。前端可以像微信一样加载历史对话。意外关闭也不丢。
-
-**Agent 原生集成** — 15 工具的 MCP Bridge + 10 个生命周期 Hook。不需要手动调 `remember()`——系统自己在看、在记、在想。
-
-**端云双活** — WSL 断网？消息缓存到本地 SQLite。恢复后静默推回云端 PostgreSQL。7 条 cron 任务保证一切正常运行。
-
-### 快速开始
-
-```bash
-# Hermes Agent 用户
-hermes mcp add mnemosyne --command python3 \
-  --args integrations/hermes-mcp/mnemosyne_mcp.py
-
-# 独立部署
-git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
-pip install -r requirements.txt
-python main.py  # → :8010
-```
-
-### 技术栈
-
-PostgreSQL 16 + pgvector 1024d (HNSW) · Apache AGE (Cypher) · FastAPI + asyncpg · 豆包 Embedding-Vision + DeepSeek V4 · SQLite↔PG 同步 · Hermes MCP 15工具 · Memory Provider 10 Hook
-
-### 规模
-
-单用户 + 5 Agent 分身，7×24 稳定运行：1,921 条记忆 · 1,810 条会话摘要 · 111 条日报 · 搜索延迟 ~200ms · 零本地模型依赖
-
-<p align="center">
-  <i>「记忆不是用来存的，是用来活的。」</i><br>
   🐾 G-CAT & Hermes Agent · MIT · 2026
 </p>
