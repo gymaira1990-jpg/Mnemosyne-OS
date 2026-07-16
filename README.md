@@ -1,12 +1,14 @@
-# 🏛️ Mnemosyne OS — 记忆宫殿
+# 🏛️ Mnemosyne OS — Cognitive Memory Operating System
 
-> *"这不是数据库。是未来你自己的家。"*
+> *A memory system that distills, organizes, and ages knowledge — not just stores it.*
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-5.3.2-brightgreen" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue" alt="python">
   <img src="https://img.shields.io/badge/status-stable-success" alt="status">
+  <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791" alt="postgres">
+  <img src="https://img.shields.io/badge/graph-Apache%20AGE-forestgreen" alt="graph">
 </p>
 
 <p align="center">
@@ -15,64 +17,82 @@
 
 ---
 
-## 这是什么
+## Why This Exists
 
-一只猫为他的 AI 管家建造的记忆系统。
+Vector databases store embeddings. RAG retrieves chunks. But neither **understands** your memory.
 
-不是又一个向量数据库。而是一个会自己整理、提炼、发现规律的记忆 OS。每次对话结束，它会自动把碎片蒸馏成会话、日报、周报、画像。久了不看的东西会自然降温，重要的事会自己浮现。知识像酿酒一样从研究馆流转到档案馆。
+Mnemosyne OS is a **cognitive memory system** designed for AI agents. It doesn't just save — it **distills** raw conversations into sessions, daily summaries, weekly patterns, and user profiles. Knowledge flows through a three-hall lifecycle (research → engineering → archive). Memories naturally decay when unused, and important ones resurface. It's your agent's long-term memory cortex, not a key-value store.
 
-它跑在云端，7×24 不睡。未来换上自己训练的模型那一天，这座宫殿就是模型的原生记忆皮层。
-
----
-
-## 特别的地方
-
-**五层时间记忆树** — 不是平铺的碎片。L1 碎片 → L2 会话 → L3 日报 → L4 周报 → L5 画像。每一层都是 AI 自己提炼的，人会忘记的事情它记得。
-
-**三馆闭环** — 研究馆（待验证）→ 工程馆（执行中的坑）→ 档案馆（已沉淀的真理）。知识不是存进去就完了，它有生命周期。
-
-**一秒钟找到** — 向量 + 关键词 + 时间衰减 + 可信度 + 热度，五条线索同时搜。长记忆自动切成检索友好的小块。
-
-**笔记本关机也不丢** — 断网时自动缓存到本地 SQLite，恢复后静默推回云端。
-
-**知识图谱** — 实体和实体之间的关系构成了图。不是孤立的记忆卡片，而是一张网。
+| | Chroma / Pinecone | Mem0 | **Mnemosyne OS** |
+|---|---|---|---|
+| Embedding search | ✅ | ✅ | ✅ (1024d HNSW) |
+| Full-text search | ❌ | ❌ | ✅ (BM25 + ILIKE) |
+| Time decay scoring | ❌ | ❌ | ✅ (7/30/90 day tiers) |
+| Auto-distillation | ❌ | ❌ | ✅ (L1→L5 TMT pipeline) |
+| Knowledge graph | ❌ | ❌ | ✅ (Apache AGE, Cypher) |
+| Offline sync | ❌ | ❌ | ✅ (SQLite↔PG) |
+| Agent-native | ❌ | ❌ | ✅ (Hermes 15-tool MCP) |
 
 ---
 
-## 架构一瞥
+## Architecture
 
 ```
-L5 画像  ── 你是谁，偏好什么
-L4 周报  ── 这周发生了什么
-L3 日报  ── 今天的收获
-L2 会话  ── 一次对话的脉络
-L1 碎片  ── 具体记忆
-
-🏛️ 三馆流转  🔍 五维修搜索  🔗 图查询  ✂️ 智能切块  ☁️ 端云双活
+┌─────────────────────────────────────────────────┐
+│              Mnemosyne OS v5.3                    │
+│                                                   │
+│  L5 Profile  ←── "Who you are"                    │
+│  L4 Weekly   ←── "This week's patterns"           │
+│  L3 Daily    ←── "Today's takeaways"              │
+│  L2 Session  ←── "One conversation's thread"      │
+│  L1 Fragment ←── "A single memory"                │
+│                                                   │
+│  🏛️  Research → Engineering → Archive             │
+│  🔍  Vector + BM25 + Temporal + Trust + Heat      │
+│  🔗  Entity graph (Apache AGE / Cypher)            │
+│  ✂️  Smart chunking (50-char overlap)             │
+│  ☁️  Edge-cloud sync (SQLite ↔ PostgreSQL)        │
+│  💬  Session sync (Hermes state.db → PG)          │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 文档
+## Key Features
 
-- [简明白皮书](docs/WHITEPAPER.md) — 产品介绍
-- [完整白皮书](docs/WHITEPAPER_FULL.md) — 学术论文
-- [路线图](ROADMAP.md) — v5.3 → v5.4 → v6.0
-- [更新日志](CHANGELOG.md) — 完整版本历史
-- [安全政策](.github/SECURITY.md) — 漏洞报告
+### 🧠 Five-Layer Temporal Memory Tree (TMT)
+Conversations don't stay flat. Every session end triggers auto-distillation: fragments → sessions → daily → weekly → profile. Inspired by arXiv 2601.02845.
+
+### 🏛️ Three-Hall Knowledge Lifecycle
+Research (speculative) → Engineering (battle-tested) → Archive (canonical). Gates between halls validate before promotion.
+
+### 🔍 Five-Dimensional Search
+`0.40×semantic + 0.15×BM25 + 0.15×temporal + 0.15×trust + 0.15×heat`. Pure time-ordered search also supported (`sort=created_at`).
+
+### 🤖 Agent-Native Integration
+15-tool MCP bridge for Hermes Agent. Memory Provider with 10 lifecycle hooks: `on_session_end`, `on_turn_start`, `prefetch`, `on_pre_compress`, `on_delegation`, and more.
+
+### 💬 Permanent Conversation History
+Every Hermes session syncs to `conversation_messages` table. Frontend can load history like a chat app — sessions, messages, pagination. Survives `/new`, survives crashes.
+
+### 🔗 Knowledge Graph
+Entities auto-extracted with LLM + regex. Stored as Apache AGE graph nodes. Multi-hop traversal for relational recall.
+
+### ☁️ Edge-Cloud Resilience
+WSL offline? Messages cache to local SQLite. Back online? Silent push to GZ PostgreSQL. 7 cron jobs keep everything ticking.
 
 ---
 
-## 快速开始
+## Quick Start
 
-### Hermes Agent 集成
+### Hermes Agent (recommended)
 
 ```bash
-# MCP Bridge — 15 个记忆工具
+# MCP Bridge — 15 memory tools exposed to your agent
 hermes mcp add mnemosyne --command python3 \
   --args integrations/hermes-mcp/mnemosyne_mcp.py
 
-# Memory Provider — 自动记忆挂钩
+# Memory Provider — auto-hooks for lifecycle events
 cp integrations/hermes-provider/*.py \
   ~/.hermes/hermes-agent/plugins/memory/mnemosyne/
 ```
@@ -82,79 +102,99 @@ cp integrations/hermes-provider/*.py \
 ```python
 from integrations.sdk import MnemosyneHermesMemory
 m = MnemosyneHermesMemory(endpoint="http://127.0.0.1:18010")
-m.add("今天学会了一个新技巧", category="笔记")
-m.get_relevant("那个技巧怎么用来着")
+
+# Store
+m.add("PostgreSQL 16 + pgvector 1024d works great for Chinese embeddings")
+
+# Retrieve
+results = m.get_relevant("what database for embeddings?")
+# → hybrid search across semantic + keyword + temporal + heat
 ```
 
-> 📖 [AGENTS.md](AGENTS.md) — AI 分身使用手册 · [CONTRIBUTING.md](.github/CONTRIBUTING.md) — 开发规范
+### REST API
+
+```bash
+# Health check
+curl http://your-server:8010/api/v1/echo
+
+# Store memory
+curl -X POST :8010/api/v1/memories \
+  -d '{"user_id":"default","content":"...","category":"fact"}'
+
+# Search (time-ordered)
+curl "http://your-server:8010/api/v1/memories?user_id=default&sort=created_at&limit=10"
+
+# List sessions (conversation history)
+curl "http://your-server:8010/api/v1/sessions?limit=20"
+```
 
 ---
 
-## 人会关心的事
+## Tech Stack
 
-每次你和 AI 聊天，记忆自动存入研究馆。通过方案闸机后进入工程馆，验证成功最终归档到档案馆。全程不需要手动操作。
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Database | PostgreSQL 16 + pgvector (1024d HNSW) | Memory + embedding storage |
+| Graph | Apache AGE (Cypher) | Entity knowledge graph |
+| API | FastAPI + asyncpg | 38+ REST endpoints |
+| Search | Vector + BM25 + ILIKE + Temporal + Heat | 5D hybrid ranking |
+| Distillation | LLM (Doubao Seed-2.0 / DeepSeek V4) | TMT L1→L5 pipeline |
+| Sync | SQLite ↔ PostgreSQL | Edge-cloud resilience |
+| Agent | Hermes MCP (15 tools) + Memory Provider (10 hooks) | Agent-native memory |
 
-7 条定时任务在后台安静运行：热度衰减、重复去重、实体提取、逐级蒸馏、长文本切块、离线缓存推送。
-
-记忆怎么找：API 搜索、Chunk 级精准检索、辨证推理、图谱多跳——都是自动的，AI 在对话时自己会查。
-
----
-
-## 技术栈
-
-PostgreSQL 16 + pgvector 1024d · Apache AGE 知识图谱 · FastAPI + asyncpg · GZ 腾讯云 7×24 · SQLite ↔ PG 端云同步
-
-**推荐模型**：豆包 Embedding-Vision (便宜+中文好) + 豆包 Seed-2.0 (JSON mode)  
-**也支持**：任何 OpenAI 兼容 API (OpenAI / DeepSeek / 本地 vLLM / Ollama) — 通过 `MODEL_BACKEND` 切换
+**Model-agnostic**: supports any OpenAI-compatible API (OpenAI, DeepSeek, vLLM, Ollama) via `MODEL_BACKEND`.
 
 ---
 
-## 生态
+## Documentation
 
-Mnemosyne OS 是 G-CAT 生态的记忆层，与 Hermes Agent 配合使用。
-
-所有项目：[my.g-cat.cn](https://my.g-cat.cn)
-
----
-
-## 未来
-
-- [x] AGE 知识图谱
-- [x] 三馆闭环
-- [x] TMT 5 级蒸馏
-- [x] RAG 智能切块
-- [x] 端云同步
-- [ ] 自训练模型接入 — 宫殿成为原生记忆皮层
-- [ ] 多模态记忆 — 图片视频音频
-- [ ] 联邦记忆 — 多 Agent 共享
-- [ ] Obsidian 人用仪表盘
-
-> 这座宫殿是为未来的「你」准备的。不是今天的 API，是明天的你自己。
+| Doc | Audience |
+|-----|----------|
+| [White Paper](docs/WHITEPAPER.md) | Product overview, non-technical |
+| [Full White Paper](docs/WHITEPAPER_FULL.md) | Architecture, security, cognitive design |
+| [ROADMAP](ROADMAP.md) | v5.3 → v5.4 → v6.0 |
+| [CHANGELOG](CHANGELOG.md) | Full version history |
+| [AGENTS.md](AGENTS.md) | AI agent operating manual |
+| [CONTRIBUTING](.github/CONTRIBUTING.md) | Dev workflow + red lines |
+| [SECURITY](.github/SECURITY.md) | Vulnerability reporting |
 
 ---
 
-## 版本
+## Roadmap
 
-| 版本 | 日期 | 内容 |
-|------|------|------|
-| [v5.3.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.2) | 2026-07-16 | 会话消息同步 — Hermes→Mnemosyne 实时存储 |
-| [v5.3.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.1) | 2026-07-16 | 时间排序检索端点 + 双轴检索协议后端 |
-| [v5.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.0) | 2026-07-06 | 🎉 仓库统一 + Hermes 集成 + 治理 |
-| v5.2.3 | 2026-07-06 | 宕机告警 + MCP重连 + L3蒸馏强化 |
-| v5.2.2 | 2026-06-27 | 豆包全家桶 + 仓库清理 |
-| v5.2.1 | 2026-06-27 | 全模块豆包化(5/5) + 零本地模型 |
-| v5.2.0 | 2026-06-26 | 项目记忆绑定 |
-| v5.1.0 | 2026-06-26 | 会话自动归档 |
-| v5.0.5 | 2026-06-25 | GitHub 打磨 |
-| v5.0.4 | 2026-06-25 | 端云增量同步 |
-| v5.0.3 | 2026-06-25 | RAG Chunking |
-| v5.0.2 | 2026-06-25 | TMT 蒸馏恢复 |
-| v5.0.1 | 2026-06-25 | AGE 图修复 |
-| v5.0.0 | 2026-06-24 | 7×24 独立运行 |
+- [x] AGE knowledge graph
+- [x] Three-hall lifecycle
+- [x] TMT 5-level distillation
+- [x] RAG smart chunking
+- [x] Edge-cloud sync
+- [x] Session message sync (Hermes → PG)
+- [x] Time-ordered search (dual-axis retrieval)
+- [ ] Self-trained model integration
+- [ ] Multimodal memory (image/video/audio)
+- [ ] Federated memory (multi-agent shared)
+- [ ] Obsidian dashboard
+
+---
+
+## Version History
+
+| Version | Date | What |
+|---------|------|------|
+| [v5.3.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.2) | 2026-07-16 | Session sync — Hermes→Mnemosyne real-time |
+| [v5.3.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.1) | 2026-07-16 | Time-ordered search + dual-axis retrieval |
+| [v5.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.0) | 2026-07-06 | Repo governance + Hermes integration |
+| v5.2.3 | 2026-07-06 | Downtime alerts + MCP reconnect + L3 distillation |
+| v5.2.2 | 2026-06-27 | Full Doubao migration + repo cleanup |
+| v5.2.1 | 2026-06-27 | Zero local-model dependency |
+| v5.2.0 | 2026-06-26 | Project memory binding |
+| v5.1.0 | 2026-06-26 | Session auto-archive |
+| v5.0.0 | 2026-06-24 | 7×24 independent runtime |
+
+[Full changelog →](CHANGELOG.md)
 
 ---
 
 <p align="center">
-  <i>「记忆不是用来存的，是用来活的。」</i><br>
+  <i>"Memory isn't for storing. It's for living."</i><br>
   🐾 G-CAT & Hermes Agent · MIT · 2026
 </p>
