@@ -1,5 +1,15 @@
 # Changelog
 
+## v5.3.2 (2026-07-16)
+
+### 核心
+- **会话消息同步** — Hermes state.db → Mnemosyne conversation_messages 实时同步
+  - 新增 `conversation_messages` 表 (session_id/role/content/tool_calls/timestamp/token_count/reasoning)
+  - 新增 `POST /api/v1/sessions/{id}/messages` — Hermes 写入
+  - 新增 `GET /api/v1/sessions/{id}/messages` — 前端读取（支持分页 before_id）
+  - 新增 `GET /api/v1/sessions` — 会话列表
+- Memory Provider `on_session_end` 增强：会话结束时自动推送全量消息到 Mnemosyne
+
 ## v5.3.1 (2026-07-16)
 
 ### 核心
