@@ -583,10 +583,55 @@ class MemorySearch(BaseModel):
     top_k: int = 5
     category_filter: Optional[str] = None
     tier_filter: Optional[str] = None
+    sort: str = "hybrid"  # hybrid (default), created_at — time-ordered search
 
 @app.post("/api/v1/memories/search")
 async def search_memories(req: MemorySearch):
-    """Full search: BM25 + rerank + trust_score (inline BM25 SQL)"""
+    """Full search: hybrid (default) or time-ordered.
+    
+    sort=hybrid: BM25 + embedding + rerank + trust_score
+    sort=created_at: keyword ILIKE + created_at DESC (pure time order)
+    """
+    
+    # Time-ordered mode: skip embedding, just keyword + time sort
+    if req.sort == "created_at":
+        async with pool.acquire() as conn:
+            query_sql = ("SELECT id, content, category, tier, heat_score, reliability, access_count, created_at "
+                        "FROM memories WHERE user_id=$1 AND is_deleted=FALSE ")
+            params = [req.user_id]
+            idx = 2
+            if req.query.strip():
+                keywords = [w.strip() for w in req.query.replace("?", "").replace("!", "")
+                           .replace("\uff0c", " ").replace("\u3002", " ").split() if len(w.strip()) > 1]
+                if keywords:
+                    ilike_clauses = []
+                    for kw in keywords:
+                        ilike_clauses.append(f"content ILIKE ${idx}")
+                        params.append(f"%{kw}%")
+                        idx += 1
+                    query_sql += "AND (" + " OR ".join(ilike_clauses) + ") "
+            if req.category_filter:
+                query_sql += f"AND category = ${idx} "
+                params.append(req.category_filter)
+                idx += 1
+            if req.tier_filter:
+                query_sql += f"AND tier = ${idx} "
+                params.append(req.tier_filter)
+                idx += 1
+            query_sql += f"ORDER BY created_at DESC LIMIT ${idx}"
+            params.append(req.top_k)
+            rows = await conn.fetch(query_sql, *params)
+        if not rows:
+            return {"memories": [], "sort": "created_at"}
+        return {"memories": [{
+            "id": str(r["id"]), "content": r["content"][:300],
+            "category": r["category"], "tier": r["tier"],
+            "heat_score": r["heat_score"], "reliability": r["reliability"],
+            "access_count": r["access_count"],
+            "created_at": str(r["created_at"])[:19] if r["created_at"] else None,
+        } for r in rows], "sort": "created_at"}
+    
+    # Default: hybrid search (embedding + BM25 + rerank)
     r_q = (await get_embedding([req.query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
     
@@ -645,8 +690,15 @@ async def search_memories(req: MemorySearch):
     }
 
 @app.get("/api/v1/memories")
-async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = None, category: Optional[str] = None):
-    query = "SELECT id, content, category, tier, heat_score, created_at FROM memories WHERE user_id = $1 AND is_deleted = FALSE"
+async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = None, 
+                        category: Optional[str] = None, sort: str = "created_at",
+                        search: Optional[str] = None):
+    """List memories with optional search and sort.
+    
+    sort: created_at (default), heat, updated_at
+    search: optional keyword filter (ILIKE match)
+    """
+    query = "SELECT id, content, category, tier, heat_score, access_count, created_at, updated_at FROM memories WHERE user_id = $1 AND is_deleted = FALSE"
     params = [user_id]
     idx = 2
     if tier:
@@ -657,11 +709,28 @@ async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = Non
         query += f" AND category = ${idx}"
         params.append(category)
         idx += 1
-    query += f" ORDER BY created_at DESC LIMIT ${idx}"
+    if search:
+        query += f" AND content ILIKE ${idx}"
+        params.append(f"%{search}%")
+        idx += 1
+    
+    # Sort: time (default) or heat
+    if sort == "heat":
+        query += f" ORDER BY heat_score DESC, created_at DESC LIMIT ${idx}"
+    elif sort == "updated_at":
+        query += f" ORDER BY updated_at DESC NULLS LAST LIMIT ${idx}"
+    else:
+        query += f" ORDER BY created_at DESC LIMIT ${idx}"
     params.append(limit)
     async with pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
-    return [dict(r) for r in rows]
+    return {"memories": [{
+        "id": r["id"], "content": r["content"][:300],
+        "category": r["category"], "tier": r["tier"],
+        "heat_score": r["heat_score"], "access_count": r["access_count"],
+        "created_at": str(r["created_at"])[:19] if r["created_at"] else None,
+        "updated_at": str(r["updated_at"])[:19] if r["updated_at"] else None,
+    } for r in rows], "total": len(rows), "sort": sort}
 
 @app.post("/api/v1/memories/evolve")
 async def evolve_memories(user_id: str, strategy: str = "consolidate", limit: int = 50):
