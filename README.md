@@ -1,5 +1,7 @@
 # 🏛️ Mnemosyne OS
 
+[🇨🇳 中文版](README_CN.md)
+
 ### A Cognitive Memory Operating System for AI Agents
 
 *Not a vector database. Not a RAG pipeline. A memory system that distills, organizes, and ages knowledge the way human memory works — across sessions, across days, across projects.*
@@ -12,8 +14,6 @@
   <img src="https://img.shields.io/badge/graph-Apache%20AGE-forestgreen" alt="graph">
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2" alt="hermes">
 </p>
-
-<p align="center">[🇨🇳 中文版](README_CN.md)</p>
 
 <p align="center">
   <img src="docs/poster.png" alt="Mnemosyne OS Architecture" width="720">
