@@ -137,8 +137,11 @@ Mnemosyne OS 是 G-CAT 生态的记忆层，与 Hermes Agent 配合使用。
 
 | 版本 | 日期 | 内容 |
 |------|------|------|
+| [v5.3.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.2) | 2026-07-16 | 会话消息同步 — Hermes→Mnemosyne 实时存储 |
 | [v5.3.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.1) | 2026-07-16 | 时间排序检索端点 + 双轴检索协议后端 |
 | [v5.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.0) | 2026-07-06 | 🎉 仓库统一 + Hermes 集成 + 治理 |
+| v5.2.3 | 2026-07-06 | 宕机告警 + MCP重连 + L3蒸馏强化 |
+| v5.2.2 | 2026-06-27 | 豆包全家桶 + 仓库清理 |
 | v5.2.1 | 2026-06-27 | 全模块豆包化(5/5) + 零本地模型 |
 | v5.2.0 | 2026-06-26 | 项目记忆绑定 |
 | v5.1.0 | 2026-06-26 | 会话自动归档 |
