@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mnemosyne OS · 记忆浏览器 v5.5</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;padding:20px}
+h1{color:#58a6ff;font-size:20px;margin-bottom:8px}
+.sub{color:#8b949e;font-size:13px;margin-bottom:20px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.toolbar button,.toolbar input,.toolbar select{padding:6px 12px;border:1px solid #30363d;border-radius:6px;background:#21262d;color:#c9d1d9;font-size:13px;cursor:pointer}
+.toolbar button:hover{background:#30363d}
+.toolbar button.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.toolbar input{flex:1;min-width:120px;max-width:360px}
+.stats{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 14px;font-size:12px}
+.stat .n{font-size:18px;font-weight:700;color:#58a6ff}
+.stat .l{color:#8b949e;font-size:11px}
+.list{display:flex;flex-direction:column;gap:8px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;font-size:13px}
+.card:hover{border-color:#58a6ff}
+.card .meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;color:#8b949e;font-size:11px}
+.card .meta span{padding:1px 6px;border-radius:4px;background:#21262d}
+.card .hall-r{color:#f0883e}.card .hall-e{color:#d29922}.card .hall-a{color:#3fb950}
+.card .expired{text-decoration:line-through;opacity:.6}
+.loading{text-align:center;padding:40px;color:#8b949e}
+.error{background:#da3633;color:#fff;padding:12px;border-radius:6px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<h1>Mnemosyne OS</h1>
+<div class="sub">记忆浏览器 · 2100+ 记忆</div>
+
+<div class="toolbar">
+  <button id="btn-all" class="active" onclick="setHall('all')">全部</button>
+  <button id="btn-research" onclick="setHall('research')">研究馆</button>
+  <button id="btn-engineering" onclick="setHall('engineering')">工程馆</button>
+  <button id="btn-archive" onclick="setHall('archive')">档案馆</button>
+  <select id="sort" onchange="loadMemories()">
+    <option value="created_at">时间</option>
+    <option value="heat">热度</option>
+    <option value="updated_at">最近更新</option>
+  </select>
+  <input id="search" type="text" placeholder="搜索记忆..." onkeydown="if(event.key==='Enter')loadMemories()">
+  <button onclick="loadMemories()">搜索</button>
+</div>
+
+<div id="stats" class="stats"><div class="loading">加载中...</div></div>
+<div id="list" class="list"><div class="loading">加载中...</div></div>
+
+<script>
+const API = 'https://g-cat.cn/mnemosyne/api/v1';
+let currentHall = 'all';
+
+async function loadStats(){
+  try{
+    const r=await fetch(API+'/memories/stats?user_id=default');
+    const d=await r.json();
+    let html='';
+    html+=`<div class="stat"><div class="n">${d.total}</div><div class="l">活跃记忆</div></div>`;
+    if(d.by_category) d.by_category.forEach(c=>html+=`<div class="stat"><div class="n">${c.cnt}</div><div class="l">${c.category}</div></div>`);
+    if(d.deleted) html+=`<div class="stat"><div class="n">${d.deleted}</div><div class="l">已删除</div></div>`;
+    document.getElementById('stats').innerHTML=html;
+  }catch(e){
+    document.getElementById('stats').innerHTML='<div class="error">无法连接 API: '+e.message+'</div>';
+  }
+}
+
+async function loadMemories(){
+  const list=document.getElementById('list');
+  list.innerHTML='<div class="loading">加载中...</div>';
+  
+  try{
+    const sort=document.getElementById('sort').value;
+    const search=document.getElementById('search').value.trim();
+    let url,data;
+    
+    if(search){
+      // Use search API
+      data=await fetch(API+'/memories/search',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({query:search,user_id:'default',top_k:50,sort:sort})
+      }).then(r=>r.json());
+      data={memories:data.memories||[],total:data.memories?.length||0};
+    }else if(currentHall!=='all'){
+      // Use hall API
+      data=await fetch(API+`/halls/${currentHall}?tenant_id=default&limit=50`).then(r=>r.json());
+    }else{
+      // Use list API
+      const params=new URLSearchParams({user_id:'default',limit:50,sort:sort});
+      data=await fetch(API+'/memories?'+params).then(r=>r.json());
+    }
+    
+    const memories=data.memories||[];
+    if(memories.length===0){
+      list.innerHTML='<div class="loading">没有找到记忆</div>';
+      return;
+    }
+    
+    list.innerHTML=memories.map(m=>{
+      const hall=m.hall||'research';
+      const hallClass='hall-'+(hall==='archive'?'a':hall==='engineering'?'e':'r');
+      const expired=m.expired?' expired':'';
+      const content=(m.content||'').slice(0,400);
+      const id=m.id||'';
+      return `<div class="card${expired}">
+        <div style="color:#8b949e;margin-bottom:4px">#${id} <span class="${hallClass}">${hall}</span></div>
+        <div>${escapeHtml(content)}</div>
+        <div class="meta">
+          <span>reliability: ${(m.reliability||0.5).toFixed(2)}</span>
+          <span>heat: ${(m.heat||m.heat_score||0).toFixed(2)}</span>
+          <span>${m.category||''}</span>
+          <span>${m.created_at||m.created||''}</span>
+          ${m.expired?'<span style="color:#da3633">已过期</span>':''}
+        </div>
+      </div>`;
+    }).join('');
+    
+  }catch(e){
+    list.innerHTML='<div class="error">加载失败: '+e.message+'</div>';
+  }
+}
+
+function setHall(hall){
+  currentHall=hall;
+  document.querySelectorAll('.toolbar button[id^=btn]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+hall).classList.add('active');
+  loadMemories();
+}
+
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// safe: all user content passes through escapeHtml before innerHTML
+loadStats();
+loadMemories();
+</script>
+</body>
+</html>
