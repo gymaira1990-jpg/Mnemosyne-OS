@@ -48,12 +48,19 @@ h1{color:#58a6ff;font-size:20px;margin-bottom:8px}
 </div>
 
 <div id="stats" class="stats"><div class="loading">加载中...</div></div>
-<div id="list" class="list"><div class="loading">加载中...</div></div>
+<div id="list" class="list">
+  <div class="card" style="text-align:center;padding:40px">
+    <h3 style="color:#f0883e">🔒 记忆浏览器已禁用</h3>
+    <p style="color:#8b949e;margin-top:12px">出于安全考虑，Web 版记忆浏览器暂不对外开放。<br>
+    记忆数据将在未来的桌面应用中通过端到端加密安全访问。</p>
+  </div>
+</div>
 
 <script>
-const API = '/api/v1';
-const API_KEY = 'df3c360d12f5a675cb62ffb8a516426cc90e07cc6e2e5cd0';
-// g-cat.cn /api/v1/ proxy → Mnemosyne with API Key auth
+// 🔒 Disabled for security — browser exposes API key in client-side JS.
+// Will return as desktop app with end-to-end encryption.
+// const API = '/api/v1';
+// const API_KEY = '...';
 let currentHall = 'all';
 
 function apiFetch(url, opts={}){
