@@ -1,5 +1,21 @@
 # Changelog
 
+## v5.5.0 (2026-07-23)
+
+### 核心 — 时间有效性 + Benchmark + 浏览器
+- **时间有效性窗口** — 搜索/列表/统计 5处SQL 过滤过期记忆 (valid_to < NOW())
+  - 67条已过期记忆不再出现在搜索结果中
+  - list_memories 新增 `expired` 返回字段
+- **记忆基准测试** — 39 用例覆盖 4 个模块
+  - test_temporal_validity: 6 用例 (过期过滤 + SQL 验证)
+  - benchmark/test_recall: 5 用例 (层级架构 + 权重)
+  - benchmark/test_conflict: 5 用例 (merge/fresh/conflict)
+  - benchmark/test_weighting: 5 用例 (热度+可信度)
+- **记忆浏览器** — 纯 HTML 页面 (docs/browser.html)
+  - 按馆筛选 (全部/研究/工程/归档)
+  - 关键词搜索 + 时间/热度排序
+  - 深色主题 · 无框架依赖
+
 ## v5.4.0 (2026-07-23)
 
 ### 核心 — 三馆激活

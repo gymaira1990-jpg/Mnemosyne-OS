@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.4.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-5.5.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -211,6 +211,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v5.5.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.5.0) | 2026-07-23 | 时间有效性 · 39用例 · 记忆浏览器 |
 | [v5.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.4.0) | 2026-07-23 | 闸机审计 · 建议API · pytest 18用例 |
 | [v5.3.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.1) | 2026-07-16 | 时间排序 · 双轴协议 · `sort=created_at` |
 | [v5.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.0) | 2026-07-06 | 仓库治理 · 10-Hook Provider · 15-Tool MCP |
