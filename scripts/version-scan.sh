@@ -50,6 +50,8 @@ check_key "AGENTS.md"   "AGENTS.md"         '(?<=当前: \*\*v?)[\d.]+'
 check_key "CHANGELOG最新" "CHANGELOG.md"     '(?<=^## v)[\d.]+'
 check_key "README版本表"  "README.md"        '(?<=\| \[v)[\d.]+(?=\]\()'
 check_key "CN版本表"      "README_CN.md"     '(?<=\| \[v)[\d.]+(?=\]\()'
+check_key "ROADMAP"       "ROADMAP.md"       '(?<=^> v)[\d.]+'
+check_key "main.py"       "main.py"          '(?<="version": ")[\d.]+(?=")'
 
 # ── 2. 技能文档（只检查非功能标签残留） ──
 echo ""
