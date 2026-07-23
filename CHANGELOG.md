@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.5.1 (2026-07-23)
+
+### 修复 — TMT 蒸馏质量 + JSON 解析容错
+- **L3 每日蒸馏加固** — Prompt 添加强制 JSON 输出指令，防止 LLM 返回思考过程
+- **parse_json_response 增强** — 支持 markdown code block 提取、多语言思考前缀剥离、无 JSON 时智能文本摘要
+- **回退链完善** — JSON 解析失败时二级回退（去除非ASCII → 文本摘要）
+
 ## v5.5.0 (2026-07-23)
 
 ### 核心 — 时间有效性 + Benchmark

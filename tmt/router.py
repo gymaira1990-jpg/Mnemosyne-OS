@@ -76,6 +76,8 @@ CONSOLIDATE_PROMPTS = {
         "历史会话摘要(滑动窗口):\n{history}"
     ),
     3: (
+        "# ⚠️ 重要: 只输出 JSON，不要输出思考过程、不要输出 markdown、不要输出任何其他文字！\n"
+        "# 如果无法生成有意义的分析，输出 {{\"summary\":\"今日无明显主题\",\"themes\":[],\"key_changes\":[],\"importance\":0.1}}\n\n"
         "# Role: 每日记忆分析师\n\n"
         "## Profile\n"
         "- language: 中文/English\n"
@@ -146,24 +148,44 @@ async def call_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024
     return result.get("content", "")
 
 def parse_json_response(text: str) -> dict:
-    import re
+    import re, logging
+    log = logging.getLogger("tmt")
     text = text.strip()
-    # 去掉 reasoning 模型的思考前缀
-    text = re.sub(r'^Thinking\s*Process[:\s]*\n?', '', text, flags=re.IGNORECASE)
+    
+    # 去掉 reasoning/思考前缀 (多种变体)
+    text = re.sub(r'^(Thinking\s*Process|Reasoning|思考)[:\s]*\n?', '', text, flags=re.IGNORECASE)
+    
+    # 提取 markdown JSON code block
+    m = re.search(r'```(?:json)?\s*\n?(\{.*?\})\n?```', text, re.DOTALL)
+    if m:
+        text = m.group(1)
+    
+    # 找到 JSON 对象
     start = text.find('{')
     end = text.rfind('}')
-    if start != -1 and end != -1:
+    if start != -1 and end != -1 and end > start:
         text = text[start:end+1]
-    # 宽容解析：处理尾部逗号、单引号等常见 LLM 输出问题
+    else:
+        # 无JSON，从原始文本提取摘要
+        log.warning(f"No JSON found in LLM output, len={len(text)}")
+        clean = re.sub(r'[*#>`\-]', ' ', text)
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        sentences = re.split(r'[.。!！\n]', clean)
+        summary = ' '.join(s for s in sentences[:2] if len(s) > 5)[:200]
+        return {"summary": summary or text[:200], "key_facts": [], "decisions": [], "entities": [], "importance": 0.3}
+    
+    # 宽容解析
     text = re.sub(r',\s*}', '}', text)
     text = text.replace("'", '"')
-    # 转义未转义的双引号（避免JSON解析错误）
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        import logging
-        logging.getLogger("tmt").warning(f"JSON parse failed, text={text[:300]}")
-        return {"summary": text[:200], "key_facts": [], "decisions": [], "entities": []}
+        log.warning(f"JSON parse failed, text={text[:300]}")
+        try:
+            cleaned = re.sub(r'[^\x00-\x7F]+', '', text)
+            return json.loads(cleaned)
+        except:
+            return {"summary": text[:200], "key_facts": [], "decisions": [], "entities": [], "importance": 0.3}
 
 async def gen_embedding(text: str) -> str:
     raw = (await embed_fn([text]))[0]
