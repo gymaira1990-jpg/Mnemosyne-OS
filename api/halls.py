@@ -184,6 +184,71 @@ async def demote_memory(req: PromoteRequest):
         return {"memory_id": req.memory_id, "from": "engineering", "to": "research"}
 
 
+@router.get("/suggestions")
+async def get_suggestions(user_id: str = "default"):
+    """建议清单: 返回可升级/降级/遗忘的记忆候选项 (只读，不自动执行)"""
+    async with pool.acquire() as conn:
+        promote_to_eng = await conn.fetch(
+            """SELECT id, content, reliability, heat_score, 
+               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
+               FROM memories 
+               WHERE hall='research' AND user_id=$1 AND is_deleted=FALSE
+                 AND reliability >= 0.8
+                 AND created_at < NOW() - INTERVAL '7 days'
+               ORDER BY reliability DESC, heat_score DESC
+               LIMIT 10""",
+            user_id
+        )
+        promote_to_archive = await conn.fetch(
+            """SELECT id, content, reliability, heat_score,
+               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
+               FROM memories
+               WHERE hall='engineering' AND user_id=$1 AND is_deleted=FALSE
+                 AND reliability >= 0.9
+                 AND created_at < NOW() - INTERVAL '14 days'
+               ORDER BY reliability DESC
+               LIMIT 10""",
+            user_id
+        )
+        demote_candidates = await conn.fetch(
+            """SELECT id, content, reliability, heat_score,
+               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
+               FROM memories
+               WHERE hall='engineering' AND user_id=$1 AND is_deleted=FALSE
+                 AND created_at < NOW() - INTERVAL '60 days'
+                 AND heat_score < 0.1
+               ORDER BY created_at ASC
+               LIMIT 10""",
+            user_id
+        )
+        forget_candidates = await conn.fetch(
+            """SELECT id, content, reliability, heat_score,
+               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
+               FROM memories
+               WHERE hall='research' AND user_id=$1 AND is_deleted=FALSE
+                 AND created_at < NOW() - INTERVAL '30 days'
+                 AND heat_score < 0.1
+               ORDER BY heat_score ASC
+               LIMIT 10""",
+            user_id
+        )
+        def fmt(row):
+            return {
+                "id": row["id"],
+                "content": (row["content"] or "")[:150],
+                "reliability": float(row["reliability"]) if row["reliability"] else 0.5,
+                "heat": float(row["heat_score"]) if row["heat_score"] else 0,
+                "days_ago": int(row["days_ago"]) if row["days_ago"] else 0,
+            }
+        return {
+            "promote_to_engineering": [fmt(r) for r in promote_to_eng],
+            "promote_to_archive": [fmt(r) for r in promote_to_archive],
+            "demote_to_research": [fmt(r) for r in demote_candidates],
+            "forget_candidates": [fmt(r) for r in forget_candidates],
+            "note": "只读建议，不自动执行。Agent 自行决定是否调用 /promote 或 /demote。",
+        }
+
+
 @router.get("/{hall}")
 async def list_by_hall(hall: str, tenant_id: str = "default", limit: int = 20):
     """按馆查询记忆"""
@@ -214,78 +279,4 @@ async def list_by_hall(hall: str, tenant_id: str = "default", limit: int = 20):
                 }
                 for r in rows
             ]
-        }
-
-
-@router.get("/suggestions")
-async def get_suggestions(user_id: str = "default"):
-    """建议清单: 返回可升级/降级/遗忘的记忆候选项 (只读，不自动执行)"""
-    async with pool.acquire() as conn:
-        # 候选项1: 研究馆 → 工程馆 (reliability ≥ 0.8 + 停留 ≥ 7天)
-        promote_to_eng = await conn.fetch(
-            """SELECT id, content, reliability, heat_score, 
-               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
-               FROM memories 
-               WHERE hall='research' AND user_id=$1 AND is_deleted=FALSE
-                 AND reliability >= 0.8
-                 AND created_at < NOW() - INTERVAL '7 days'
-               ORDER BY reliability DESC, heat_score DESC
-               LIMIT 10""",
-            user_id
-        )
-        
-        # 候选项2: 工程馆 → 档案馆 (reliability ≥ 0.9 + 停留 ≥ 14天)
-        promote_to_archive = await conn.fetch(
-            """SELECT id, content, reliability, heat_score,
-               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
-               FROM memories
-               WHERE hall='engineering' AND user_id=$1 AND is_deleted=FALSE
-                 AND reliability >= 0.9
-                 AND created_at < NOW() - INTERVAL '14 days'
-               ORDER BY reliability DESC
-               LIMIT 10""",
-            user_id
-        )
-        
-        # 候选项3: 工程馆 → 退回研究馆 (停留 > 60天 + heat < 0.1)
-        demote_candidates = await conn.fetch(
-            """SELECT id, content, reliability, heat_score,
-               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
-               FROM memories
-               WHERE hall='engineering' AND user_id=$1 AND is_deleted=FALSE
-                 AND created_at < NOW() - INTERVAL '60 days'
-                 AND heat_score < 0.1
-               ORDER BY created_at ASC
-               LIMIT 10""",
-            user_id
-        )
-        
-        # 候选项4: 研究馆遗忘 (停留 > 30天 + heat < 0.1)
-        forget_candidates = await conn.fetch(
-            """SELECT id, content, reliability, heat_score,
-               EXTRACT(DAY FROM NOW() - created_at)::int AS days_ago
-               FROM memories
-               WHERE hall='research' AND user_id=$1 AND is_deleted=FALSE
-                 AND created_at < NOW() - INTERVAL '30 days'
-                 AND heat_score < 0.1
-               ORDER BY heat_score ASC
-               LIMIT 10""",
-            user_id
-        )
-        
-        def fmt(row):
-            return {
-                "id": row["id"],
-                "content": (row["content"] or "")[:150],
-                "reliability": float(row["reliability"]) if row["reliability"] else 0.5,
-                "heat": float(row["heat_score"]) if row["heat_score"] else 0,
-                "days_ago": int(row["days_ago"]) if row["days_ago"] else 0,
-            }
-        
-        return {
-            "promote_to_engineering": [fmt(r) for r in promote_to_eng],
-            "promote_to_archive": [fmt(r) for r in promote_to_archive],
-            "demote_to_research": [fmt(r) for r in demote_candidates],
-            "forget_candidates": [fmt(r) for r in forget_candidates],
-            "note": "只读建议，不自动执行。Agent 自行决定是否调用 /promote 或 /demote。",
         }
