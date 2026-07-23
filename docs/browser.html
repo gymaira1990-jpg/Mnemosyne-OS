@@ -51,13 +51,20 @@ h1{color:#58a6ff;font-size:20px;margin-bottom:8px}
 <div id="list" class="list"><div class="loading">加载中...</div></div>
 
 <script>
-const API = 'https://g-cat.cn/mnemosyne/api/v1';
+const API = '/mnemosyne/api/v1';
+const TOKEN = 'PU8D6ey6GC05WEEVfBrPQMKmIkmcnz9R9tRABKspPjo';
+
+async function fetchAPI(path, opts={}){
+  opts.headers = {...(opts.headers||{}), 'X-API-Token': TOKEN};
+  if (opts.body) opts.headers['Content-Type'] = 'application/json';
+  const r = await fetch(API + path, opts);
+  return r.json();
+}
 let currentHall = 'all';
 
 async function loadStats(){
   try{
-    const r=await fetch(API+'/memories/stats?user_id=default');
-    const d=await r.json();
+    const d = await fetchAPI('/memories/stats?user_id=default');
     let html='';
     html+=`<div class="stat"><div class="n">${d.total}</div><div class="l">活跃记忆</div></div>`;
     if(d.by_category) d.by_category.forEach(c=>html+=`<div class="stat"><div class="n">${c.cnt}</div><div class="l">${c.category}</div></div>`);
@@ -79,19 +86,18 @@ async function loadMemories(){
     
     if(search){
       // Use search API
-      data=await fetch(API+'/memories/search',{
+      data=await fetchAPI('/memories/search',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
         body:JSON.stringify({query:search,user_id:'default',top_k:50,sort:sort})
-      }).then(r=>r.json());
+      });
       data={memories:data.memories||[],total:data.memories?.length||0};
     }else if(currentHall!=='all'){
       // Use hall API
-      data=await fetch(API+`/halls/${currentHall}?tenant_id=default&limit=50`).then(r=>r.json());
+      data=await fetchAPI(`/halls/${currentHall}?tenant_id=default&limit=50`);
     }else{
       // Use list API
       const params=new URLSearchParams({user_id:'default',limit:50,sort:sort});
-      data=await fetch(API+'/memories?'+params).then(r=>r.json());
+      data=await fetchAPI('/memories?'+params);
     }
     
     const memories=data.memories||[];
