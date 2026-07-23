@@ -150,7 +150,7 @@ async def dialectic_search(req: DialecticRequest):
         temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.created_at, m.session_id "
-            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE "
+            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) "
             "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
@@ -601,7 +601,7 @@ async def search_memories(req: MemorySearch):
     if req.sort == "created_at":
         async with pool.acquire() as conn:
             query_sql = ("SELECT id, content, category, tier, heat_score, reliability, access_count, created_at "
-                        "FROM memories WHERE user_id=$1 AND is_deleted=FALSE ")
+                        "FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) ")
             params = [req.user_id]
             idx = 2
             if req.query.strip():
@@ -650,7 +650,7 @@ async def search_memories(req: MemorySearch):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
-            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE "
+            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) "
             "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
@@ -702,7 +702,7 @@ async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = Non
     sort: created_at (default), heat, updated_at
     search: optional keyword filter (ILIKE match)
     """
-    query = "SELECT id, content, category, tier, heat_score, access_count, created_at, updated_at FROM memories WHERE user_id = $1 AND is_deleted = FALSE"
+    query = "SELECT id, content, category, tier, heat_score, access_count, created_at, updated_at, valid_to FROM memories WHERE user_id = $1 AND is_deleted = FALSE AND (valid_to IS NULL OR valid_to > NOW())"
     params = [user_id]
     idx = 2
     if tier:
@@ -734,6 +734,7 @@ async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = Non
         "heat_score": r["heat_score"], "access_count": r["access_count"],
         "created_at": str(r["created_at"])[:19] if r["created_at"] else None,
         "updated_at": str(r["updated_at"])[:19] if r["updated_at"] else None,
+        "expired": r["valid_to"] is not None and r["valid_to"] < __import__("datetime").datetime.now(),
     } for r in rows], "total": len(rows), "sort": sort}
 
 @app.post("/api/v1/memories/evolve")
@@ -772,16 +773,16 @@ async def heat_top_memories(user_id: str, limit: int = 10, min_heat: float = 0.0
 @app.get("/api/v1/memories/stats")
 async def get_memory_stats(user_id: str = "default"):
     async with pool.acquire() as conn:
-        total = await conn.fetchval("SELECT COUNT(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE", user_id)
+        total = await conn.fetchval("SELECT COUNT(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW())", user_id)
         by_cat = await conn.fetch(
-            "SELECT category, COUNT(*) AS cnt FROM memories WHERE user_id=$1 AND is_deleted=FALSE GROUP BY category ORDER BY cnt DESC",
+            "SELECT category, COUNT(*) AS cnt FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) GROUP BY category ORDER BY cnt DESC",
             user_id
         )
         by_tier = await conn.fetch(
-            "SELECT tier, COUNT(*) AS cnt FROM memories WHERE user_id=$1 AND is_deleted=FALSE GROUP BY tier ORDER BY tier",
+            "SELECT tier, COUNT(*) AS cnt FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) GROUP BY tier ORDER BY tier",
             user_id
         )
-        avg_h = await conn.fetchval("SELECT COALESCE(AVG(heat_score), 0) FROM memories WHERE user_id=$1 AND is_deleted=FALSE", user_id)
+        avg_h = await conn.fetchval("SELECT COALESCE(AVG(heat_score), 0) FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW())", user_id)
         deleted = await conn.fetchval("SELECT COUNT(*) FROM memories WHERE user_id=$1 AND is_deleted=TRUE", user_id)
         total_all = await conn.fetchval("SELECT COUNT(*) FROM memories WHERE user_id=$1", user_id)
     return {
