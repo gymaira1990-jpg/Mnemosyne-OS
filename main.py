@@ -15,8 +15,11 @@ import json
 import asyncpg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import os, sys, json, uuid, math, re, time, difflib
+from datetime import datetime, timedelta
 from typing import List, Optional
-from datetime import datetime, timezone
+import logging
+logger = logging.getLogger("mnemosyne")
 
 # ── v5.0: 模块化导入 ──
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -90,7 +93,7 @@ async def sync_entities_to_age(conn, memory_id: int, entities: list, user_id: st
         try:
             await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ MERGE (m:Memory {memory_id: '%s'}) WITH m MATCH (e:Entity {entity_id: '%s'}) MERGE (m)-[:MENTIONS]->(e) $$) AS (v agtype)" % (memory_id, eid))
         except Exception as e:
-            pass
+            logger.debug(f"AGE MENTIONS edge creation skipped: {e}")
 async def clean_age_relations(conn, memory_id: int):
     try:
         await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ MATCH (m:Memory {memory_id: '" + str(memory_id) + "'})-[r]-() DELETE r $$) AS (v agtype)")
@@ -315,7 +318,7 @@ async def list_conflicts(user_id: str = "default", limit: int = 20):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT id, content, category, tier, heat_score, reliability, metadata, created_at "
-            "FROM memories WHERE user_id=$1 AND is_deleted=FALSE "
+            "FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) "
             "AND metadata->>'conflicts_with' IS NOT NULL "
             "ORDER BY created_at DESC LIMIT $2", user_id, limit
         )
@@ -767,7 +770,7 @@ async def evolve_memories(user_id: str, strategy: str = "consolidate", limit: in
 @app.get("/api/v1/memories/heat-top")
 async def heat_top_memories(user_id: str, limit: int = 10, min_heat: float = 0.0):
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT id, content, category, tier, heat_score, access_count, created_at FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND heat_score>=$2 ORDER BY heat_score DESC LIMIT $3", user_id, min_heat, limit)
+        rows = await conn.fetch("SELECT id, content, category, tier, heat_score, access_count, created_at FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) AND heat_score>=$2 ORDER BY heat_score DESC LIMIT $3", user_id, min_heat, limit)
     return {"memories": [dict(r) for r in rows]}
 
 @app.get("/api/v1/memories/stats")
@@ -796,11 +799,11 @@ async def get_memory_stats(user_id: str = "default"):
 async def get_memory_tree(user_id: str = "default", limit: int = 5):
     async with pool.acquire() as conn:
         tiers = await conn.fetch(
-            "SELECT tier, COUNT(*) AS cnt FROM memories WHERE user_id=$1 AND is_deleted=FALSE GROUP BY tier ORDER BY tier",
+            "SELECT tier, COUNT(*) AS cnt FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) GROUP BY tier ORDER BY tier",
             user_id
         )
         l1s = await conn.fetch(
-            "SELECT id, content, category, heat_score FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND tier='L1' ORDER BY heat_score DESC LIMIT $2",
+            "SELECT id, content, category, heat_score FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) AND tier='L1' ORDER BY heat_score DESC LIMIT $2",
             user_id, limit
         )
     return {
@@ -1186,9 +1189,9 @@ async def chunk_all_endpoint(user_id: str = "default", batch_size: int = 50):
 @app.get("/api/v1/memories/chunks/stats")
 async def chunk_stats_endpoint(user_id: str = "default"):
     async with pool.acquire() as conn:
-        total = await conn.fetchval("SELECT count(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE", user_id)
-        chunked = await conn.fetchval("SELECT count(DISTINCT m.id) FROM memories m JOIN memory_chunks mc ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE", user_id)
-        total_chunks = await conn.fetchval("SELECT count(*) FROM memory_chunks mc JOIN memories m ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE", user_id)
+        total = await conn.fetchval("SELECT count(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW())", user_id)
+        chunked = await conn.fetchval("SELECT count(DISTINCT m.id) FROM memories m JOIN memory_chunks mc ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW())", user_id)
+        total_chunks = await conn.fetchval("SELECT count(*) FROM memory_chunks mc JOIN memories m ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW())", user_id)
     return {"total_memories": total, "chunked": chunked or 0, "total_chunks": total_chunks or 0}
 
 class ChunkSearchRequest(BaseModel):
@@ -1207,13 +1210,13 @@ async def search_chunks(req: ChunkSearchRequest):
             "mc.embedding <=> $2::vector AS dist "
             "FROM memory_chunks mc "
             "JOIN memories m ON m.id = mc.memory_id "
-            "WHERE m.user_id=$1 AND m.is_deleted=FALSE "
+            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) "
             "ORDER BY dist LIMIT $3",
             req.user_id, q_str, req.top_k
         )
         mem_rows = await conn.fetch(
             "SELECT id, content, embedding <=> $2::vector AS dist "
-            "FROM memories WHERE user_id=$1 AND is_deleted=FALSE "
+            "FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) "
             "ORDER BY dist LIMIT $3",
             req.user_id, q_str, req.top_k
         )
