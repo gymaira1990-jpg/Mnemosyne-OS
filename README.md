@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.3.2-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-5.4.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -280,7 +280,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
-| [v5.3.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.2) | 2026-07-16 | Session sync · conversation_messages · 3 API endpoints |
+| [v5.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.4.0) | 2026-07-23 | Hall gate audit · suggestion API · pytest 18 cases |
 | [v5.3.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.1) | 2026-07-16 | Time-ordered search · dual-axis retrieval · `sort=created_at` |
 | [v5.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v5.3.0) | 2026-07-06 | Repo governance · 10-hook Provider · 15-tool MCP |
 | v5.2.3 | 2026-07-06 | Downtime alerts · MCP reconnect · L3 distillation |
