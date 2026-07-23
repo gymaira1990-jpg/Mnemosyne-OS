@@ -1,7 +1,7 @@
 #!/bin/bash
-# Mnemosyne 发布后版本一致性扫描
+# Mnemosyne 发布后版本一致性扫描 v2
 # 用法: bash scripts/version-scan.sh [旧版本号] [新版本号]
-# 默认: 旧=5.5.0 新=5.5.1 (可从 VERSION 文件自动读取)
+# 区分 当前版本引用 vs 历史记录/功能标签
 
 set -euo pipefail
 
@@ -9,65 +9,69 @@ OLD="${1:-}"
 NEW="${2:-}"
 
 if [ -z "$OLD" ] || [ -z "$NEW" ]; then
-  # 尝试从 git tags 推断
-  OLD=$(git tag --sort=-version:refname | head -2 | tail -1 | sed 's/^v//')
-  NEW=$(git tag --sort=-version:refname | head -1 | sed 's/^v//')
+  OLD=$(git tag --sort=-version:refname 2>/dev/null | head -2 | tail -1 | sed 's/^v//')
+  NEW=$(git tag --sort=-version:refname 2>/dev/null | head -1 | sed 's/^v//')
   if [ -z "$OLD" ] || [ -z "$NEW" ]; then
     echo "用法: $0 <旧版本号> <新版本号>"
-    echo "示例: $0 5.5.0 5.5.1"
     exit 1
   fi
 fi
 
-echo "🔍 扫描 $OLD → $NEW 版本残留..."
+echo "🔍 版本扫描: $OLD → $NEW"
+FAILS=0
 
-FOUND=0
+# 辅助：计算非功能标签的残留次数
+count_non_func() {
+  local file=$1 total=0 func=0
+  total=$(grep -cF "$OLD" "$file" 2>/dev/null) || total=0
+  func=$(grep -cE "\(v?$OLD\)" "$file" 2>/dev/null) || func=0
+  echo $((total - func))
+}
 
-# ── 1. 仓库文件 ──
+# ── 1. 关键字段（必须无残留） ──
 echo ""
-echo "=== 仓库文件 (mnemosyne-dev) ==="
-for f in VERSION README.md README_CN.md CHANGELOG.md AGENTS.md; do
-  if [ -f "$f" ]; then
-    hits=$(grep -c "$OLD" "$f" 2>/dev/null || echo 0)
-    if [ "$hits" -gt 0 ]; then
-      echo "  ❌ $f: $hits 处残留 $OLD"
-      FOUND=$((FOUND + 1))
-    else
-      echo "  ✅ $f"
-    fi
+echo "=== 关键版本字段 ==="
+check_key() {
+  local label=$1 file=$2 pattern=$3
+  local actual
+  actual=$(grep -oP "$pattern" "$file" 2>/dev/null | head -1 || echo "MISSING")
+  if [ "$actual" != "$NEW" ] && [ "$actual" != "v$NEW" ]; then
+    echo "  ❌ $label: $actual (expected $NEW)"
+    FAILS=$((FAILS + 1))
+  else
+    echo "  ✅ $label: $actual"
   fi
-done
+}
 
-# ── 2. 技能文档 ──
+check_key "VERSION"     "VERSION"           '.*'
+check_key "README badge" "README.md"        '(?<=version-)[\d.]+'
+check_key "README_CN"   "README_CN.md"      '(?<=version-)[\d.]+'
+check_key "AGENTS.md"   "AGENTS.md"         '(?<=当前: \*\*v?)[\d.]+'
+check_key "CHANGELOG最新" "CHANGELOG.md"     '(?<=^## v)[\d.]+'
+
+# ── 2. 技能文档（只检查非功能标签残留） ──
 echo ""
-echo "=== 技能文档 (~/.hermes/skills) ==="
+echo "=== 技能文档 ==="
 SKILL_DIR="$HOME/.hermes/skills"
-for skill in $(grep -rl "$OLD" "$SKILL_DIR" --include='*.md' 2>/dev/null | grep -v 'references/' | grep -v '.archive/' | grep -v 'CHANGELOG'); do
-  # 区分功能标签(如 "(v5.5.0)") 和当前版本
-  func_tags=$(grep -c "($OLD)" "$skill" 2>/dev/null || echo 0)
-  other_hits=$(grep -c "$OLD" "$skill" 2>/dev/null || echo 0)
-  if [ "$func_tags" -lt "$other_hits" ]; then
-    echo "  ❌ $skill: $(basename "$skill")"
-    FOUND=$((FOUND + 1))
+for skill in $(grep -rlF "$OLD" "$SKILL_DIR" --include='SKILL.md' 2>/dev/null | grep -v 'references/' | grep -v '.archive/' | grep -v 'CHANGELOG'); do
+  nf=$(count_non_func "$skill")
+  if [ "$nf" -gt 0 ] 2>/dev/null; then
+    sname=$(basename $(dirname "$skill"))
+    echo "  ❌ $sname: $nf 处非功能标签残留"
+    FAILS=$((FAILS + 1))
   fi
 done
-
-# 检查所有技能
-for skill in $(grep -rl "$OLD" "$SKILL_DIR" --include='SKILL.md' 2>/dev/null | grep -v 'references/' | grep -v '.archive/' | grep -v 'CHANGELOG'); do
-  hits=$(grep -c "$OLD" "$skill" 2>/dev/null || echo 0)
-  func_tags=$(grep -c "($OLD)" "$skill" 2>/dev/null || echo 0)
-  if [ "$hits" -gt "$func_tags" ]; then
-    echo "  ❌ $(basename $(dirname "$skill")): $((hits - func_tags)) 处非功能标签残留"
-    FOUND=$((FOUND + 1))
-  fi
-done
+# 如果没有残留，显示全通过
+if [ "$FAILS" -eq 0 ] || ! grep -rlF "$OLD" "$SKILL_DIR" --include='SKILL.md' 2>/dev/null | grep -qv 'references/\|.archive/\|CHANGELOG'; then
+  echo "  ✅ 全部通过"
+fi
 
 # ── 3. Hermes Memory ──
 echo ""
 echo "=== Hermes Memory ==="
-if grep -q "$OLD" "$HOME/.hermes/memories/MEMORY.md" 2>/dev/null; then
+if grep -qF "$OLD" "$HOME/.hermes/memories/MEMORY.md" 2>/dev/null; then
   echo "  ❌ MEMORY.md 残留 $OLD"
-  FOUND=$((FOUND + 1))
+  FAILS=$((FAILS + 1))
 else
   echo "  ✅ MEMORY.md"
 fi
@@ -76,21 +80,24 @@ fi
 echo ""
 echo "=== GZ 运行版本 ==="
 gz_ver=$(curl -s --max-time 5 http://127.0.0.1:18010/api/v1/echo 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('version','?'))" 2>/dev/null || echo "unreachable")
-echo "  GZ echo: $gz_ver"
-if [ "$gz_ver" != "$NEW" ]; then
-  echo "  ❌ GZ 运行 $gz_ver ≠ 预期 $NEW"
-  FOUND=$((FOUND + 1))
+if [ "$gz_ver" = "$NEW" ]; then
+  echo "  ✅ GZ: $gz_ver"
+else
+  echo "  ❌ GZ: $gz_ver (expected $NEW)"
+  FAILS=$((FAILS + 1))
 fi
 
-# ── 5. 工作区 PROGRESS ──
+# ── 5. 工作区 ──
 echo ""
-echo "=== 工作区 ==="
-if [ -f "/opt/data/workspace/记忆宫殿/PROGRESS.md" ]; then
-  ws_ver=$(grep '当前版本' /opt/data/workspace/记忆宫殿/PROGRESS.md | grep -oP 'v?[\d.]+' | head -1 | sed 's/^v//')
-  echo "  PROGRESS: v$ws_ver"
-  if [ "$ws_ver" != "$NEW" ]; then
-    echo "  ❌ 工作区 $ws_ver ≠ $NEW"
-    FOUND=$((FOUND + 1))
+echo "=== 工作区 PROGRESS ==="
+ws_file="/opt/data/workspace/记忆宫殿/PROGRESS.md"
+if [ -f "$ws_file" ]; then
+  ws_ver=$(grep '当前版本' "$ws_file" | grep -oP 'v?[\d.]+' | head -1 | sed 's/^v//')
+  if [ "$ws_ver" = "$NEW" ]; then
+    echo "  ✅ v$ws_ver"
+  else
+    echo "  ❌ v$ws_ver (expected $NEW)"
+    FAILS=$((FAILS + 1))
   fi
 else
   echo "  ⚠️ 工作区不可达"
@@ -99,10 +106,10 @@ fi
 # ── 汇总 ──
 echo ""
 echo "════════════════════════════"
-if [ "$FOUND" -eq 0 ]; then
-  echo "✅ 版本扫描通过 ($OLD → $NEW)"
+if [ "$FAILS" -eq 0 ]; then
+  echo "✅ 版本扫描全部通过"
   exit 0
 else
-  echo "❌ 发现 $FOUND 处版本残留"
+  echo "❌ 发现 $FAILS 处不一致"
   exit 1
 fi
