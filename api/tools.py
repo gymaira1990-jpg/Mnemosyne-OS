@@ -45,8 +45,8 @@ async def archive_tool_call(req: ToolArchiveRequest):
             req.project_id, req.duration_ms, req.tenant_id
         )
         
-        # 同时写入记忆库 → 研究馆
-        hall = "engineering" if not req.success else "archive"
+        # 同时写入记忆库 → 统一先入工程馆，archive 仅通过 promote 进入
+        hall = "engineering"
         try:
             mem = await conn.fetchrow(
                 """INSERT INTO memories (content, category, hall, user_id)

@@ -68,6 +68,10 @@ async def sync_entities_to_age(conn, memory_id: int, entities: list, user_id: st
         name = name.strip()
         if not name:
             continue
+        # 安全: 转义单引号 + 截断
+        safe_name = name.replace("'", "\\'")[:200]
+        safe_user = user_id.replace("'", "\\'")
+        
         row = await conn.fetchrow("SELECT id FROM entities WHERE user_id=$1 AND name=$2", user_id, name)
         if row:
             eid = row["id"]
@@ -80,11 +84,11 @@ async def sync_entities_to_age(conn, memory_id: int, entities: list, user_id: st
             )
         eid = row["id"]
 
-        await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ CREATE (:Entity {entity_id: '%s', name: '%s', user_id: '%s'}) $$) AS (v agtype)" % (eid, name, user_id))
+        await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ CREATE (:Entity {entity_id: '%s', name: '%s', user_id: '%s'}) $$) AS (v agtype)" % (eid, safe_name, safe_user))
         
         await conn.execute("INSERT INTO memory_entities (memory_id, entity_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", memory_id, eid)
         try:
-            await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ MERGE (m:Memory {memory_id: '%s'}) WITH m MATCH (e:Entity {entity_id: '%s'}) MERGE (m)-[:MENTIONS]->(e) $$) AS (v agtype)"% (memory_id, eid))
+            await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ MERGE (m:Memory {memory_id: '%s'}) WITH m MATCH (e:Entity {entity_id: '%s'}) MERGE (m)-[:MENTIONS]->(e) $$) AS (v agtype)" % (memory_id, eid))
         except Exception as e:
             pass
 async def clean_age_relations(conn, memory_id: int):
