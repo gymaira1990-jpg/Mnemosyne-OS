@@ -51,20 +51,19 @@ h1{color:#58a6ff;font-size:20px;margin-bottom:8px}
 <div id="list" class="list"><div class="loading">加载中...</div></div>
 
 <script>
-const API = '/mnemosyne/api/v1';
-const TOKEN = 'PU8D6ey6GC05WEEVfBrPQMKmIkmcnz9R9tRABKspPjo';
-
-async function fetchAPI(path, opts={}){
-  opts.headers = {...(opts.headers||{}), 'X-API-Token': TOKEN};
-  if (opts.body) opts.headers['Content-Type'] = 'application/json';
-  const r = await fetch(API + path, opts);
-  return r.json();
-}
+const API = '/api/v1';
+const API_KEY = 'df3c360d12f5a675cb62ffb8a516426cc90e07cc6e2e5cd0';
+// g-cat.cn /api/v1/ proxy → Mnemosyne with API Key auth
 let currentHall = 'all';
+
+function apiFetch(url, opts={}){
+  opts.headers = {...(opts.headers||{}), 'X-API-Key': API_KEY};
+  return fetch(API+url, opts).then(r=>r.json());
+}
 
 async function loadStats(){
   try{
-    const d = await fetchAPI('/memories/stats?user_id=default');
+    const d = await apiFetch('/memories/stats?user_id=default');
     let html='';
     html+=`<div class="stat"><div class="n">${d.total}</div><div class="l">活跃记忆</div></div>`;
     if(d.by_category) d.by_category.forEach(c=>html+=`<div class="stat"><div class="n">${c.cnt}</div><div class="l">${c.category}</div></div>`);
@@ -86,18 +85,19 @@ async function loadMemories(){
     
     if(search){
       // Use search API
-      data=await fetchAPI('/memories/search',{
+      data=await apiFetch('/memories/search',{
         method:'POST',
+        headers:{'Content-Type':'application/json'},
         body:JSON.stringify({query:search,user_id:'default',top_k:50,sort:sort})
       });
       data={memories:data.memories||[],total:data.memories?.length||0};
     }else if(currentHall!=='all'){
       // Use hall API
-      data=await fetchAPI(`/halls/${currentHall}?tenant_id=default&limit=50`);
+      data=await apiFetch(`/halls/${currentHall}?tenant_id=default&limit=50`);
     }else{
       // Use list API
       const params=new URLSearchParams({user_id:'default',limit:50,sort:sort});
-      data=await fetchAPI('/memories?'+params);
+      data=await apiFetch('/memories?'+params);
     }
     
     const memories=data.memories||[];
