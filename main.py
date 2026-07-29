@@ -153,7 +153,7 @@ async def dialectic_search(req: DialecticRequest):
         temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.created_at, m.session_id "
-            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) "
+            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
             "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
@@ -653,7 +653,7 @@ async def search_memories(req: MemorySearch):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
-            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) "
+            "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
             "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
@@ -1190,8 +1190,8 @@ async def chunk_all_endpoint(user_id: str = "default", batch_size: int = 50):
 async def chunk_stats_endpoint(user_id: str = "default"):
     async with pool.acquire() as conn:
         total = await conn.fetchval("SELECT count(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW())", user_id)
-        chunked = await conn.fetchval("SELECT count(DISTINCT m.id) FROM memories m JOIN memory_chunks mc ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW())", user_id)
-        total_chunks = await conn.fetchval("SELECT count(*) FROM memory_chunks mc JOIN memories m ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW())", user_id)
+        chunked = await conn.fetchval("SELECT count(DISTINCT m.id) FROM memories m JOIN memory_chunks mc ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL", user_id)
+        total_chunks = await conn.fetchval("SELECT count(*) FROM memory_chunks mc JOIN memories m ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL", user_id)
     return {"total_memories": total, "chunked": chunked or 0, "total_chunks": total_chunks or 0}
 
 class ChunkSearchRequest(BaseModel):
@@ -1210,7 +1210,7 @@ async def search_chunks(req: ChunkSearchRequest):
             "mc.embedding <=> $2::vector AS dist "
             "FROM memory_chunks mc "
             "JOIN memories m ON m.id = mc.memory_id "
-            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) "
+            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
             "ORDER BY dist LIMIT $3",
             req.user_id, q_str, req.top_k
         )
