@@ -26,26 +26,34 @@ logger = logging.getLogger("mnemosyne")
 # 记忆生命周期: 写入(tmt_level=1 原始碎片) → TMT蒸馏(L2会话/L3日报/L4周报/L5画像)
 # 价值分层: tier 由 reflect 按热度维护 (L1核心/L2常规/L3低频/L4待清理)
 CATEGORY_WHITELIST = {
-    "knowledge":   ["knowledge", "架构", "architecture", "design-pattern", "设计", "概念", "知识"],
-    "pitfall":     ["pitfall", "踩坑", "坑", "教训", "故障"],
+    "knowledge":   ["knowledge", "架构", "architecture", "design-pattern", "设计", "概念", "知识", "fact", "pattern", "belief"],
+    "pitfall":     ["pitfall", "踩坑", "坑", "教训", "故障", "experience"],
     "reference":   ["reference", "参考", "论文", "资料", "research"],
     "project":     ["project", "项目", "进度"],
     "ops":         ["ops", "运维", "monitoring", "healthcheck", "巡检", "监控", "健康"],
     "deploy":      ["deploy", "部署", "发布", "版本", "变更"],
     "preference":  ["preference", "偏好", "喜好", "人设", "习惯"],
-    "session":     ["session", "会话", "对话"],
-    "worklog":     ["worklog", "note", "日志", "汇报", "工作", "记录", "notes", "general"],
+    "session":     ["session", "会话", "对话", "chat"],
+    "worklog":     ["worklog", "note", "日志", "汇报", "工作", "记录", "notes", "general", "work"],
     "temp":        ["temp", "临时", "提醒"],
 }
 
 def normalize_category(cat: str) -> str:
-    """分类归一化: 中文/旧英文 → 受控词表主键。未知分类默认 knowledge。"""
+    """分类归一化: 中文/旧英文 → 受控词表主键。未知分类默认 knowledge。
+    匹配规则: ①全等(key/别名) ②中文别名(≥2字)子串包含。"""
     if not cat:
         return "knowledge"
     c = str(cat).strip().lower()
+    # ① 全等匹配
     for key, aliases in CATEGORY_WHITELIST.items():
         if c == key or c in [a.lower() for a in aliases]:
             return key
+    # ② 子串包含匹配 (中文别名 ≥2 字, 如 "论文研究"→reference)
+    for key, aliases in CATEGORY_WHITELIST.items():
+        for a in aliases:
+            a_l = a.lower()
+            if len(a_l) >= 2 and (a_l in c or c in a_l):
+                return key
     return "knowledge"
 
 # ── v5.0: 模块化导入 ──
