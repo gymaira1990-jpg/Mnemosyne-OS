@@ -1,6 +1,6 @@
 # Cron Scripts
 
-These scripts run on the GZ production server via crontab. They are NOT portable — paths reference `/opt/mnemosyne/` and `/home/ubuntu/.local/bin/hermes`.
+These scripts run on the GZ production server via crontab. They are NOT portable — paths reference `/opt/mnemosyne/` and `$HOME/.local/bin/hermes`.
 
 | Script | Schedule | Purpose |
 |--------|----------|---------|
