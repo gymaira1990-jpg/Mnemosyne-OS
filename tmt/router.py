@@ -454,12 +454,16 @@ async def tmt_consolidate_monthly(req: ConsolidateRequest):
 async def tmt_recall(req: RecallRequest):
     complexity = req.complexity_hint
     if complexity is None:
-        classify_prompt = (
-            f"将以下查询按复杂度分为: 0=简单事实, 1=多事实综合, 2=推理/预测/个性化\n"
-            f"查询: \"{req.query}\"\n输出 JSON: {{\"complexity\": 0|1|2, \"reasoning\": \"\"}}"
-        )
-        raw = await call_llm(classify_prompt, temperature=0.1, max_tokens=128)
-        complexity = parse_json_response(raw).get("complexity", 1)
+        # 启发式复杂度分类（不调 LLM：省时 + 免疫豆包 API 慢/抖动）
+        _q = req.query.strip()
+        if any(w in _q for w in ("怎么", "如何", "为什么", "比较", "对比", "推荐", "预测", "分析")):
+            complexity = 2
+        elif len(_q) <= 8:
+            complexity = 0
+        else:
+            complexity = 1
+        if complexity not in (0, 1, 2):
+            complexity = 1
 
     vec_str = await gen_embedding(req.query)
     params = {
@@ -524,8 +528,11 @@ async def tmt_recall(req: RecallRequest):
             "\n".join(f"[{m['tmt_level']}] {m['content'][:200]}" for m in deduped[:20]) +
             "\n\n输出 JSON: {{\"keep_indices\": [相关索引的编号列表]}}"
         )
-        raw = await call_llm(gate_prompt, temperature=0.1, max_tokens=256)
-        keep = set(parse_json_response(raw).get("keep_indices", []))
+        try:
+            raw = await call_llm(gate_prompt, temperature=0.1, max_tokens=256)
+            keep = set(parse_json_response(raw).get("keep_indices", []))
+        except Exception:
+            keep = set(range(len(deduped[:20])))  # LLM 不可用/响应异常降级: 保留全部候选
         filtered = [m for i, m in enumerate(deduped[:20]) if i in keep] + deduped[20:]
 
     return {

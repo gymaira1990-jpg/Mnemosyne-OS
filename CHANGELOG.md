@@ -1,5 +1,22 @@
 # Changelog
 
+## v6.0.1 (Unreleased · GZ 已部署 2026-08-02)
+
+### ⚡ 生产性能与稳定性 — 双 worker + recall 容错
+
+**并发隔离**
+- `main.py` uvicorn `workers=1 → 2`：3 进程共享 8010（1父+2worker），慢请求（recall LLM 蒸馏）不再阻塞 search（实测 search 从排队 13s+ 降到 1.2-2.5s 恒定）
+
+**recall 三层容错**（`tmt/router.py` + `core/llm.py`）
+- 复杂度分类改**启发式**（关键词/长度判断 0/1/2），不再调 LLM：recall 常用查询 30s → 0.4s（embedding 缓存命中）
+- gate 过滤 LLM 失败**降级保留全部候选**（try/except 包裹），不再 502
+- `_call_ark` 豆包超时 60s → 15s；call_llm 连接类错误（URLError/TimeoutError/OSError）不升级 tier，直接快速失败（防 15s×3 重试放大）
+- 效果：recall 新查询最坏 ~16s（豆包 embedding 慢，外部依赖），不再 60s 超时/502
+
+**备注**
+- 待发布：升级报告 → 用户审阅 → 验收 → GitHub Release + tag
+- GZ 备份：`main.py.bak.20260802` / `core/llm.py.bak.20260802` / `tmt/router.py.bak.20260802(.2/.predegrade)`
+
 ## v6.0.0 (2026-08-02)
 
 ### 🎯 核心 — 概念模型重构：分类受控 + 管道修复 + 去重提速

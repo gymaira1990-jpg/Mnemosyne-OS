@@ -9,6 +9,7 @@ Tier 4: deepseek-v4-pro           → 异构审计/矛盾检测 (¥0.015/1K toke
 Tier 5: doubao-seedream           → 可视化素材 (按图计费)
 """
 import urllib.request
+import urllib.error
 import json
 import re
 import sys, os
@@ -56,7 +57,7 @@ def _call_ark(messages: list, model: str, max_tokens: int = 500,
         data=json.dumps(payload).encode(),
         headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {ARK_API_KEY}'}
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:
         data = json.loads(resp.read())
         return {
             "content": data['choices'][0]['message']['content'],
@@ -148,6 +149,10 @@ def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
             
             return final
             
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            # 连接/网络类错误：升级 tier 无意义（服务不可用或网络慢），直接失败快速降级
+            last_error = e
+            break
         except Exception as e:
             last_error = e
             if current_tier < 4:

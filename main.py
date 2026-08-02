@@ -1408,4 +1408,4 @@ async def list_sessions(user_id: str = "default", limit: int = 20):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8010, log_level="info")
+    uvicorn.run("main:app", host="127.0.0.1", port=8010, workers=2, log_level="info")
