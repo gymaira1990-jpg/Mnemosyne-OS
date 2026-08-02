@@ -24,7 +24,7 @@ API_BASE = "http://127.0.0.1:8010"
 PG_DSN = "postgresql://postgres@127.0.0.1:5432/mnemosyne"
 # v5.1 — 已迁移到豆包 doubao-embedding-vision-251215
 from core.embedding import get_embedding as _get_embedding
-SIM_THRESHOLD = 0.92  # 余弦相似度 > 此值判为冗余合并
+SIM_THRESHOLD = 0.85  # v6.0: 0.92→0.85 修复去重失效 (相似表述未合并)
 BATCH_SIZE = 200       # 每批处理的记忆数
 
 logging.basicConfig(
@@ -70,29 +70,27 @@ async def get_all_users(pool) -> list[str]:
 
 async def detect_redundancy(pool, user_id: str) -> int:
     """
-    检测余弦相似度 > SIM_THRESHOLD 的记忆对并合并。
+    v6.0: 用 pgvector ANN 索引替代 O(n²) Python 两两比较。
+    对每批候选记忆各做 1 次近邻查询 (LIMIT 3)，合并 sim > SIM_THRESHOLD 的记忆对。
     保留 heat_score 更高的那条，转移 entities，软删另一条。
     """
+    merged = 0
+    checked: set[int] = set()
+    # 候选: 按热度降序取前 BATCH_SIZE 条（优先合并高价值记忆的冗余）
     rows = await pool.fetch(
-        """SELECT id, content, heat_score
-           FROM memories
-           WHERE user_id = $1 AND is_deleted = FALSE
-             AND embedding IS NOT NULL
-           ORDER BY heat_score DESC""",
-        user_id,
+        "SELECT id, content, heat_score FROM memories "
+        "WHERE user_id=$1 AND is_deleted=FALSE AND embedding IS NOT NULL "
+        "ORDER BY heat_score DESC, access_count DESC LIMIT $2",
+        user_id, BATCH_SIZE,
     )
     if len(rows) < 2:
         return 0
 
-    merged = 0
-    checked: set[int] = set()
-    total = len(rows)
-
-    for i in range(total):
-        if rows[i]["id"] in checked:
-            continue
+    for i in range(len(rows)):
         if merged >= BATCH_SIZE:
             break
+        if rows[i]["id"] in checked:
+            continue
 
         ei_raw = await pool.fetchval(
             "SELECT embedding::text FROM memories WHERE id = $1", rows[i]["id"]
@@ -100,28 +98,26 @@ async def detect_redundancy(pool, user_id: str) -> int:
         if ei_raw is None:
             continue
         ei = parse_embedding(ei_raw)
+        vec_str = "[" + ",".join(str(x) for x in ei) + "]"
 
-        for j in range(i + 1, total):
-            if rows[j]["id"] in checked:
-                continue
+        # ANN: 近邻查询（走 ivfflat 索引，毫秒级）
+        neighbors = await pool.fetch(
+            "SELECT id, heat_score, 1 - (embedding <=> $1::vector) AS sim "
+            "FROM memories WHERE user_id=$2 AND is_deleted=FALSE "
+            "AND embedding IS NOT NULL AND id != $3 "
+            "AND 1 - (embedding <=> $1::vector) > $4 "
+            "ORDER BY embedding <=> $1::vector LIMIT 3",
+            vec_str, user_id, rows[i]["id"], SIM_THRESHOLD,
+        )
+        for nb in neighbors:
             if merged >= BATCH_SIZE:
                 break
-
-            ej_raw = await pool.fetchval(
-                "SELECT embedding::text FROM memories WHERE id = $1", rows[j]["id"]
-            )
-            if ej_raw is None:
-                continue
-            ej = parse_embedding(ej_raw)
-
-            sim = cosine_sim(ei, ej)
-            if sim < SIM_THRESHOLD:
+            if nb["id"] in checked:
                 continue
 
-            # 决定保留哪条（高热获胜）
             keep_id = rows[i]["id"]
-            del_id = rows[j]["id"]
-            if rows[j]["heat_score"] > rows[i]["heat_score"]:
+            del_id = nb["id"]
+            if nb["heat_score"] > rows[i]["heat_score"]:
                 keep_id, del_id = del_id, keep_id
 
             # 转移 entities（避免重复）
@@ -132,20 +128,23 @@ async def detect_redundancy(pool, user_id: str) -> int:
                      AND entity_id NOT IN (
                        SELECT entity_id FROM memory_entities WHERE memory_id = $1
                      )""",
-                keep_id,
-                del_id,
+                keep_id, del_id,
             )
             # 软删冗余记忆
             await pool.execute(
-                "UPDATE memories SET is_deleted = TRUE WHERE id = $1",
-                del_id,
+                "UPDATE memories SET is_deleted = TRUE WHERE id = $1", del_id
+            )
+            # 保留者吸收访问计数
+            await pool.execute(
+                "UPDATE memories SET access_count = access_count + 1 WHERE id = $1",
+                keep_id,
             )
 
             checked.add(del_id)
             merged += 1
             log.info("  └─ Merged #%d → #%d  (sim=%.3f, keep_heat=%.1f)",
-                      del_id, keep_id, sim,
-                      max(rows[i]["heat_score"], rows[j]["heat_score"]))
+                      del_id, keep_id, nb["sim"],
+                      max(rows[i]["heat_score"], nb["heat_score"]))
 
     return merged
 
@@ -221,7 +220,9 @@ async def main():
 
     pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=2)
     try:
+        # v6.0: 单用户收敛 — 只处理 default（历史 user_id 由数据迁移统一合并）
         users = await get_all_users(pool)
+        users = [u for u in users if u == "default"]
         if not users:
             log.info("No users found, nothing to do.")
             return

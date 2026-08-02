@@ -60,8 +60,8 @@ class MnemosyneHermesMemory:
     
     # ── 记忆操作 ──
     def add(self, content: str, memory_type: str = "general", 
-            category: str = "general", tags: List[str] = None) -> dict:
-        """添加记忆 → 研究馆"""
+            category: str = "knowledge", tags: List[str] = None) -> dict:
+        """添加记忆 → 研究馆 (v6.0: 分类走受控词表, 服务端自动归一化)"""
         return self._post("/api/v1/halls/archive", {
             "content": content,
             "memory_type": memory_type,

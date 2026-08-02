@@ -392,12 +392,23 @@ async def tmt_consolidate_session(req: ConsolidateRequest):
         end = req.interval_end
     else:
         async with pool.acquire() as conn:
+            # v6.0: 无参时聚合最近 24h 内未蒸馏的原始碎片 (tmt_level=1 或历史 NULL)
             rows = await conn.fetch(
                 "SELECT MIN(created_at) AS start, MAX(created_at) AS end "
-                "FROM memories WHERE user_id=$1 AND tmt_level=1 "
-                "AND created_at > NOW() - INTERVAL '30 minutes'",
+                "FROM memories WHERE user_id=$1 AND is_deleted=FALSE "
+                "AND (tmt_level=1 OR tmt_level IS NULL) "
+                "AND created_at > NOW() - INTERVAL '24 hours'",
                 req.user_id
             )
+            if not rows or not rows[0]["start"]:
+                # 回退: 最近 100 条未蒸馏碎片 (无论时间)
+                rows = await conn.fetch(
+                    "SELECT MIN(created_at) AS start, MAX(created_at) AS end FROM ("
+                    "SELECT created_at FROM memories WHERE user_id=$1 AND is_deleted=FALSE "
+                    "AND (tmt_level=1 OR tmt_level IS NULL) ORDER BY created_at DESC LIMIT 100"
+                    ") sub",
+                    req.user_id
+                )
             if not rows or not rows[0]["start"]:
                 return {"skipped": True, "reason": "no_recent_fragments"}
             start, end = rows[0]["start"], rows[0]["end"]

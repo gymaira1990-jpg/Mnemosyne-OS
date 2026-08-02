@@ -84,13 +84,13 @@ async def list_tools() -> list[types.Tool]:
         # ── 记忆核心 ──
         types.Tool(
             name="store_memory",
-            description="存储一条记忆到 Mnemosyne。用户 ID 默认为 'g-cat'。",
+            description="存储一条记忆到 Mnemosyne。用户 ID 默认为 'default'。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "记忆内容"},
-                    "category": {"type": "string", "description": "分类: fact|experience|belief|chat|work|note|test", "default": "fact"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "category": {"type": "string", "description": "分类(受控词表): knowledge|pitfall|reference|project|ops|deploy|preference|session|worklog|temp", "default": "knowledge"},
+                    "user_id": {"type": "string", "description": "用户 ID", "default": "default"},
                     "importance": {"type": "number", "description": "重要性 0-1", "default": 0.5},
                 },
                 "required": ["content"],

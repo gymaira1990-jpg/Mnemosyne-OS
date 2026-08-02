@@ -39,21 +39,25 @@ async def archive_to_research(req: MemoryArchiveRequest):
         content = req.content.strip()
         if len(content) < 5:
             return {"error": "内容过短 (闸机拒绝)", "hall": None}
-        
+        # v6.0: 分类归一化 + 原始碎片 tmt_level=1
+        from main import normalize_category
+        cat = normalize_category(req.category)
+        tenant = "default" if req.tenant_id in ("g-cat", "noah", "mnemosyne-agent", "website-agent", "system", "test", "audit") else (req.tenant_id or "default")
         # 写入研究馆
         row = await conn.fetchrow(
             """INSERT INTO memories (content, category, session_id, project_id, 
-               user_id, hall, verification_status)
-               VALUES ($1, $2, $3, $4, $5, 'research', 'pending')
+               user_id, hall, verification_status, tmt_level)
+               VALUES ($1, $2, $3, $4, $5, 'research', 'pending', 1)
                RETURNING id, hall""",
-            content, req.category, req.session_id,
-            req.project_id, req.tenant_id
+            content, cat, req.session_id,
+            req.project_id, tenant
         )
         return {
             "memory_id": row["id"],
             "hall": row["hall"],
             "status": "processing",
-            "note": "已进入研究馆，待方案推演"
+            "note": "已进入研究馆，待方案推演",
+            "category": cat
         }
 
 

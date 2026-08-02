@@ -21,6 +21,33 @@ from typing import List, Optional
 import logging
 logger = logging.getLogger("mnemosyne")
 
+# ── v6.0: 受控分类词表 (category 唯一合法值) ──
+# 单用户 (user_id=default) 语义收敛：10 类中文主键，英文为 API 兼容别名。
+# 记忆生命周期: 写入(tmt_level=1 原始碎片) → TMT蒸馏(L2会话/L3日报/L4周报/L5画像)
+# 价值分层: tier 由 reflect 按热度维护 (L1核心/L2常规/L3低频/L4待清理)
+CATEGORY_WHITELIST = {
+    "knowledge":   ["knowledge", "架构", "architecture", "design-pattern", "设计", "概念", "知识"],
+    "pitfall":     ["pitfall", "踩坑", "坑", "教训", "故障"],
+    "reference":   ["reference", "参考", "论文", "资料", "research"],
+    "project":     ["project", "项目", "进度"],
+    "ops":         ["ops", "运维", "monitoring", "healthcheck", "巡检", "监控", "健康"],
+    "deploy":      ["deploy", "部署", "发布", "版本", "变更"],
+    "preference":  ["preference", "偏好", "喜好", "人设", "习惯"],
+    "session":     ["session", "会话", "对话"],
+    "worklog":     ["worklog", "note", "日志", "汇报", "工作", "记录", "notes", "general"],
+    "temp":        ["temp", "临时", "提醒"],
+}
+
+def normalize_category(cat: str) -> str:
+    """分类归一化: 中文/旧英文 → 受控词表主键。未知分类默认 knowledge。"""
+    if not cat:
+        return "knowledge"
+    c = str(cat).strip().lower()
+    for key, aliases in CATEGORY_WHITELIST.items():
+        if c == key or c in [a.lower() for a in aliases]:
+            return key
+    return "knowledge"
+
 # ── v5.0: 模块化导入 ──
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import PG_USER, PG_PASSWORD, PG_DB, PG_HOST, PG_PORT, HOST, PORT
@@ -535,20 +562,24 @@ class BeliefSearch(BaseModel):
 
 # ── 基础记忆 API ──
 class MemoryCreate(BaseModel):
-    user_id: str
+    user_id: str = "default"
     project_id: Optional[str] = None
     content: str
-    category: str = "fact"
+    category: str = "knowledge"
     metadata: dict = {}
     entities: Optional[List[str]] = None
+    session_id: Optional[str] = None
 
 @app.post("/api/v1/memories")
 async def create_memory(mem: MemoryCreate):
     raw_vec = (await get_embedding([mem.content]))[0]
     vec_str = "[" + ",".join(str(x) for x in raw_vec) + "]"
+    # v6.0: 分类归一化 + user_id 收敛单用户
+    cat = normalize_category(mem.category)
+    uid = "default" if mem.user_id in ("g-cat", "noah", "mnemosyne-agent", "website-agent", "system", "test", "audit") else (mem.user_id or "default")
     async with pool.acquire() as conn:
         # 矛盾检测
-        conflict = await detect_conflict(conn, mem.user_id, mem.content, vec_str)
+        conflict = await detect_conflict(conn, uid, mem.content, vec_str)
         if conflict["action"] == "merge":
             # 合并：增加访问计数，不创建新记录
             await conn.execute(
@@ -571,17 +602,17 @@ async def create_memory(mem: MemoryCreate):
             meta = dict(mem.metadata) if isinstance(mem.metadata, dict) else {}
             meta["conflicts_with"] = old_id
             meta["conflict_type"] = "superseded"
-        # 正常存入（含valid_from）
+        # 正常存入（含valid_from）；v6.0: 原始碎片 tmt_level=1，tier 由 reflect 维护
         row = await conn.fetchrow(
-            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from) '
-            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW()) RETURNING id',
-            mem.user_id, mem.project_id, mem.content, mem.category, vec_str,
-            json.dumps(locals().get("meta", mem.metadata))
+            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level) '
+            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1) RETURNING id',
+            uid, mem.project_id, mem.content, cat, vec_str,
+            json.dumps(locals().get("meta", mem.metadata)), mem.session_id
         )
         mid = row["id"]
         if mem.entities:
-            await sync_entities_to_age(conn, mid, mem.entities, mem.user_id)
-    return {"status": "stored", "id": row["id"]}
+            await sync_entities_to_age(conn, mid, mem.entities, uid)
+    return {"status": "stored", "id": row["id"], "category": cat}
 
 class MemorySearch(BaseModel):
     user_id: str
@@ -992,11 +1023,12 @@ async def reflect(user_id: str, mode: str = "light"):
             UPDATE memories SET heat_score = GREATEST(0.0, heat_score - 0.1)
             WHERE user_id = $1 AND is_deleted = FALSE AND invalid_at IS NOT NULL
         """, user_id)
-        # 2. 层级自动迁移
+        # 2. 层级自动迁移 (v6.0: tier=价值分层, 与 TMT 时间树 tmt_level 解耦)
+        #    L4 不再直接删除 — 仅标记待清理, 保留可恢复; 清理交给 cleanup API
         await conn.execute("UPDATE memories SET tier = 'L1' WHERE user_id = $1 AND heat_score > 0.7 AND tier != 'L1'", user_id)
         await conn.execute("UPDATE memories SET tier = 'L2' WHERE user_id = $1 AND heat_score BETWEEN 0.2 AND 0.7 AND tier NOT IN ('L2','L3','L4')", user_id)
-        await conn.execute("UPDATE memories SET tier = 'L3' WHERE user_id = $1 AND heat_score < 0.2 AND last_accessed < NOW() - INTERVAL '30 days'", user_id)
-        await conn.execute("UPDATE memories SET tier = 'L4', is_deleted = TRUE, forgotten_at = NOW() WHERE user_id = $1 AND heat_score < 0.05 AND last_accessed < NOW() - INTERVAL '90 days'", user_id)
+        await conn.execute("UPDATE memories SET tier = 'L3' WHERE user_id = $1 AND heat_score < 0.2 AND last_accessed < NOW() - INTERVAL '30 days' AND tier NOT IN ('L3','L4')", user_id)
+        await conn.execute("UPDATE memories SET tier = 'L4', forgotten_at = NOW() WHERE user_id = $1 AND heat_score < 0.05 AND last_accessed < NOW() - INTERVAL '90 days' AND is_deleted = FALSE AND tier != 'L4'", user_id)
         # 3. 深度模式: 实体提取
         if mode == "deep":
             unproc = await conn.fetch("SELECT m.id, m.content FROM memories m LEFT JOIN memory_entities me ON m.id = me.memory_id WHERE m.user_id = $1 AND me.memory_id IS NULL AND m.is_deleted = FALSE LIMIT 100", user_id)

@@ -22,7 +22,7 @@ case "${1:-daily}" in
     ;;
   monthly)
     Y=$(date +%Y)
-    M=$(date +%m)
+    M=$(date +%-m)   # v6.0: 去前导零 (date +%m 的 08 非法 JSON 数字 → 蒸馏报 JSON decode error)
     log "[monthly] Starting for $Y-$M..."
     curl -s -X POST "$API/api/v1/tmt/consolidate/monthly"       -H 'Content-Type: application/json'       -d "{\"user_id\":\"default\",\"year\":$Y,\"month\":$M}" >> "$LOG" 2>&1
     log "[monthly] Done."
