@@ -66,7 +66,7 @@ from core.chunker import chunk_memory as chunk_memory_fn, chunk_all_unprocessed
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v5.3.0 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v6.0.0 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -1078,13 +1078,13 @@ async def health_report(user_id: str):
 # ── 自描述化 API ──
 @app.get("/")
 async def root():
-    return {"service": "Mnemosyne Memory Engine v2.1", "docs": "/api/v1/capabilities"}
+    return {"service": "Mnemosyne Memory Engine v6.0", "docs": "/api/v1/capabilities"}
 
 @app.get("/api/v1/capabilities")
 async def capabilities():
     return {
-        "service": "Mnemosyne OS v5.3.0",
-        "version": "5.5.2",
+        "service": "Mnemosyne OS v6.0.0",
+        "version": "6.0.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1121,7 +1121,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "5.5.2"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "6.0.0"}
 
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):

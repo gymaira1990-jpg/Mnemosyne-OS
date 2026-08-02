@@ -1,8 +1,8 @@
-# Mnemosyne OS v5.5.2 状态
+# Mnemosyne OS v6.0.0 状态
 
 ## 状态: ✅ 稳定运行 (2026-07-23)
 
-## 当前版本: v5.5.2 — 时间有效性 + Benchmark
+## 当前版本: v6.0.0 — 时间有效性 + Benchmark
 
 ## 已完成
 - [x] v5.3.0: Memory Provider 10 hook + 仓库治理
