@@ -1,6 +1,6 @@
 # Changelog
 
-## v6.0.1 (Unreleased · GZ 已部署 2026-08-02)
+## v6.0.1 (2026-08-02)
 
 ### ⚡ 生产性能与稳定性 — 双 worker + recall 容错
 
@@ -14,7 +14,7 @@
 - 效果：recall 新查询最坏 ~16s（豆包 embedding 慢，外部依赖），不再 60s 超时/502
 
 **备注**
-- 待发布：升级报告 → 用户审阅 → 验收 → GitHub Release + tag
+- 发布闭环：升级报告审阅 ✓ 用户验收 ✓ GitHub Release + tag ✓
 - GZ 备份：`main.py.bak.20260802` / `core/llm.py.bak.20260802` / `tmt/router.py.bak.20260802(.2/.predegrade)`
 
 ## v6.0.0 (2026-08-02)
