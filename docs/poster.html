@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 860px;
+    background: linear-gradient(160deg, #17152b 0%, #1c1a3a 45%, #221d4d 100%);
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #e8e6f5;
+    padding: 34px 36px 30px;
+  }
+  .header { text-align: center; margin-bottom: 26px; }
+  .title { font-size: 34px; font-weight: 800; letter-spacing: 0.5px; }
+  .title .ver { color: #4ade80; font-size: 26px; font-weight: 700; margin-left: 6px; }
+  .subtitle { font-size: 13.5px; color: #a9a4d8; margin-top: 7px; letter-spacing: 0.3px; }
+  .tagline { font-size: 12px; color: #7d77b8; margin-top: 5px; font-style: italic; }
+
+  .tier-box {
+    background: linear-gradient(135deg, rgba(99,102,241,0.16), rgba(168,85,247,0.10));
+    border: 1px solid rgba(139,132,255,0.28);
+    border-radius: 18px;
+    padding: 20px 22px 18px;
+    margin-bottom: 18px;
+  }
+  .tier-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: #c9c4ff; }
+  .tier { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 12px; margin-bottom: 8px; background: rgba(10,10,26,0.42); border: 1px solid rgba(255,255,255,0.05); }
+  .tier:last-child { margin-bottom: 0; }
+  .tier .icon { font-size: 21px; width: 34px; text-align: center; }
+  .tier .lv { font-size: 13px; font-weight: 800; width: 30px; color: #e8e6f5; }
+  .tier .name { font-size: 14px; font-weight: 700; width: 92px; }
+  .tier .desc { font-size: 12px; color: #a9a4d8; flex: 1; }
+  .bar { width: 5px; border-radius: 3px; align-self: stretch; min-height: 34px; }
+
+  .feat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .feat { background: rgba(10,10,26,0.42); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px 16px; }
+  .feat .f-title { font-size: 13.5px; font-weight: 700; margin-bottom: 4px; }
+  .feat .f-desc { font-size: 11.5px; color: #a9a4d8; }
+
+  .cats { background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border: 1px solid rgba(52,211,153,0.25); border-radius: 18px; padding: 16px 20px; margin-bottom: 18px; }
+  .cats-title { font-size: 13.5px; font-weight: 700; color: #6ee7b7; margin-bottom: 10px; }
+  .cat-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+  .tag { font-size: 11px; padding: 4px 11px; border-radius: 999px; background: rgba(16,185,129,0.14); border: 1px solid rgba(52,211,153,0.35); color: #a7f3d0; font-weight: 600; }
+
+  .stats { display: flex; justify-content: space-around; text-align: center; padding: 14px 10px; background: rgba(10,10,26,0.5); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); }
+  .stat .num { font-size: 23px; font-weight: 800; background: linear-gradient(90deg,#818cf8,#a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat .lbl { font-size: 11px; color: #8d88c0; margin-top: 3px; }
+
+  .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 11.5px; color: #7d77b8; }
+  .footer .repo { color: #4ade80; font-weight: 700; letter-spacing: 0.2px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">🏛️ Mnemosyne OS <span class="ver">v6.0</span></div>
+    <div class="subtitle">Cognitive Memory Operating System for AI Agents</div>
+    <div class="tagline">distill · organize · age — across sessions, days & projects</div>
+  </div>
+
+  <div class="tier-box">
+    <div class="tier-title">• 5-Tier Time Memory Tree (TMT)</div>
+    <div class="tier"><span class="icon">🧠</span><span class="lv">L5</span><span class="name">Profile</span><span class="desc">User persona — preferences, traits, knowledge areas</span><span class="bar" style="background:#a78bfa;"></span></div>
+    <div class="tier"><span class="icon">📊</span><span class="lv">L4</span><span class="name">Weekly</span><span class="desc">Pattern analysis — emerging trends, recurring themes</span><span class="bar" style="background:#818cf8;"></span></div>
+    <div class="tier"><span class="icon">📅</span><span class="lv">L3</span><span class="name">Daily</span><span class="desc">Day summary — progress, decisions, key changes</span><span class="bar" style="background:#3b82f6;"></span></div>
+    <div class="tier"><span class="icon">💬</span><span class="lv">L2</span><span class="name">Session</span><span class="desc">Conversation distillation — facts, entities, decisions</span><span class="bar" style="background:#34d399;"></span></div>
+    <div class="tier"><span class="icon">📝</span><span class="lv">L1</span><span class="name">Fragment</span><span class="desc">Raw memories — auto-stored, auto-embedded</span><span class="bar" style="background:#fbbf24;"></span></div>
+  </div>
+
+  <div class="cats">
+    <div class="cats-title">✓ v6.0 Controlled Categories — 10-class whitelist, DB-enforced</div>
+    <div class="cat-tags">
+      <span class="tag">knowledge</span><span class="tag">pitfall</span><span class="tag">reference</span><span class="tag">project</span><span class="tag">ops</span><span class="tag">deploy</span><span class="tag">preference</span><span class="tag">session</span><span class="tag">worklog</span><span class="tag">temp</span>
+    </div>
+  </div>
+
+  <div class="feat-grid">
+    <div class="feat"><div class="f-title">🏛️ 3-Halls</div><div class="f-desc">Research → Engineering → Archive lifecycle</div></div>
+    <div class="feat"><div class="f-title">🔗 AGE Graph</div><div class="f-desc">Cypher knowledge graph on Apache AGE</div></div>
+    <div class="feat"><div class="f-title">✂️ RAG Chunks</div><div class="f-desc">10K+ smart chunks for precise recall</div></div>
+    <div class="feat"><div class="f-title">☁️ Sync</div><div class="f-desc">WSL → Cloud 7×24 · offline buffer</div></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num">2.3K+</div><div class="lbl">Memories</div></div>
+    <div class="stat"><div class="num">10</div><div class="lbl">Categories</div></div>
+    <div class="stat"><div class="num">5</div><div class="lbl">TMT Levels</div></div>
+    <div class="stat"><div class="num">400×</div><div class="lbl">Reflector Speed</div></div>
+  </div>
+
+  <div class="footer">
+    <span>Mnemosyne OS — personal-scale memory infrastructure</span>
+    <span class="repo">github.com/gymaira1990-jpg/Mnemosyne-OS</span>
+  </div>
+</body>
+</html>

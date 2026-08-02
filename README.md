@@ -176,7 +176,7 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven c
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                   Mnemosyne OS v5.3                    │
+│                   Mnemosyne OS v6.0                    │
 │                                                        │
 │  FastAPI (38 endpoints)                                │
 │  ├── /api/v1/memories          CRUD + search           │
@@ -190,6 +190,9 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven c
 │  PostgreSQL 16 · pgvector 1024d (HNSW)                │
 │  Apache AGE (Cypher graph queries)                     │
 │  asyncpg connection pool                               │
+│                                                        │
+│  v6.0 Controlled Categories (10-class whitelist,       │
+│  DB CHECK enforced, write-gateway normalization)       │
 │                                                        │
 │  TMT Pipeline (LLM-driven)                             │
 │  L1 fragments → L2 sessions → L3 daily → L4 weekly     │
