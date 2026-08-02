@@ -35,3 +35,4 @@ Thumbs.db
 # Deploy (sensitive)
 deploy/mnemosyne.service
 __pycache__/
+.hermes/

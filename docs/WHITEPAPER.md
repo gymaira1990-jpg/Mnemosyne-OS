@@ -3,7 +3,7 @@
 **版本**: v5.2.0  
 **更新**: 2026-06-25  
 **定位**: 认知型记忆操作系统 · 个人AI长期记忆基建  
-**网站**: [your-site.example.com](https://your-site.example.com) · [GitHub](https://github.com/gymaira1990-jpg/Mnemosyne-OS)
+**网站**: [GitHub](https://github.com/gymaira1990-jpg/Mnemosyne-OS)
 
 ---
 
