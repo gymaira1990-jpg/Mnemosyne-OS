@@ -622,9 +622,13 @@ async def tmt_decay(user_id: str):
     async with pool.acquire() as conn:
         results = {}
         # v6.2: 差异化衰减 — 近 48h 访问过的活跃记忆衰减慢 (0.995 vs 0.98), 保持热点
+        # v6.3: 保护衰减 — pinned 标记或 preference 类慢衰减 (重要记忆不被时间冲淡)
         r = await conn.execute(
             "UPDATE memories SET heat_score=GREATEST(0.01, heat_score * "
-            "CASE WHEN last_accessed > NOW() - INTERVAL '48 hours' THEN 0.995 ELSE 0.98 END) "
+            "CASE "
+            "  WHEN metadata->>'pinned' = 'true' OR category = 'preference' THEN 0.995 "
+            "  WHEN last_accessed > NOW() - INTERVAL '48 hours' THEN 0.995 "
+            "  ELSE 0.98 END) "
             "WHERE user_id=$1 AND is_deleted=FALSE", user_id
         )
         results["L1"] = int(r.split()[-1])

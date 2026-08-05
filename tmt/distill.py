@@ -209,7 +209,8 @@ async def insert_knowledge(pool, src_id: int, src_category: str, distilled: dict
 
     importance = min(max(float(distilled.get("importance", 0.4)), 0.1), 0.95)
     # v6.2: 蒸馏新知识初始热度信号 0.65 (默认 0.5 → 0.65, 标记"新提炼")
-    heat_init = 0.65
+    # v6.3: pitfall(坑) 天生重要 → 0.70
+    heat_init = 0.70 if mtype == "pitfall" else 0.65
     metadata = {
         "distilled_from": src_id,
         "distilled_at": utcnow(),

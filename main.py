@@ -66,7 +66,7 @@ from core.chunker import chunk_memory as chunk_memory_fn, chunk_all_unprocessed
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v6.2.0 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v6.3.0 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -578,6 +578,29 @@ class MemoryCreate(BaseModel):
     entities: Optional[List[str]] = None
     session_id: Optional[str] = None
 
+SIGNAL_WEIGHTS = [
+    (("待办", "下一步", "TODO", "pending", "未完成", "接着", "继续做"), 0.15, "未完成任务"),
+    (("不是", "错了", "不要", "应该改", "修正", "记住"), 0.10, "用户纠正"),
+    (("坑", "教训", "报错", "失败", "注意", "踩过", "小心"), 0.10, "踩坑教训"),
+    (("决定", "方案", "采用", "架构", "设计", "选择"), 0.08, "决策方案"),
+    (("路径", "端口", "API", "配置", "key", "密钥"), 0.05, "路径/API"),
+    (("重要", "关键", "核心", "必须"), 0.05, "重要标记"),
+]
+# 天生重要的类别
+IMPORTANT_CATS = {"preference", "knowledge", "pitfall"}
+
+
+def compute_write_heat(content: str, category: str) -> float:
+    """v6.3 认知写入信号: 初始热度按内容重要性加分 (抽屉级联温度设计, 纯正则不调LLM)"""
+    heat = 0.5
+    for keywords, weight, _name in SIGNAL_WEIGHTS:
+        if any(k in content for k in keywords):
+            heat += weight
+    if category in IMPORTANT_CATS:
+        heat += 0.10
+    return round(min(max(heat, 0.3), 0.8), 2)
+
+
 @app.post("/api/v1/memories")
 async def create_memory(mem: MemoryCreate):
     raw_vec = (await get_embedding([mem.content]))[0]
@@ -585,6 +608,8 @@ async def create_memory(mem: MemoryCreate):
     # v6.0: 分类归一化 + user_id 收敛单用户
     cat = normalize_category(mem.category)
     uid = "default" if mem.user_id in ("g-cat", "noah", "mnemosyne-agent", "website-agent", "system", "test", "audit") else (mem.user_id or "default")
+    # v6.3: 认知写入信号 — 初始热度按内容重要性加分 (抽屉级联温度设计, 纯正则不调LLM)
+    heat_init = compute_write_heat(mem.content, cat)
     async with pool.acquire() as conn:
         # 矛盾检测
         conflict = await detect_conflict(conn, uid, mem.content, vec_str)
@@ -611,11 +636,12 @@ async def create_memory(mem: MemoryCreate):
             meta["conflicts_with"] = old_id
             meta["conflict_type"] = "superseded"
         # 正常存入（含valid_from）；v6.0: 原始碎片 tmt_level=1，tier 由 reflect 维护
+        # v6.3: 写入 heat_score = 认知写入信号 (初始热度)
         row = await conn.fetchrow(
-            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level) '
-            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1) RETURNING id',
+            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score) '
+            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8) RETURNING id',
             uid, mem.project_id, mem.content, cat, vec_str,
-            json.dumps(locals().get("meta", mem.metadata)), mem.session_id
+            json.dumps(locals().get("meta", mem.metadata)), mem.session_id, heat_init
         )
         mid = row["id"]
         if mem.entities:
@@ -1024,10 +1050,11 @@ async def evolve_belief(belief_id: int, user_id: str, new_confidence: float = No
 async def reflect(user_id: str, mode: str = "light"):
     async with pool.acquire() as conn:
         # 1. 热度v2: 多维衰减
-        # 时间衰减 (最后一次访问越久越冷)
+        # 时间衰减 (最后一次访问越久越冷); v6.3: 保护衰减 — pinned/preference 几乎不衰减
         await conn.execute("""
             UPDATE memories SET heat_score = GREATEST(0.0, heat_score -
                 CASE
+                    WHEN metadata->>'pinned' = 'true' OR category = 'preference' THEN 0.005
                     WHEN last_accessed IS NULL THEN 0.02
                     WHEN last_accessed < NOW() - INTERVAL '90 days' THEN 0.08
                     WHEN last_accessed < NOW() - INTERVAL '30 days' THEN 0.04
@@ -1099,8 +1126,8 @@ async def root():
 @app.get("/api/v1/capabilities")
 async def capabilities():
     return {
-        "service": "Mnemosyne OS v6.2.0",
-        "version": "6.2.0",
+        "service": "Mnemosyne OS v6.3.0",
+        "version": "6.3.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1137,7 +1164,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "6.2.0"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "6.3.0"}
 
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
