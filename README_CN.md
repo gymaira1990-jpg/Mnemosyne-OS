@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.3.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-6.4.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -211,6 +211,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v6.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.4.0) | 2026-08-05 | 事实提取管道: 对话→用户事实 (preference/knowledge) |
 | [v6.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.3.0) | 2026-08-05 | 认知写入信号: 重要记忆出生即热 · 保护衰减 |
 | [v6.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.2.0) | 2026-08-05 | 认知热度引擎: 命中加热 · 差异化衰减 · 蒸馏热度 |
 | [v6.0.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.0.1) | 2026-08-02 | 生产性能: uvicorn workers=2 · recall 容错 |
