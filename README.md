@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/poster.png" alt="Mnemosyne OS Architecture" width="720">
+  <img src="docs/poster.png" alt="Mnemosyne OS Overview" width="560">
 </p>
 
 <p align="center">
