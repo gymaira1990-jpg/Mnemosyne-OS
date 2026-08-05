@@ -27,6 +27,14 @@ v5.4 (三馆激活) ✅ → v5.5 (时间有效性) ✅ → v6.0 (认知架构)
 - 智能召回三阶段
 - 桌面应用 (端到端加密记忆访问)
 
+## v6.1 — 知识蒸馏 (进行中 2026-08-05)
+
+- [x] tmt/distill.py 知识蒸馏管道 v0.1 — NCP-008 七步 + TEL/MAIL 概念映射
+  (session/worklog → knowledge/pitfall, 信号词筛选 + LLM 凝练 + ANN 去重闸机 + 溯源)
+- [x] GZ cron 每日 1:10 批量蒸馏 60 条 (首轮 30 条: +22 knowledge, +1 pitfall)
+- [ ] 批内去重 (同批相似条目合并)
+- [ ] 蒸馏质量反馈回路 (high/medium/low confidence 影响热度)
+
 ## 迭代纪律
 
 1. PLAN→code→test→隐私扫描→文档→tag

@@ -1,5 +1,18 @@
 # Changelog
 
+## v6.1-dev (2026-08-05)
+
+### 🧪 知识蒸馏管道 (P0-1, MVP)
+
+**动机**: 分类失衡 (session+worklog 88%, knowledge 9%) — 蒸馏只做了分类整理, 没做真正知识提炼。
+
+**新增**: `tmt/distill.py` — 知识蒸馏管道 v0.1
+- 设计来源: 爆炸遗产考古 (NCP-008 知识吸收七步 + 认知AI底座 TEL/MAIL 协议)
+- 流程: 信号词候选筛选 → TEL 组装 → 豆包 Lite JSON 凝练 → ANN 去重闸机 (>0.92 跳过) → 入库 (knowledge→archive / pitfall→engineering) → metadata 溯源
+- 用法: `python3 tmt/distill.py --batch N [--dry-run] [--stats]`
+
+**部署**: GZ cron 每日 1:10 批量 60 条 (首轮 30 条: +22 knowledge, +1 pitfall, 5 fail 豆包偶发空返回下轮重捞)
+
 ## v6.0.1 (2026-08-02)
 
 ### ⚡ 生产性能与稳定性 — 双 worker + recall 容错
