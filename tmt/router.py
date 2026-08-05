@@ -535,6 +535,17 @@ async def tmt_recall(req: RecallRequest):
             keep = set(range(len(deduped[:20])))  # LLM 不可用/响应异常降级: 保留全部候选
         filtered = [m for i, m in enumerate(deduped[:20]) if i in keep] + deduped[20:]
 
+    # v6.2: 召回命中加热 (最终返回的 memories 源 top3)
+    mem_hits = [m["id"] for m in filtered[:req.max_results] if m.get("src") == "memories"][:3]
+    if mem_hits:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW(), "
+                "heat_score = LEAST(1.0, heat_score + 0.05) "
+                "WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE",
+                req.user_id, [int(i) for i in mem_hits],
+            )
+
     return {
         "complexity": complexity,
         "total": len(filtered),
@@ -610,8 +621,10 @@ async def tmt_node_detail(level: int, node_id: str, user_id: str):
 async def tmt_decay(user_id: str):
     async with pool.acquire() as conn:
         results = {}
+        # v6.2: 差异化衰减 — 近 48h 访问过的活跃记忆衰减慢 (0.995 vs 0.98), 保持热点
         r = await conn.execute(
-            "UPDATE memories SET heat_score=GREATEST(0.01, heat_score*0.98) "
+            "UPDATE memories SET heat_score=GREATEST(0.01, heat_score * "
+            "CASE WHEN last_accessed > NOW() - INTERVAL '48 hours' THEN 0.995 ELSE 0.98 END) "
             "WHERE user_id=$1 AND is_deleted=FALSE", user_id
         )
         results["L1"] = int(r.split()[-1])

@@ -155,8 +155,13 @@ async def distill_one(content: str) -> dict | None:
 
 
 # ── 5. 验证: 去重闸机 (ANN) ──
-async def dedup_check(pool, summary: str) -> bool:
-    """与已有 knowledge/pitfall 记忆比较, sim>阈值返回 True (重复)"""
+async def dedup_check(pool, summary: str, in_batch: list[str] | None = None) -> bool:
+    """与已有 knowledge/pitfall 记忆比较 + 本批内比较, sim>阈值返回 True (重复)"""
+    # 批内去重 (v6.2): 同批已提炼的相似条目直接跳过
+    if in_batch:
+        for prev in in_batch:
+            if prev and len(prev) > 5 and (summary[:40] in prev or prev[:40] in summary):
+                return True
     emb = await get_embedding(summary)
     if not emb:
         return False
@@ -203,6 +208,8 @@ async def insert_knowledge(pool, src_id: int, src_category: str, distilled: dict
         return False
 
     importance = min(max(float(distilled.get("importance", 0.4)), 0.1), 0.95)
+    # v6.2: 蒸馏新知识初始热度信号 0.65 (默认 0.5 → 0.65, 标记"新提炼")
+    heat_init = 0.65
     metadata = {
         "distilled_from": src_id,
         "distilled_at": utcnow(),
@@ -213,10 +220,10 @@ async def insert_knowledge(pool, src_id: int, src_category: str, distilled: dict
     await pool.execute(
         """
         INSERT INTO memories
-          (user_id, content, category, hall, importance, tier, metadata, tmt_level)
-        VALUES ('default', $1, $2, $3, $4, 'L3', $5::jsonb, 1)
+          (user_id, content, category, hall, importance, tier, heat_score, metadata, tmt_level)
+        VALUES ('default', $1, $2, $3, $4, 'L3', $5, $6::jsonb, 1)
         """,
-        summary, mtype, hall, importance, json.dumps(metadata, ensure_ascii=False),
+        summary, mtype, hall, importance, heat_init, json.dumps(metadata, ensure_ascii=False),
     )
     # 标记源已蒸馏
     await pool.execute(
@@ -234,6 +241,7 @@ async def run(batch: int, dry_run: bool) -> None:
         log.info("候选 %d 条 (dry_run=%s)", len(cands), dry_run)
 
         stats = {"knowledge": 0, "pitfall": 0, "skip": 0, "dedup": 0, "fail": 0}
+        in_batch: list[str] = []  # v6.2: 批内去重
         for i, c in enumerate(cands, 1):
             log.info("[%d/%d] 蒸馏 #%d (%s): %.50s...", i, len(cands), c["id"], c["category"], c["content"])
             d = await distill_one(c["content"])
@@ -251,13 +259,14 @@ async def run(batch: int, dry_run: bool) -> None:
                 stats["skip"] += 1
                 continue
 
-            dup = await dedup_check(pool, d.get("summary", ""))
+            dup = await dedup_check(pool, d.get("summary", ""), in_batch if not dry_run else None)
             if dup:
                 stats["dedup"] += 1
                 log.info("  → 去重跳过 (sim>%.2f): %.60s", DEDUP_THRESHOLD, d.get("summary", ""))
                 continue
 
             stats[t] += 1
+            in_batch.append(d.get("summary", ""))
             if not dry_run:
                 await insert_knowledge(pool, c["id"], c["category"], d)
             log.info("  → %s [%s]: %.70s (imp=%.2f)", t, d.get("confidence", "?"), d.get("summary", ""), float(d.get("importance", 0)))

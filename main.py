@@ -639,6 +639,18 @@ async def search_memories(req: MemorySearch):
     sort=created_at: keyword ILIKE + created_at DESC (pure time order)
     """
     
+    async def heat_hits(conn, ids, delta: float = 0.05) -> None:
+        """v6.2 认知热度: 搜索命中 → access_count+1 + heat 加权 (noah 双权重频次分量)"""
+        ids = [int(i) for i in ids]
+        if not ids:
+            return
+        await conn.execute(
+            "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW(), "
+            "heat_score = LEAST(1.0, heat_score + $2) "
+            "WHERE user_id = $1 AND id = ANY($3::bigint[]) AND is_deleted = FALSE",
+            req.user_id, delta, ids,
+        )
+    
     # Time-ordered mode: skip embedding, just keyword + time sort
     if req.sort == "created_at":
         async with pool.acquire() as conn:
@@ -667,6 +679,8 @@ async def search_memories(req: MemorySearch):
             query_sql += f"ORDER BY created_at DESC LIMIT ${idx}"
             params.append(req.top_k)
             rows = await conn.fetch(query_sql, *params)
+            if rows:  # v6.2: 命中加热
+                await heat_hits(conn, [r["id"] for r in rows[:5]])
         if not rows:
             return {"memories": [], "sort": "created_at"}
         return {"memories": [{
@@ -701,6 +715,8 @@ async def search_memories(req: MemorySearch):
             "LIMIT $3",
             req.user_id, q_str, req.top_k
         )
+        if rows:  # v6.2: 命中加热
+            await heat_hits(conn, [r["id"] for r in rows[:5]])
     
     if not rows:
         return {"memories": []}
