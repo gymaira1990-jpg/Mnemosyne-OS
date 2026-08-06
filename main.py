@@ -511,6 +511,13 @@ async def startup():
     security_module.pool = pool
     tmt_module.embed_fn = get_embedding
     tmt_module.llm_url = "http://127.0.0.1:11435/v1/chat/completions"
+    # v7.0 魔法记忆宫殿: 初始化 (建表+存量归档, 幂等)
+    try:
+        import palace
+        palace_result = await palace.init_palace(pool)
+        logger.info(f"[palace] 初始化完成: tables={palace_result['tables']} classified={palace_result['classified']} cards={palace_result['cards']}")
+    except Exception as e:
+        logger.warning(f"[palace] 初始化跳过: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -1165,6 +1172,56 @@ async def capabilities():
 @app.get("/api/v1/echo")
 async def echo():
     return {"status": "ok", "service": "Mnemosyne OS", "version": "6.4.0"}
+
+# ── v7.0 魔法记忆宫殿 API ──
+@app.get("/api/v1/palace/status")
+async def palace_status(user_id: str = "default"):
+    """宫殿状态: 分类树统计 + 著录卡片数 + 档号覆盖率"""
+    import palace
+    async with pool.acquire() as conn:
+        total = await conn.fetchval(
+            "SELECT count(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE", user_id)
+        archived = await conn.fetchval(
+            "SELECT count(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND archive_no IS NOT NULL", user_id)
+        cards = await conn.fetchval(
+            "SELECT count(*) FROM tome_cards", )
+        dist = await conn.fetch(
+            "SELECT wing, room, count(*) n FROM tome_cards GROUP BY wing, room ORDER BY wing, room LIMIT 30")
+    return {
+        "total_memories": total,
+        "archived": archived,
+        "archive_coverage": round(100.0 * (archived or 0) / max(total, 1), 1),
+        "tome_cards": cards,
+        "taxonomy": [{"wing": r["wing"], "room": r["room"], "count": r["n"]} for r in dist],
+    }
+
+@app.post("/api/v1/palace/archive")
+async def palace_archive(user_id: str = "default", limit: int = 500):
+    """手动触发存量归档 (幂等, 分批)"""
+    import palace
+    result = await palace.init_palace(pool)
+    # 返回本次归档数 (只数新处理的)
+    return {"classified": result["classified"], "cards": result["cards"]}
+
+@app.get("/api/v1/palace/summon")
+async def palace_summon(q: str, user_id: str = "default", top_k: int = 5):
+    """魔法点名: 档号/标签/题名 精确检索 (中药柜亮灯)"""
+    import palace
+    async with pool.acquire() as conn:
+        # ① 档号点名 (最精确)
+        rows = await conn.fetch(
+            "SELECT m.id, m.content, c.archive_no, c.title, c.wing, c.room, c.tags "
+            "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND "
+            "(c.archive_no ILIKE '%'||$2||'%' OR c.title ILIKE '%'||$2||'%' OR $2 = ANY(c.tags)) "
+            "ORDER BY m.heat_score DESC LIMIT $3",
+            user_id, q, top_k)
+    return {
+        "mode": "summon",
+        "query": q,
+        "hits": [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                  "title": r["title"], "wing": r["wing"], "room": r["room"], "tags": r["tags"]} for r in rows],
+    }
 
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
