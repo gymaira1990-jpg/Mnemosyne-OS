@@ -5,23 +5,22 @@
 
 ## 项目定位
 
-认知型记忆操作系统。AI 长期记忆宫殿。五层时间记忆树(TMT)，三馆闭环，知识图谱，端云同步。
+认知型记忆操作系统。AI 长期记忆宫殿。分类树(7翼×20房) + 档号体系 + 著录卡片 + 三通道召唤 + 事实提取，端云同步。
 
 ## 架构
 
 ```
 /opt/mnemosyne/ (GZ 生产) ← 本仓库 (唯一真相源)
-  ├── main.py          FastAPI 服务 (38路由)
+  ├── main.py          FastAPI 服务 (50+路由, 含 /palace/*)
+  ├── palace.py        🏰 宫殿核心 (分类/档号/卡片/召唤/生命周期)
   ├── core/            核心引擎 (LLM/Embedding/Chunker)
   ├── api/             REST API
-  ├── tmt/             时间记忆树 (L1-L5)
+  ├── tmt/             蒸馏引擎 (factextract 资料室)
   ├── security/        安全审计
   ├── integrations/    Hermes 集成
-  │   ├── hermes-mcp/      MCP Bridge (15 tools)
-  │   └── hermes-provider/ Memory Provider v5.3.0 (10/10 Hooks)
-  ├── skills/          Hermes 技能 (4个)
+  │   └── hermes-provider/ Memory Provider v7.0 (11 tools, palace_summon)
   ├── cron/            定时脚本
-  ├── docs/            白皮书
+  ├── docs/            白皮书 + 宫殿设计
   └── deploy/          systemd 部署
 ```
 

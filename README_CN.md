@@ -51,22 +51,25 @@ Mnemosyne OS 把记忆当作一等公民：**捕获 → 蒸馏 → 老化 → �
 每次对话结束，系统自动触发蒸馏管道：
 
 ```
-原始消息
+对话自动流经宫殿管道：
+
+```
+对话 (Hermes)
      │
-     ▼  conversation_messages (PostgreSQL, 永久存档)
+     ▼  state.db (无损原始记录, Hermes 原生)
      │
-     ▼  L1: 记忆碎片 (提取 + 1024维向量化)
+     ▼  sync_turn → session 记忆 (2000/3000字符, 接近无损)
      │
-     ├── L2: 会话摘要 (LLM 蒸馏，提取关键决策)
+     ▼  🕵️ 资料室: 事实提取 (DeepSeek) → 结构化 facts
      │
-     ├── L3: 日报 (跨会话主题提炼)
+     ▼  🏛️ 档案馆: 分类 (7翼×20房) → 档号 → 著录卡片
      │
-     ├── L4: 周报 (重复模式识别)
+     ▼  📚 图书馆: 三通道召唤 (点名 / 引导 / 共鸣)
      │
-     └── L5: 用户画像 (稳定偏好与身份特征)
+     └  🍵 中药柜: 高频 facts 保持热度
 ```
 
-每层都是 **LLM 自动生成**，不是模板填空。同一个管道处理 Agent 委托事件、记忆写入和上下文压缩。
+每一步都是 **LLM 驱动**，不是模板填空。同一个管道处理 Agent 委托事件、记忆写入和上下文压缩。
 
 ---
 
@@ -77,7 +80,7 @@ Mnemosyne OS 把记忆当作一等公民：**捕获 → 蒸馏 → 老化 → �
 | 向量搜索 (1024d HNSW) | ✅ | ✅ | ✅ |
 | 全文搜索 (BM25 + ILIKE) | ✅ | ❌ | ❌ |
 | 时间衰减评分 | ✅ 7/30/90天分层 | ❌ | ❌ |
-| 自动蒸馏 (L1→L5) | ✅ LLM管道 | ❌ | ❌ |
+| 事实提取 (对话→facts) | ✅ LLM管道 | ❌ | ✅ |
 | 知识图谱 (Cypher) | ✅ Apache AGE | ❌ | ❌ |
 | 会话历史 | ✅ state.db→PG同步 | ❌ | ❌ |
 | 端云同步 | ✅ SQLite↔PG | ❌ | ❌ |
@@ -154,7 +157,7 @@ mnemosyne_media         · session_search         · mnemosyne_tree
 **Memory Provider**（10 Hook）—— 全自动，无需手动 `remember()`：
 
 ```
-on_session_end   → 同步 + L2蒸馏        on_turn_start    → 预取
+on_session_end   → 同步 + 事实提取        on_turn_start    → 预取
 on_pre_compress  → 压缩前注入            on_delegation    → 记录子任务
 on_memory_write  → 镜像写入              on_session_switch → 刷写队列
 ```
