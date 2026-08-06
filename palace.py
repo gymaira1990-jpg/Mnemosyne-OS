@@ -35,22 +35,28 @@ CATEGORY_TO_WING = {
     "deploy": "D", "fact": "K",
 }
 
-# 房间关键词 → 房间 (从内容嗅探)
+# 房间关键词 → 房间 (从内容嗅探) — v7.0.1 扩充, 提高归类准确率
 ROOM_KEYWORDS = [
-    ("proxy", ["xray", "代理", "proxy", "2081", "clash"]),
-    ("deploy", ["部署", "deploy", "发布", "rsync", "scp"]),
-    ("secret", ["密钥", "key", "token", "保险柜", "password"]),
-    ("domain", ["域名", "domain", "dns", "解析"]),
-    ("repo", ["仓库", "repo", "github", "git"]),
-    ("cron", ["cron", "定时", "任务"]),
-    ("database", ["数据库", "postgres", "psql", "pg"]),
-    ("memory", ["记忆", "mnemosyne", "memory", "蒸馏"]),
-    ("server", ["服务器", "server", "gz", "hk", "云"]),
-    ("design", ["设计", "定妆", "海报", "形象", "brand"]),
-    ("skill", ["技能", "skill", "流程", "workflow"]),
-    ("lesson", ["坑", "教训", "pitfall", "踩过", "注意"]),
-    ("idea", ["灵感", "idea", "方向", "迭代"]),
-    ("user", ["用户", "user", "偏好", "喜欢"]),
+    ("proxy", ["xray", "代理", "proxy", "2081", "2082", "1080", "clash", "分流", "geosite"]),
+    ("deploy", ["部署", "deploy", "发布", "rsync", "scp", "systemd", "重启", "升级"]),
+    ("secret", ["密钥", "key", "token", "保险柜", "password", "pat", "凭证", "api_key"]),
+    ("domain", ["域名", "domain", "dns", "解析", "cdn"]),
+    ("repo", ["仓库", "repo", "github", "git", "commit", "push", "分支"]),
+    ("cron", ["cron", "定时", "任务", "调度", "schedule"]),
+    ("database", ["数据库", "postgres", "psql", "pg", "sqlite", "sql", "表"]),
+    ("memory", ["记忆", "mnemosyne", "memory", "蒸馏", "tmt", "宫殿", "召回", "检索"]),
+    ("server", ["服务器", "server", "gz", "hk", "云", "vps", "lighthouse", "腾讯云"]),
+    ("design", ["设计", "定妆", "海报", "形象", "brand", "立绘", "娘化"]),
+    ("skill", ["技能", "skill", "流程", "workflow", "sop"]),
+    ("lesson", ["坑", "教训", "pitfall", "踩过", "注意", "报错", "失败"]),
+    ("idea", ["灵感", "idea", "方向", "迭代", "规划", "roadmap", "设想"]),
+    ("user", ["用户", "user", "偏好", "喜欢", "主人", "想要"]),
+    ("content", ["内容", "文章", "公众号", "小红书", "文案", "视频"]),
+    ("billing", ["余额", "充值", "账单", "billing", "费用", "价格", "额度"]),
+    ("model", ["模型", "model", "llm", "deepseek", "豆包", "doubao", "ark", "prompt"]),
+    ("security", ["安全", "审计", "漏洞", "扫描", "权限", "ssh"]),
+    ("backup", ["备份", "backup", "归档", "存档"]),
+    ("workspace", ["工作区", "workspace", "箱子", "桌面", "文件"]),
 ]
 
 
@@ -267,9 +273,12 @@ async def refine_cards(pool, limit: int = 20) -> dict:
         for r in rows:
             try:
                 res = call_llm_json(refine_prompt(r["content"] or ""))
-                parsed = res.get("parsed") or json.loads(res.get("content", "{}")) if res.get("content") else {}
-                if isinstance(parsed, str):
-                    parsed = json.loads(parsed)
+                # json_mode 时 content 已是提取好的 JSON 字符串
+                raw = res.get("content", "") if isinstance(res, dict) else ""
+                if not raw:
+                    failed += 1
+                    continue
+                parsed = json.loads(raw) if isinstance(raw, str) else raw
                 if not isinstance(parsed, dict) or not parsed.get("title"):
                     failed += 1
                     continue
@@ -301,25 +310,21 @@ async def extract_facts_pipeline(pool, batch: int = 20) -> dict:
             if facts:
                 for f in facts:
                     ftype = factextract.classify_fact(f)
-                    ok = await factextract.insert_fact(pool, c["id"], c["category"] or "", f, ftype)
-                    if ok:
+                    nid = await factextract.insert_fact(pool, c["id"], c["category"] or "", f, ftype)
+                    if nid:
                         facts_created += 1
-                        # 新事实自动建档 (分类+档号+卡片)
+                        # 新事实自动建档 (分类+档号+卡片) — 直接用 insert 返回的 id, 无竞态
                         cls = classify(f, ftype)
-                        archive_no = f"F·{cls['room'].upper()}·{datetime.now().year}-{int(datetime.now().timestamp()) % 100000:05d}"
+                        archive_no = f"F·{cls['room'].upper()}·{datetime.now().year}-{nid % 100000:05d}"
                         try:
                             async with pool.acquire() as conn:
-                                nid = await conn.fetchval(
-                                    "SELECT id FROM memories WHERE user_id='default' AND is_deleted=FALSE "
-                                    "AND content=$1 ORDER BY id DESC LIMIT 1", f)
-                                if nid:
-                                    await conn.execute(
-                                        "UPDATE memories SET archive_no=$1 WHERE id=$2 AND (archive_no IS NULL OR archive_no='')",
-                                        archive_no, nid)
-                                    await conn.execute(
-                                        "INSERT INTO tome_cards (memory_id, title, summary, archive_no, wing, room, shelf, tags, retention, source_session, created_by) "
-                                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'long','', 'fact') ON CONFLICT (memory_id) DO NOTHING",
-                                        nid, f[:30], f[:120], archive_no, cls["wing"], cls["room"], cls["shelf"], [ftype])
+                                await conn.execute(
+                                    "UPDATE memories SET archive_no=$1 WHERE id=$2 AND (archive_no IS NULL OR archive_no='')",
+                                    archive_no, nid)
+                                await conn.execute(
+                                    "INSERT INTO tome_cards (memory_id, title, summary, archive_no, wing, room, shelf, tags, retention, source_session, created_by) "
+                                    "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'long','', 'fact') ON CONFLICT (memory_id) DO NOTHING",
+                                    nid, f[:30], f[:120], archive_no, cls["wing"], cls["room"], cls["shelf"], [ftype])
                         except Exception:
                             pass
             # 标记已提取 (无论有无事实)

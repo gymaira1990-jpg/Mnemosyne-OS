@@ -112,8 +112,8 @@ async def find_candidates(pool, batch: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-async def insert_fact(pool, src_id: int, src_category: str, fact: str, ftype: str) -> bool:
-    """事实入库 (preference/knowledge, 热度 0.65, 溯源)"""
+async def insert_fact(pool, src_id: int, src_category: str, fact: str, ftype: str) -> int:
+    """事实入库 (preference/knowledge, 热度 0.65, 溯源)。返回新记忆 id, 失败返回 None"""
     vec = await get_embedding(fact)
     vec_str = "[" + ",".join(str(x) for x in vec) + "]"
     metadata = json.dumps({
@@ -127,7 +127,7 @@ async def insert_fact(pool, src_id: int, src_category: str, fact: str, ftype: st
         "VALUES ('default', NULL, $1, $2, $3, $4::jsonb, $5, 1, 'L1', 'engineering') "
         "RETURNING id",
         fact, ftype, vec_str, metadata, HEAT_INIT)
-    return r is not None
+    return r["id"] if r else None
 
 
 async def run(batch: int, dry_run: bool) -> None:
