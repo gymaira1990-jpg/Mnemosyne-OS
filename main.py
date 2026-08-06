@@ -1205,23 +1205,16 @@ async def palace_archive(user_id: str = "default", limit: int = 500):
 
 @app.get("/api/v1/palace/summon")
 async def palace_summon(q: str, user_id: str = "default", top_k: int = 5):
-    """魔法点名: 档号/标签/题名 精确检索 (中药柜亮灯)"""
+    """魔法召唤: 三通道 (点名精确/引导范围/共鸣语义)"""
     import palace
-    async with pool.acquire() as conn:
-        # ① 档号点名 (最精确)
-        rows = await conn.fetch(
-            "SELECT m.id, m.content, c.archive_no, c.title, c.wing, c.room, c.tags "
-            "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
-            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND "
-            "(c.archive_no ILIKE '%'||$2||'%' OR c.title ILIKE '%'||$2||'%' OR $2 = ANY(c.tags)) "
-            "ORDER BY m.heat_score DESC LIMIT $3",
-            user_id, q, top_k)
-    return {
-        "mode": "summon",
-        "query": q,
-        "hits": [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
-                  "title": r["title"], "wing": r["wing"], "room": r["room"], "tags": r["tags"]} for r in rows],
-    }
+    result = await palace.summon(pool, q, user_id, top_k)
+    return result
+
+@app.post("/api/v1/palace/refine")
+async def palace_refine(limit: int = 20):
+    """资料室精炼: LLM 生成题名/摘要/标签"""
+    import palace
+    return await palace.refine_cards(pool, limit=limit)
 
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):

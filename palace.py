@@ -183,6 +183,107 @@ async def init_palace(pool) -> dict:
     return result
 
 
+# ── 三通道召唤 (中药柜亮灯) ──
+async def summon(pool, query: str, user_id: str = "default", top_k: int = 5) -> dict:
+    """三通道召回:
+    ① 点名(精确): 档号/题名/标签 直命中
+    ② 引导(范围): 分类树翼/房 缩小
+    ③ 共鸣(语义): 向量相似兜底
+    返回按通道分组的命中
+    """
+    result = {"query": query, "summon": [], "guide": [], "resonate": []}
+
+    # ① 点名: 档号/题名/标签 ILIKE
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT m.id, m.content, c.archive_no, c.title, c.wing, c.room, c.tags, m.heat_score "
+            "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND "
+            "(c.archive_no ILIKE '%'||$2||'%' OR c.title ILIKE '%'||$2||'%' OR $2 = ANY(c.tags) OR m.content ILIKE '%'||$2||'%') "
+            "ORDER BY m.heat_score DESC NULLS LAST LIMIT $3",
+            user_id, query, top_k)
+        result["summon"] = [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                             "title": r["title"], "wing": r["wing"], "room": r["room"],
+                             "tags": r["tags"], "heat": r["heat_score"]} for r in rows]
+
+        # ② 引导: 分类树匹配 (query 含翼/房关键词)
+        cls = classify(query, "")
+        if cls["room"] != "unfiled":
+            rows = await conn.fetch(
+                "SELECT m.id, m.content, c.archive_no, c.title, c.wing, c.room, c.tags "
+                "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+                "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND c.room=$2 "
+                "ORDER BY m.heat_score DESC NULLS LAST LIMIT $3",
+                user_id, cls["room"], top_k)
+            result["guide"] = [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                                "title": r["title"], "room": r["room"], "tags": r["tags"]} for r in rows]
+
+    # ③ 共鸣: 向量检索 (需 embedding; 失败则跳过)
+    try:
+        from core.embedding import get_embedding_async
+        vec = (await get_embedding_async([query]))[0]
+        q_str = "[" + ",".join(str(x) for x in vec) + "]"
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT m.id, m.content, c.archive_no, c.title, c.room, c.tags, (m.embedding <=> $2::vector) AS dist "
+                "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+                "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND m.embedding IS NOT NULL "
+                "ORDER BY dist LIMIT $3",
+                user_id, q_str, top_k)
+            result["resonate"] = [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                                   "title": r["title"], "room": r["room"], "tags": r["tags"],
+                                   "dist": round(float(r["dist"]), 4)} for r in rows]
+    except Exception:
+        pass
+
+    return result
+
+
+# ── 卡片精炼 (资料室: 题名/摘要/标签 生成) ──
+def refine_prompt(content: str) -> str:
+    return f"""你是记忆宫殿的图书管理员。给一条记忆生成著录卡片。
+要求:
+1. 题名: 10字以内, 概括主题 (如 "GZ xray部署")
+2. 摘要: 30字以内, 一句话要点
+3. 标签: 2-4个, 用中括号逗号分隔 (如 [GZ][xray][部署])
+
+记忆内容:
+{content[:500]}
+
+输出严格JSON: {{"title":"...","summary":"...","tags":["a","b"]}}"""
+
+
+async def refine_cards(pool, limit: int = 20) -> dict:
+    """批量精炼著录卡片 (LLM 生成题名/摘要/标签), 只处理 created_by='backfill' 的"""
+    import json
+    from core.llm import call_llm_json
+    done, failed = 0, 0
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT memory_id, title, summary, content FROM tome_cards c "
+            "JOIN memories m ON m.id = c.memory_id "
+            "WHERE c.created_by='backfill' AND m.user_id='default' AND m.is_deleted=FALSE "
+            "ORDER BY m.heat_score DESC NULLS LAST LIMIT $1", limit)
+        for r in rows:
+            try:
+                res = call_llm_json(refine_prompt(r["content"] or ""))
+                parsed = res.get("parsed") or json.loads(res.get("content", "{}")) if res.get("content") else {}
+                if isinstance(parsed, str):
+                    parsed = json.loads(parsed)
+                if not isinstance(parsed, dict) or not parsed.get("title"):
+                    failed += 1
+                    continue
+                await conn.execute(
+                    "UPDATE tome_cards SET title=$1, summary=$2, tags=$3::text[], created_by='refined' "
+                    "WHERE memory_id=$4",
+                    str(parsed["title"])[:50], str(parsed.get("summary", ""))[:200],
+                    [str(t)[:20] for t in parsed.get("tags", [])[:4]], r["memory_id"])
+                done += 1
+            except Exception:
+                failed += 1
+    return {"refined": done, "failed": failed}
+
+
 if __name__ == "__main__":
     # 自测
     tests = [
