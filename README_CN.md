@@ -84,77 +84,73 @@ Mnemosyne OS 把记忆当作一等公民：**捕获 → 蒸馏 → 老化 → �
 | 知识图谱 (Cypher) | ✅ Apache AGE | ❌ | ❌ |
 | 会话历史 | ✅ state.db→PG同步 | ❌ | ❌ |
 | 端云同步 | ✅ SQLite↔PG | ❌ | ❌ |
-| Agent原生Hook | ✅ 10个生命周期 | ❌ | 有限 |
+| Agent原生Hook | ✅ 11个工具 | ❌ | 有限 |
 
-### 🧠 五维搜索
+### 🏰 魔法记忆宫殿
 
-每次查询五维独立打分不混淆：
+记忆像真实宫殿一样组织——灵感来自图书馆分类（杜威十进）、档案著录（DA/T18）、中药柜斗谱（位置即药）。这些体系在没有电脑的年代服务人类几百年，Mnemosyne 把它们带给 AI。
 
 ```
-评分 = 0.40 × 语义向量   (1024d HNSW pgvector)
-     + 0.15 × BM25全文   (关键词匹配)
-     + 0.15 × 时间新鲜度 (7天内0.15, 30天内0.08)
-     + 0.15 × 可信度     (矛盾检测评分)
-     + 0.15 × 热度       (访问频率 × 衰减曲线)
+大厅 LOBBY   → 高频记忆（常驻注入，抬手取）
+翼   WING    → K知识 · N网络 · D开发 · O运维 · A资产 · P人物 · I灵感
+房间 ROOM    → 20 中类（proxy / deploy / secret / model / …）
+书架 SHELF   → 小类 / 主题
+书卷 TOME    → 单条知识：著录卡片 + 档号 + 全文指针
+地下档案馆    → 原始对话全保真（Hermes state.db）
 ```
 
-**纯时间排序** (`sort=created_at`) 跳过混合公式——适合"昨天聊了什么"类查询。热度轴和时间轴不再混淆。
+每条记忆获得**档号**——`K·NET·PROXY·2026-0007`——「编号即位置」，像图书馆索书号。不再把一切倒进扁平向量堆。
+
+### 🪄 三通道召唤
+
+知识招手就来——三通道各司其职：
+
+| 通道 | 机制 | 延迟 |
+|---|---|---|
+| ① **点名**（精确） | 档号/题名/标签直命中 | <100ms |
+| ② **引导**（范围） | 分类树翼/房逐层缩小 | ~200ms |
+| ③ **共鸣**（模糊） | 向量检索（pgvector HNSW） | ~300ms |
 
 ```bash
-curl -X POST :8010/api/v1/memories/search \
-  -d '{"user_id":"default","query":"PostgreSQL 优化","top_k":5}'
-
-curl "http://:8010/api/v1/memories?user_id=default&sort=created_at&limit=20&search=部署"
+# 一次调用同时走三通道
+curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 ```
 
-### 🏛️ 三馆闭环
+### 🕵️ 三室分工
 
-知识有生命周期，通过闸机流转：
+| 室 | 职责 | 实现 |
+|---|---|---|
+| 🕵️ 资料室 | 对话 → 结构化 facts | `/palace/extract` |
+| 🏛️ 档案馆 | 分类 + 著录 | `tome_cards` + 档号 |
+| 📚 图书馆 | 检索召唤 | `/palace/summon` |
+| 🍵 中药柜 | 高频快速取用 | 分类引导 + 档号点名 |
 
-```
-研究馆 → "我们在试这个方案"
-  │  (验证通过)
-工程馆 → "方案可行，坑在这里"
-  │  (实战打磨)
-档案馆 → "经过验证的真理"
-```
+对话碎片（存储占比 88% → 27%）变成 **6,231 条结构化 facts**——可检索、可分类、可引用的知识，不再是对话噪音。
 
-每条记忆带 `valid_from` / `valid_to` 时间戳。矛盾检测自动标记过时知识。
+### ⏳ 永恒分级
 
-### 🔗 知识图谱
+不是所有记忆都活到永远。生命周期衰减：
 
-实体（项目、人物、概念、工具）LLM+正则提取，Apache AGE 图存储：
+| 等级 | 衰减 | 清理 |
+|---|---|---|
+| permanent | 永不 | 规则 / 身份 / 红线 |
+| long | 0.999（极慢） | 知识 / 项目 |
+| short | 快 | 90 天后自动撤架 |
 
-```cypher
-MATCH (m:Memory)-[:MENTIONS]->(e:Entity {name: "pgvector"})
-RETURN m.content, e.name
-```
+### 💬 永久会话历史
 
-多跳遍历——问"PostgreSQL 迁移那阵子还聊了什么"，返回的是关系上下文，不是关键词匹配。
-
-### 💬 会话永久记忆
-
-Hermes `state.db` (SQLite) 在每次会话结束时同步到 PostgreSQL `conversation_messages`。完整对话交换——用户、助手、工具调用、推理——全部保留时间戳。
-
-```bash
-curl "http://:8010/api/v1/sessions?limit=20"               # 会话列表
-curl "http://:8010/api/v1/sessions/{id}/messages?limit=200"  # 聊天历史
-curl "http://:8010/api/v1/sessions/{id}/messages?before_id=500"  # 分页
-```
-
-崩溃？`/new` 按早了？消息已在 PostgreSQL。前端加载就像微信打开昨天聊天。
+Hermes `state.db`（SQLite）每次会话结束同步到 PostgreSQL。完整对话——用户、助手、工具调用、思考链——带时间戳全保真。宫殿下的地窖：原始真相，无损。
 
 ### 🔌 Agent 原生集成
 
-**MCP Bridge**（15工具）—— Hermes Agent 零配置接入：
+**Memory Provider**（11 工具）——全自动，无需手动 `remember()`：
 
 ```
-mnemosyne_search        · mnemosyne_recall       · mnemosyne_hot_memories
-mnemosyne_remember      · mnemosyne_dialectic    · mnemosyne_wiki
-mnemosyne_media         · session_search         · mnemosyne_tree
+mnemosyne_palace_summon  → 三通道召唤（魔法前台）
+mnemosyne_search         · mnemosyne_recall      · mnemosyne_hot_memories
+mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
+mnemosyne_media          · session_search        · mnemosyne_tree
 ```
-
-**Memory Provider**（10 Hook）—— 全自动，无需手动 `remember()`：
 
 ```
 on_session_end   → 同步 + 事实提取        on_turn_start    → 预取
@@ -164,7 +160,7 @@ on_memory_write  → 镜像写入              on_session_switch → 刷写队�
 
 ### ☁️ 端云双活
 
-WSL 断网？本地 SQLite 缓存。恢复后静默推回 PostgreSQL。7条 cron 任务维护：热度衰减、去重、实体提取、TMT 蒸馏、智能切块、离线同步。
+WSL 离线？本地 SQLite 缓存。恢复联网？静默推送 PostgreSQL。Cron 维护热度衰减、去重、事实提取、会话整合、离线同步。
 
 ---
 
@@ -172,8 +168,8 @@ WSL 断网？本地 SQLite 缓存。恢复后静默推回 PostgreSQL。7条 cron
 
 ```bash
 # Hermes Agent（一条命令）
-hermes mcp add mnemosyne --command python3 \
-  --args integrations/hermes-mcp/mnemosyne_mcp.py
+hermes config set memory.provider mnemosyne
+# 工具: mnemosyne_palace_summon · mnemosyne_search · mnemosyne_recall · …
 
 # 独立部署
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
@@ -189,11 +185,11 @@ python main.py  # → :8010
 |---|---|
 | 数据库 | PostgreSQL 16 + pgvector 1024d (HNSW) |
 | 图 | Apache AGE (Cypher) |
-| API | FastAPI + asyncpg · 38+ REST 端点 |
-| 搜索 | 向量 + BM25 + ILIKE + 时间 + 热度 |
-| 蒸馏 | 豆包 Seed-2.0 / DeepSeek V4 |
+| API | FastAPI + asyncpg · 50+ REST 端点（含 /palace/*） |
+| 搜索 | 三通道召唤（点名/引导/共鸣） |
+| 事实提取 | DeepSeek V4 / 豆包 ARK 双底座 |
 | 同步 | SQLite ↔ PostgreSQL |
-| Agent | MCP 15工具 + Memory Provider 10 Hook |
+| Agent | Memory Provider 11 工具（含 palace_summon） |
 
 ---
 
@@ -203,11 +199,13 @@ python main.py  # → :8010
 
 | 指标 | 数值 |
 |---|---|
-| 存储记忆 | 1,921+ 条 |
-| 会话摘要 | 1,810 条 |
-| 日报 | 111 条 |
-| 搜索延迟 | ~200ms |
+| 归档记忆 | 8,873+ 条（归档率 100%） |
+| 结构化 facts | 6,231 条（knowledge 5,230 + preference 1,001） |
+| 著录卡片 | 8,682 张 |
+| 分类树 | 7翼 × 20房（30 节点） |
+| 召唤延迟 | ~100-400ms（三通道） |
 | 向量化 | 1024d 豆包 Embedding-Vision |
+| 事实提取 | DeepSeek V4（双底座：DeepSeek + 豆包） |
 
 ---
 

@@ -12,8 +12,8 @@
 
 <p align="center">
   <i>Not a vector database. Not a RAG pipeline.<br>
-  A memory system that distills, organizes, and ages knowledge —<br>
-  across sessions, across days, across projects.</i>
+  A living memory palace that archives, refines, and summons knowledge —<br>
+  the way libraries, archives, and medicine cabinets have done for centuries.</i>
 </p>
 
 <p align="center">
@@ -83,88 +83,86 @@ Every step is **LLM-driven** — not templated. The same pipeline handles agent 
 
 | Feature | Mnemosyne | Chroma/Pinecone | Mem0 |
 |---|---|---|---|
+| 🏰 Palace taxonomy (7 wings × 20 rooms) | ✅ | ❌ | ❌ |
+| Archive-no system (number = position) | ✅ | ❌ | ❌ |
+| Tome cards (standardized description) | ✅ | ❌ | ❌ |
+| 3-channel summon (name/guide/resonate) | ✅ | ❌ | ❌ |
+| Fact extraction (dialogue→facts) | ✅ LLM pipeline | ❌ | ✅ |
 | Vector search (1024d HNSW) | ✅ | ✅ | ✅ |
 | Full-text (BM25 + ILIKE) | ✅ | ❌ | ❌ |
-| Time-decay scoring | ✅ 7/30/90d tiers | ❌ | ❌ |
-| Fact extraction (dialogue→facts) | ✅ LLM pipeline | ❌ | ✅ |
+| Retention tiers (permanent/long/short) | ✅ | ❌ | ❌ |
 | Knowledge graph (Cypher) | ✅ Apache AGE | ❌ | ❌ |
-| Conversation history | ✅ state.db → PG sync | ❌ | ❌ |
+| Conversation history (lossless) | ✅ state.db → PG | ❌ | ❌ |
 | Edge-cloud sync | ✅ SQLite ↔ PG | ❌ | ❌ |
-| Agent-native hooks | ✅ 10 lifecycle hooks | ❌ | Limited |
+| Agent-native hooks | ✅ 11 tools | ❌ | Limited |
 
-### 🧠 Five-Dimensional Search
+### 🏰 Magic Memory Palace
 
-Every query scores against five independent axes:
+Memory is organized like a real palace — inspired by library classification (Dewey Decimal), archive description standards (DA/T18), and the Chinese medicine cabinet (position registry). These systems served humanity for centuries without computers; Mnemosyne brings them to AI.
 
 ```
-score = 0.40 × semantic    (1024d HNSW pgvector)
-      + 0.15 × BM25        (full-text keyword)
-      + 0.15 × temporal    (7d=0.15, 30d=0.08, 90d=0)
-      + 0.15 × trust       (reliability from conflict detection)
-      + 0.15 × heat        (access frequency × decay curve)
+Lobby       → high-frequency memories (always-injected)
+Wing        → K knowledge · N network · D dev · O ops · A assets · P people · I ideas
+Room        → 20 mid categories (proxy / deploy / secret / model / …)
+Shelf       → sub-topic
+Tome        → individual memory: description card + archive-no + content pointer
+Vault       → raw conversations, lossless (Hermes state.db)
 ```
 
-**Time-ordered mode** (`sort=created_at`) bypasses the hybrid formula entirely — pure chronological retrieval. This separates the **time axis** (recency) from the **heat axis** (importance).
+Every memory gets an **archive number** — `K·NET·PROXY·2026-0007` — so "number = position", exactly like a library call number. No more dumping everything into a flat vector pile.
+
+### 🪄 Three-Channel Summon
+
+Knowledge comes when you call it — three channels, each with a job:
+
+| Channel | Mechanism | Latency |
+|---|---|---|
+| ① **Name** (exact) | archive-no / title / tag direct hit | <100ms |
+| ② **Guide** (range) | taxonomy wing/room narrowing | ~200ms |
+| ③ **Resonate** (fuzzy) | vector search (pgvector HNSW) | ~300ms |
 
 ```bash
-# Hybrid search — semantic understanding
-curl -X POST :8010/api/v1/memories/search \
-  -d '{"user_id":"default","query":"PostgreSQL optimization","top_k":5}'
-
-# Time-ordered — "what did we do yesterday?"
-curl "http://:8010/api/v1/memories?user_id=default&sort=created_at&limit=20&search=deploy"
+# Summon: exact + guided + fuzzy, one call
+curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 ```
 
-### 🏛️ Three-Hall Knowledge Lifecycle
+### 🕵️ Three-Chamber Division
 
-Knowledge matures through a gated lifecycle:
+| Chamber | Role | Implementation |
+|---|---|---|
+| 🕵️ Research room | dialogue → structured facts | `/palace/extract` |
+| 🏛️ Archive | classify + describe | `tome_cards` + archive-no |
+| 📚 Library | retrieval | `/palace/summon` |
+| 🍵 Medicine cabinet | high-frequency fast access | taxonomy guide + archive-no |
 
-```
-Research Hall    → "we're trying this approach"
-  │  (validated)
-Engineering Hall → "this works — here are the pitfalls"
-  │  (battle-tested)
-Archive Hall     → "this is canonical truth"
-```
+Conversation fragments (88% → 27% of storage) become **6,231 structured facts** — searchable, classifiable, referenceable knowledge instead of raw dialogue noise.
 
-Memories carry `valid_from` / `valid_to` timestamps. Conflict detection marks superseded knowledge as expired automatically.
+### ⏳ Retention Tiers
 
-### 🔗 Entity Knowledge Graph
+Not all memories live forever. Lifecycle-aware decay:
 
-Entities (projects, people, concepts, tools) are LLM-extracted and stored as an Apache AGE graph with Cypher traversal:
-
-```cypher
-MATCH (m:Memory)-[:MENTIONS]->(e:Entity {name: "pgvector"})
-RETURN m.content, e.name
-```
-
-Multi-hop queries answer "what else was discussed alongside the PostgreSQL migration?" — not just keyword matches, but relational context.
+| Tier | Decay | Cleanup |
+|---|---|---|
+| permanent | never | rules / identity / red lines |
+| long | 0.999 (very slow) | knowledge / projects |
+| short | fast | auto-removed after 90 days |
 
 ### 💬 Permanent Conversation History
 
-Hermes `state.db` (SQLite) syncs to PostgreSQL `conversation_messages` on every session end. Full exchanges — user, assistant, tool calls, reasoning — preserved with timestamps.
-
-```bash
-curl "http://:8010/api/v1/sessions?limit=20"               # session list
-curl "http://:8010/api/v1/sessions/{id}/messages?limit=200"  # chat history
-curl "http://:8010/api/v1/sessions/{id}/messages?before_id=500"  # pagination
-```
-
-Crash? `/new` too early? Messages are already in PostgreSQL. Your frontend loads them like a chat app.
+Hermes `state.db` (SQLite) syncs to PostgreSQL on every session end. Full exchanges — user, assistant, tool calls, reasoning — preserved with timestamps. The vault under the palace: raw truth, lossless.
 
 ### 🔌 Agent-Native Integration
 
-**MCP Bridge** (15 tools) — zero-config for Hermes Agent:
+**Memory Provider** (11 tools) — automatic, no manual `remember()` calls:
 
 ```
-mnemosyne_search        · mnemosyne_recall       · mnemosyne_hot_memories
-mnemosyne_remember      · mnemosyne_dialectic    · mnemosyne_wiki
-mnemosyne_media         · session_search         · mnemosyne_tree
+mnemosyne_palace_summon  → 3-channel summon (the magic front desk)
+mnemosyne_search         · mnemosyne_recall      · mnemosyne_hot_memories
+mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
+mnemosyne_media          · session_search        · mnemosyne_tree
 ```
 
-**Memory Provider** (10 hooks) — automatic, no manual `remember()` calls:
-
-```
+```text
 on_session_end   → sync + fact extraction     on_turn_start    → prefetch
 on_pre_compress  → inject before compression  on_delegation    → log subtasks
 on_memory_write  → mirror to Mnemosyne        on_session_switch → flush queue
@@ -172,7 +170,7 @@ on_memory_write  → mirror to Mnemosyne        on_session_switch → flush queu
 
 ### ☁️ Edge-Cloud Resilience
 
-WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven cron jobs maintain: heat decay, dedup, entity extraction, TMT distillation, chunk reslicing, offline sync.
+WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jobs maintain heat decay, dedup, fact extraction, session consolidation, and offline sync.
 
 ---
 
@@ -225,12 +223,14 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven c
 
 ### Hermes Agent (one command)
 
+The Mnemosyne Memory Provider ships with Hermes — tools appear after `/reset`:
+
 ```bash
-hermes mcp add mnemosyne --command python3 \
-  --args integrations/hermes-mcp/mnemosyne_mcp.py
+hermes config set memory.provider mnemosyne
+# Tools: mnemosyne_palace_summon · mnemosyne_search · mnemosyne_recall · …
 ```
 
-Tools appear after `/reset`. No other configuration needed.
+No other configuration needed.
 
 ### Standalone
 
