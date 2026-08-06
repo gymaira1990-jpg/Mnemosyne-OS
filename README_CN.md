@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.4.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.0.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -29,10 +29,11 @@
 
 | | |
 |---|---|
-| **记忆** | 1,921 条存储 · 1,810 条会话摘要 · 111 条日报 |
-| **搜索** | 五维混合（语义+BM25+时间+信任+热度）· ~200ms |
+| **记忆** | 8,647 条归档 · 6,231 条结构化事实 · 归档率 100% |
+| **搜索** | 🏰 三通道召唤（点名/引导/共鸣）· ~100-400ms |
+| **宫殿** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
 | **技术** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
-| **Agent** | Hermes MCP（15工具）· Memory Provider（10生命周期Hook） |
+| **Agent** | Hermes Memory Provider（11工具含 palace_summon）· 自动提取 |
 | **运行** | 7×24 云端 · 端云双活（SQLite ↔ PG） |
 
 ---
@@ -211,6 +212,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 魔法记忆宫殿: 分类树+档号+著录卡片+三通道召唤+资料室事实提取+永恒分级 |
 | [v6.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.4.0) | 2026-08-05 | 事实提取管道: 对话→用户事实 (preference/knowledge) |
 | [v6.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.3.0) | 2026-08-05 | 认知写入信号: 重要记忆出生即热 · 保护衰减 |
 | [v6.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.2.0) | 2026-08-05 | 认知热度引擎: 命中加热 · 差异化衰减 · 蒸馏热度 |

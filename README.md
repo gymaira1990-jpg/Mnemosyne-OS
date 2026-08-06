@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.4.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.0.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -35,10 +35,11 @@
 
 | | |
 |---|---|
-| **Memories** | 1,921 stored · 1,810 session summaries · 111 daily reports |
-| **Search** | 5D hybrid (semantic + BM25 + temporal + trust + heat) · ~200ms |
+| **Memories** | 8,647 archived · 6,231 structured facts · 100% archive coverage |
+| **Search** | 🏰 三通道召唤 (点名/引导/共鸣) · ~100-400ms |
+| **Palace** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
-| **Agent** | Hermes MCP (15 tools) · Memory Provider (10 lifecycle hooks) |
+| **Agent** | Hermes Memory Provider (11 tools incl. palace_summon) · auto-extract |
 | **Uptime** | 7×24 on modest cloud · edge-cloud sync (SQLite ↔ PG) |
 
 ---
@@ -176,31 +177,36 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven c
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                   Mnemosyne OS v6.0                    │
+│                Mnemosyne OS v7.0 魔法记忆宫殿          │
 │                                                        │
-│  FastAPI (38 endpoints)                                │
-│  ├── /api/v1/memories          CRUD + search           │
-│  ├── /api/v1/memories/search   5D hybrid + time-order  │
-│  ├── /api/v1/sessions          Conversation history    │
-│  ├── /api/v1/dialectic         Multi-hop graph         │
-│  ├── /api/v1/wiki              Knowledge base          │
-│  ├── /api/v1/tmt               Distillation pipeline   │
-│  └── /api/v1/echo              Health check            │
+│  FastAPI (50+ endpoints)                               │
+│  ├── /api/v1/palace/*        🏰 宫殿 (核心)           │
+│  │   ├── status             宫殿状态 (覆盖率/卡片)     │
+│  │   ├── summon             三通道召唤 (点名/引导/共鸣) │
+│  │   ├── archive            分类归档 (档号+卡片)       │
+│  │   ├── extract            资料室事实提取             │
+│  │   ├── refine             LLM 卡片精炼               │
+│  │   └── lifecycle          永恒分级 (永久/长期/短期)  │
+│  ├── /api/v1/memories       CRUD + search (兼容)      │
+│  ├── /api/v1/sessions       Conversation history      │
+│  ├── /api/v1/wiki           Knowledge base            │
+│  └── /api/v1/echo           Health check              │
 │                                                        │
 │  PostgreSQL 16 · pgvector 1024d (HNSW)                │
 │  Apache AGE (Cypher graph queries)                     │
 │  asyncpg connection pool                               │
 │                                                        │
-│  v6.0 Controlled Categories (10-class whitelist,       │
-│  DB CHECK enforced, write-gateway normalization)       │
+│  🏰 宫殿数据模型                                        │
+│  archive_taxonomy (分类树 7翼×20房)                    │
+│  tome_cards (著录卡片) + tome_links (相关指针)          │
+│  memories.archive_no (档号 K·NET·PROXY·2026-0007)     │
 │                                                        │
-│  TMT Pipeline (LLM-driven)                             │
-│  L1 fragments → L2 sessions → L3 daily → L4 weekly     │
-│  → L5 profile                                          │
+│  资料室管线 (LLM 双底座: DeepSeek 主/豆包辅)            │
+│  对话 → 事实提取 → 分类 → 档号 → 著录卡片               │
 │                                                        │
 │  Integrations                                          │
-│  ├── Hermes MCP Bridge (15 tools)                      │
-│  ├── Hermes Memory Provider (10 hooks)                 │
+│  ├── Hermes Memory Provider (palace_summon 等 11 工具) │
+│  ├── Hermes 自动提取 (on_session_end)                  │
 │  └── Python SDK                                        │
 └──────────────────────────────────────────────────────┘
 ```
@@ -283,6 +289,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 魔法记忆宫殿: 分类树+档号+著录卡片+三通道召唤+资料室事实提取+永恒分级 |
 | [v6.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.4.0) | 2026-08-05 | Fact extraction: dialogue → personal facts (preference/knowledge) |
 | [v6.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.3.0) | 2026-08-05 | Cognitive write signals: importance-boosted initial heat · protected decay |
 | [v6.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.2.0) | 2026-08-05 | Cognitive heat engine: hit-heating · differential decay · distill heat |
