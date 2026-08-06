@@ -355,9 +355,13 @@ async def consolidate_level(user_id: str, level: int,
         elif level == 4:
             ws = interval_start.date() if hasattr(interval_start, 'date') else interval_start
             we = interval_end.date() if hasattr(interval_end, 'date') else interval_end
+            # v6.5 幂等: 同周重复蒸馏用 DO UPDATE (原 UniqueViolation 500)
             row = await conn.fetchrow(
                 "INSERT INTO tmt_weekly (user_id, week_start, week_end, summary, embedding, "
-                "heat_score, patterns, daily_ids) VALUES ($1,$2,$3,$4,$5::vector,$6,$7,$8) RETURNING id",
+                "heat_score, patterns, daily_ids) VALUES ($1,$2,$3,$4,$5::vector,$6,$7,$8) "
+                "ON CONFLICT (user_id, week_start) DO UPDATE SET summary=EXCLUDED.summary, "
+                "embedding=EXCLUDED.embedding, patterns=EXCLUDED.patterns, "
+                "heat_score=EXCLUDED.heat_score RETURNING id",
                 user_id, ws, we, parsed.get("summary", ""), vec_str,
                 heat, json.dumps(parsed.get("patterns", [])), child_id_uuids
             )
