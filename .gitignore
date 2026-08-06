@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
 venv/
 .env
 secrets/
@@ -12,18 +13,6 @@ secrets/
 *.pem
 *.key
 
-# Models (GZ has no local models)
-models/
-bin/
-
-# Backups
-backup/
-
-# OS
-.DS_Store
-Thumbs.db
-lib/
-*.bak
 # IDE
 .vscode/
 .idea/
@@ -32,7 +21,13 @@ lib/
 .DS_Store
 Thumbs.db
 
+# Models (GZ has no local models)
+models/
+bin/
+lib/
+
 # Deploy (sensitive)
 deploy/mnemosyne.service
-__pycache__/
+
+# Hermes local plans
 .hermes/

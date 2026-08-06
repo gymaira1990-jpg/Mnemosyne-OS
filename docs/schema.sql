@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict 335tMNSU1WL4rFVR1BPhGu0N2UI6z5Kmf59MO6Vhk5uaAFaWwGlL0KMlp3VscMY
-
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 
@@ -561,6 +559,7 @@ CREATE TABLE public.memories (
     project_id_old text,
     content text NOT NULL,
     category text DEFAULT 'knowledge'::text,
+    archive_no text,
     CONSTRAINT chk_memories_category CHECK (((category)::text = ANY ((ARRAY['knowledge'::character varying, 'pitfall'::character varying, 'reference'::character varying, 'project'::character varying, 'ops'::character varying, 'deploy'::character varying, 'preference'::character varying, 'session'::character varying, 'worklog'::character varying, 'temp'::character varying])::text[]))),
     embedding public.vector(1024),
     importance double precision DEFAULT 0.5,
@@ -1705,5 +1704,41 @@ ALTER TABLE ONLY public.wiki_versions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 335tMNSU1WL4rFVR1BPhGu0N2UI6z5Kmf59MO6Vhk5uaAFaWwGlL0KMlp3VscMY
+
+
+--
+-- v7.0 魔法记忆宫殿 (palace.py 建表)
+--
+
+CREATE TABLE IF NOT EXISTS archive_taxonomy (
+    id SERIAL PRIMARY KEY,
+    wing TEXT NOT NULL,
+    room TEXT NOT NULL,
+    shelf TEXT DEFAULT '',
+    name TEXT DEFAULT '',
+    UNIQUE(wing, room, shelf)
+);
+
+CREATE TABLE IF NOT EXISTS tome_cards (
+    memory_id BIGINT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    summary TEXT DEFAULT '',
+    archive_no TEXT UNIQUE,
+    wing TEXT, room TEXT, shelf TEXT,
+    tags TEXT[] DEFAULT '{}',
+    retention TEXT DEFAULT 'long',
+    source_session TEXT DEFAULT '',
+    created_by TEXT DEFAULT 'auto',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tome_wing_room ON tome_cards(wing, room);
+CREATE INDEX IF NOT EXISTS idx_tome_tags ON tome_cards USING GIN(tags);
+
+CREATE TABLE IF NOT EXISTS tome_links (
+    id SERIAL PRIMARY KEY,
+    from_memory BIGINT REFERENCES memories(id) ON DELETE CASCADE,
+    to_memory BIGINT REFERENCES memories(id) ON DELETE CASCADE,
+    rel TEXT DEFAULT 'related',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
