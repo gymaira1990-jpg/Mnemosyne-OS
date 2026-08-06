@@ -105,7 +105,7 @@ async def extract_facts(content: str) -> tuple[list[str], str]:
 
 async def find_candidates(pool, batch: int) -> list[dict]:
     rows = await pool.fetch(
-        "SELECT id, content, category FROM memories "
+        "SELECT id, content, category FROM public.memories "
         "WHERE user_id='default' AND category IN ('session','worklog') AND is_deleted=FALSE "
         "AND metadata->>'fact_extracted' IS NULL "
         "ORDER BY created_at ASC LIMIT $1", batch)
