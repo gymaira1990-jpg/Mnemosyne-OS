@@ -27,7 +27,7 @@ except ImportError:
 TIERS = {
     1: {"model": "doubao-embedding-vision-251215", "type": "embedding", "cost_per_1k": 0.0001},
     2: {"model": DOUBAO_MINI, "type": "chat", "cost_per_1k": 0.001, "max_tokens": 500},
-    3: {"model": DOUBAO_LITE, "type": "chat", "cost_per_1k": 0.003, "max_tokens": 800},
+    3: {"model": DOUBAO_LITE, "type": "chat", "cost_per_1k": 0.003, "max_tokens": 2000},
     4: {"model": DOUBAO_CODE, "type": "chat", "cost_per_1k": 0.006, "max_tokens": 1024},
     5: {"model": "doubao-seedream-5-0-260128", "type": "image", "cost_per_image": 0.02},
 }
@@ -57,7 +57,7 @@ def _call_ark(messages: list, model: str, max_tokens: int = 500,
         data=json.dumps(payload).encode(),
         headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {ARK_API_KEY}'}
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=60) as resp:
         data = json.loads(resp.read())
         return {
             "content": data['choices'][0]['message']['content'],
@@ -89,7 +89,11 @@ def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
         return result
     
     messages = [{"role": "user", "content": prompt}]
-    fmt = {"type": "json_object"} if json_mode else None
+    # v6.5 豆包 json_object 长 prompt 400 修复:
+    # response_format=json_object + prompt>~4500字符 → 豆包返回 HTTP 400 (实测阈值)
+    # 方案: 超阈值自动降级去掉 response_format, 靠上层 parse_json_response 提取 JSON
+    JSON_FMT_SAFE_LEN = 4000
+    fmt = ({"type": "json_object"} if (json_mode and len(prompt) <= JSON_FMT_SAFE_LEN) else None)
     
     current_tier = tier
     last_error = None

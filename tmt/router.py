@@ -12,6 +12,10 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+# v6.5 时区修复: GZ 服务器为 Asia/Shanghai (+08), 本地日期必须用本地时区构造窗口,
+# 否则 daily/weekly 端点把 8/6 本地日期标成 UTC → 窗口偏移 8h → 永远 no_children
+LOCAL_TZ = timezone(timedelta(hours=8))
+
 router = APIRouter(prefix="/api/v1/tmt", tags=["tmt"])
 
 # ── 从 main 注入的全局变量 ──
@@ -185,7 +189,10 @@ def parse_json_response(text: str) -> dict:
             cleaned = re.sub(r'[^\x00-\x7F]+', '', text)
             return json.loads(cleaned)
         except:
-            return {"summary": text[:200], "key_facts": [], "decisions": [], "entities": [], "importance": 0.3}
+            # v6.5 兜底: 豆包截断 JSON 时, 提取 summary 字段片段, 剩余字段给默认值
+            m2 = re.search(r'"summary"\s*:\s*"([^"]{1,300})', text)
+            summary = m2.group(1) if m2 else re.sub(r'[*#>`\-]', ' ', text)[:200]
+            return {"summary": summary, "key_facts": [], "decisions": [], "entities": [], "importance": 0.3}
 
 async def gen_embedding(text: str) -> str:
     raw = (await embed_fn([text]))[0]
@@ -195,6 +202,13 @@ async def gen_embedding(text: str) -> str:
 def compute_parent_heat(children_heats: list) -> float:
     if not children_heats:
         return 0.5
+    # v6.5 类型防御: 字符串/None 一律归一为 float (防 JSON 解析异常污染)
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return 0.5
+    children_heats = [_f(h) for h in children_heats]
     max_h = max(children_heats)
     mean_h = sum(children_heats) / len(children_heats)
     variance = sum((h - mean_h)**2 for h in children_heats) / len(children_heats)
@@ -218,7 +232,25 @@ async def consolidate_level(user_id: str, level: int,
             )
             children = [dict(r) for r in rows]
             child_id_ints = [c["id"] for c in children]  # int IDs for memories table
-            child_texts = [f"[{c['created_at'].strftime('%H:%M')}] {c['content']}" for c in children]
+            # v6.5 输入保护: 单条截断 + 条数上限 + 总预算 (豆包上下文限制, 防 400)
+            MAX_FRAGMENTS = 80          # 最多蒸馏 80 条
+            MAX_SINGLE_LEN = 3000       # 单条截断 3000 字符
+            MAX_TOTAL_LEN = 60000       # 总预算 60K 字符
+            budget = 0
+            kept = []
+            for c in children:
+                if len(kept) >= MAX_FRAGMENTS:
+                    break
+                txt = c["content"] or ""
+                if len(txt) > MAX_SINGLE_LEN:
+                    txt = txt[:MAX_SINGLE_LEN] + "...[truncated]"
+                if budget + len(txt) + 20 > MAX_TOTAL_LEN:
+                    break
+                budget += len(txt) + 20
+                kept.append((c, txt))
+            children = [c for c, _ in kept]
+            child_id_ints = [c["id"] for c in children]
+            child_texts = [f"[{c['created_at'].strftime('%H:%M')}] {txt}" for c, txt in kept]
         elif level == 3:
             rows = await conn.fetch(
                 "SELECT id, summary, session_label, start_time, heat_score FROM tmt_sessions "
@@ -420,8 +452,9 @@ async def tmt_consolidate_daily(req: ConsolidateRequest):
         datetime.strptime(req.date, "%Y-%m-%d").date()
         if req.date else date.today()
     )
-    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    day_end = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    # v6.5: 用本地时区 (+08) 构造窗口, 不再硬标 UTC
+    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=LOCAL_TZ)
+    day_end = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=LOCAL_TZ)
     return await consolidate_level(req.user_id, 3, day_start, day_end)
 
 @router.post("/consolidate/weekly")
@@ -432,8 +465,8 @@ async def tmt_consolidate_weekly(req: ConsolidateRequest):
         today = date.today()
         ws = today - timedelta(days=today.weekday())
     we = ws + timedelta(days=6)
-    ws_dt = datetime.combine(ws, datetime.min.time()).replace(tzinfo=timezone.utc)
-    we_dt = datetime.combine(we, datetime.max.time()).replace(tzinfo=timezone.utc)
+    ws_dt = datetime.combine(ws, datetime.min.time()).replace(tzinfo=LOCAL_TZ)
+    we_dt = datetime.combine(we, datetime.max.time()).replace(tzinfo=LOCAL_TZ)
     return await consolidate_level(req.user_id, 4, ws_dt, we_dt)
 
 @router.post("/consolidate/monthly")
@@ -446,8 +479,8 @@ async def tmt_consolidate_monthly(req: ConsolidateRequest):
         period_end = date(year + 1, 1, 1) - timedelta(days=1)
     else:
         period_end = date(year, month + 1, 1) - timedelta(days=1)
-    ps_dt = datetime.combine(period_start, datetime.min.time()).replace(tzinfo=timezone.utc)
-    pe_dt = datetime.combine(period_end, datetime.max.time()).replace(tzinfo=timezone.utc)
+    ps_dt = datetime.combine(period_start, datetime.min.time()).replace(tzinfo=LOCAL_TZ)
+    pe_dt = datetime.combine(period_end, datetime.max.time()).replace(tzinfo=LOCAL_TZ)
     return await consolidate_level(req.user_id, 5, ps_dt, pe_dt)
 
 @router.post("/recall")

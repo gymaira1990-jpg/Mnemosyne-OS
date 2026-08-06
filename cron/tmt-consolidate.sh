@@ -1,6 +1,7 @@
 #!/bin/bash
 # Mnemosyne TMT 蒸馏定时任务
 # daily=每天1am, weekly=周日1:30am, monthly=1号2am
+# v6.5 修复: monthly month 用 $((10#$(date +%m))) 去前导零 (08 非法 JSON)
 
 API="http://127.0.0.1:8010"
 LOG="/var/log/tmt-consolidate.log"
@@ -22,7 +23,7 @@ case "${1:-daily}" in
     ;;
   monthly)
     Y=$(date +%Y)
-    M=$(date +%-m)   # v6.0: 去前导零 (date +%m 的 08 非法 JSON 数字 → 蒸馏报 JSON decode error)
+    M=$((10#$(date +%m)))
     log "[monthly] Starting for $Y-$M..."
     curl -s -X POST "$API/api/v1/tmt/consolidate/monthly"       -H 'Content-Type: application/json'       -d "{\"user_id\":\"default\",\"year\":$Y,\"month\":$M}" >> "$LOG" 2>&1
     log "[monthly] Done."
