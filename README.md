@@ -35,9 +35,9 @@
 
 | | |
 |---|---|
-| **Memories** | 8,647 archived · 6,231 structured facts · 100% archive coverage |
-| **Search** | 🏰 三通道召唤 (点名/引导/共鸣) · ~100-400ms |
-| **Palace** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
+| **Memories** | 8,873 archived · 6,231 structured facts · 100% archive coverage |
+| **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
+| **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
 | **Agent** | Hermes Memory Provider (11 tools incl. palace_summon) · auto-extract |
 | **Uptime** | 7×24 on modest cloud · edge-cloud sync (SQLite ↔ PG) |
@@ -177,17 +177,17 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven c
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                Mnemosyne OS v7.0 魔法记忆宫殿          │
+│            Mnemosyne OS v7.0 · Magic Memory Palace    │
 │                                                        │
 │  FastAPI (50+ endpoints)                               │
-│  ├── /api/v1/palace/*        🏰 宫殿 (核心)           │
-│  │   ├── status             宫殿状态 (覆盖率/卡片)     │
-│  │   ├── summon             三通道召唤 (点名/引导/共鸣) │
-│  │   ├── archive            分类归档 (档号+卡片)       │
-│  │   ├── extract            资料室事实提取             │
-│  │   ├── refine             LLM 卡片精炼               │
-│  │   └── lifecycle          永恒分级 (永久/长期/短期)  │
-│  ├── /api/v1/memories       CRUD + search (兼容)      │
+│  ├── /api/v1/palace/*        🏰 Palace (core)         │
+│  │   ├── status             palace state (coverage)   │
+│  │   ├── summon             3-channel (name/guide/rs)  │
+│  │   ├── archive            classify + archive-no     │
+│  │   ├── extract            fact extraction pipeline  │
+│  │   ├── refine             LLM card refinement       │
+│  │   └── lifecycle          retention tiers           │
+│  ├── /api/v1/memories       CRUD + search (legacy)    │
 │  ├── /api/v1/sessions       Conversation history      │
 │  ├── /api/v1/wiki           Knowledge base            │
 │  └── /api/v1/echo           Health check              │
@@ -196,17 +196,17 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Seven c
 │  Apache AGE (Cypher graph queries)                     │
 │  asyncpg connection pool                               │
 │                                                        │
-│  🏰 宫殿数据模型                                        │
-│  archive_taxonomy (分类树 7翼×20房)                    │
-│  tome_cards (著录卡片) + tome_links (相关指针)          │
-│  memories.archive_no (档号 K·NET·PROXY·2026-0007)     │
+│  🏰 Palace data model                                   │
+│  archive_taxonomy (7 wings × 20 rooms)                 │
+│  tome_cards (description cards) + tome_links           │
+│  memories.archive_no (K·NET·PROXY·2026-0007)          │
 │                                                        │
-│  资料室管线 (LLM 双底座: DeepSeek 主/豆包辅)            │
-│  对话 → 事实提取 → 分类 → 档号 → 著录卡片               │
+│  Fact pipeline (dual LLM: DeepSeek / Doubao)           │
+│  dialogue → facts → classify → archive-no → tome card  │
 │                                                        │
 │  Integrations                                          │
-│  ├── Hermes Memory Provider (palace_summon 等 11 工具) │
-│  ├── Hermes 自动提取 (on_session_end)                  │
+│  ├── Hermes Memory Provider (11 tools)                 │
+│  ├── Hermes auto-extract (on_session_end)              │
 │  └── Python SDK                                        │
 └──────────────────────────────────────────────────────┘
 ```
@@ -279,7 +279,10 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 | [AGENTS.md](AGENTS.md) | AI agent manual — architecture, workflow, red lines |
 | [ROADMAP.md](ROADMAP.md) | Current priorities & next steps |
 | [CHANGELOG.md](CHANGELOG.md) | Full version history |
-| [docs/WHITEPAPER_FULL.md](docs/WHITEPAPER_FULL.md) | Academic paper — architecture, security, cognitive design |
+| [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 product whitepaper — palace architecture |
+| [docs/palace-architecture.md](docs/palace-architecture.md) | Magic Memory Palace detailed design |
+| [docs/schema.sql](docs/schema.sql) | Full database schema (incl. palace tables) |
+| [docs/design/](docs/design/) | Per-version design docs (v6.2-v6.4) |
 | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Dev workflow, commit conventions |
 | [.github/SECURITY.md](.github/SECURITY.md) | Vulnerability reporting |
 
@@ -289,7 +292,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
-| [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 魔法记忆宫殿: 分类树+档号+著录卡片+三通道召唤+资料室事实提取+永恒分级 |
+| [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 Magic Memory Palace: taxonomy + archive-no + tome cards + 3-channel summon + fact extraction + retention tiers |
 | [v6.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.4.0) | 2026-08-05 | Fact extraction: dialogue → personal facts (preference/knowledge) |
 | [v6.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.3.0) | 2026-08-05 | Cognitive write signals: importance-boosted initial heat · protected decay |
 | [v6.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.2.0) | 2026-08-05 | Cognitive heat engine: hit-heating · differential decay · distill heat |

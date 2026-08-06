@@ -239,7 +239,9 @@ python main.py  # → :8010
 | [AGENTS.md](AGENTS.md) | AI Agent 手册 — 架构/流程/红线 |
 | [ROADMAP.md](ROADMAP.md) | 当前 → 下一步 |
 | [CHANGELOG.md](CHANGELOG.md) | 完整版本历史 |
-| [docs/WHITEPAPER_FULL.md](docs/WHITEPAPER_FULL.md) | 学术论文 — 架构/安全/认知设计 |
+| [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 产品白皮书 — 宫殿架构 |
+| [docs/palace-architecture.md](docs/palace-architecture.md) | 魔法记忆宫殿详细设计 |
+| [docs/schema.sql](docs/schema.sql) | 完整数据库结构（含宫殿表） |
 
 <p align="center">
   <i>「记忆不是用来存的，是用来活的。」</i><br><br>
