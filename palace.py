@@ -306,6 +306,12 @@ async def extract_facts_pipeline(pool, batch: int = 20) -> dict:
         candidates = await factextract.find_candidates(pool, batch)
         for c in candidates:
             if factextract.is_skip(c["content"] or ""):
+                # 短内容不值得提取, 但标记已处理 (防止无限 pending)
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        "UPDATE public.memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{\"fact_extracted\":true}'::jsonb "
+                        "WHERE id=$1", c["id"])
+                processed += 1
                 continue
             facts, status = await factextract.extract_facts(c["content"] or "")
             if facts:

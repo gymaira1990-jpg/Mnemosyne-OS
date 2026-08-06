@@ -108,6 +108,7 @@ async def find_candidates(pool, batch: int) -> list[dict]:
         "SELECT id, content, category FROM public.memories "
         "WHERE user_id='default' AND category IN ('session','worklog') AND is_deleted=FALSE "
         "AND metadata->>'fact_extracted' IS NULL "
+        "AND length(content) >= 80 "   # v7.0.1: 只取值得提取的长内容
         "ORDER BY created_at ASC LIMIT $1", batch)
     return [dict(r) for r in rows]
 
