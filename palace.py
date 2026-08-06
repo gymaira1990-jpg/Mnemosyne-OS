@@ -40,6 +40,7 @@ ROOM_KEYWORDS = [
     ("proxy", ["xray", "代理", "proxy", "2081", "2082", "1080", "clash", "分流", "geosite"]),
     ("deploy", ["部署", "deploy", "发布", "rsync", "scp", "systemd", "重启", "升级"]),
     ("secret", ["密钥", "key", "token", "保险柜", "password", "pat", "凭证", "api_key"]),
+    ("security", ["安全", "审计", "漏洞", "扫描", "权限", "ssh", "入侵", "加固"]),
     ("domain", ["域名", "domain", "dns", "解析", "cdn"]),
     ("repo", ["仓库", "repo", "github", "git", "commit", "push", "分支"]),
     ("cron", ["cron", "定时", "任务", "调度", "schedule"]),
@@ -54,7 +55,6 @@ ROOM_KEYWORDS = [
     ("content", ["内容", "文章", "公众号", "小红书", "文案", "视频"]),
     ("billing", ["余额", "充值", "账单", "billing", "费用", "价格", "额度"]),
     ("model", ["模型", "model", "llm", "deepseek", "豆包", "doubao", "ark", "prompt"]),
-    ("security", ["安全", "审计", "漏洞", "扫描", "权限", "ssh"]),
     ("backup", ["备份", "backup", "归档", "存档"]),
     ("workspace", ["工作区", "workspace", "箱子", "桌面", "文件"]),
 ]
