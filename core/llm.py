@@ -18,17 +18,24 @@ from typing import Dict, Optional, List
 
 # 兼容导入
 try:
-    from .config import ARK_API_KEY, ARK_BASE, DOUBAO_MINI, DOUBAO_LITE, DOUBAO_CODE, TMT_MAX_RETRIES
+    from .config import (ARK_API_KEY, ARK_BASE, DOUBAO_MINI, DOUBAO_LITE, DOUBAO_CODE,
+                         DEEPSEEK_PRO, DEEPSEEK_FLASH, TMT_MAX_RETRIES)
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from config import ARK_API_KEY, ARK_BASE, DOUBAO_MINI, DOUBAO_LITE, DOUBAO_CODE, TMT_MAX_RETRIES
+    from config import (ARK_API_KEY, ARK_BASE, DOUBAO_MINI, DOUBAO_LITE, DOUBAO_CODE,
+                        DEEPSEEK_PRO, DEEPSEEK_FLASH, TMT_MAX_RETRIES)
+
+# v6.5 双底座: DeepSeek 主 (蒸馏/审计), 豆包 辅 (mini 快速分类)
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_BASE = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
 
 # ── 模型梯队定义 ──
 TIERS = {
     1: {"model": "doubao-embedding-vision-251215", "type": "embedding", "cost_per_1k": 0.0001},
     2: {"model": DOUBAO_MINI, "type": "chat", "cost_per_1k": 0.001, "max_tokens": 500},
-    3: {"model": DOUBAO_LITE, "type": "chat", "cost_per_1k": 0.003, "max_tokens": 2000},
-    4: {"model": DOUBAO_CODE, "type": "chat", "cost_per_1k": 0.006, "max_tokens": 1024},
+    # v6.5: Tier 3 蒸馏主力切 DeepSeek (豆包 json_object 长 prompt 400, DeepSeek 60K 正常+快)
+    3: {"model": DEEPSEEK_FLASH, "type": "chat", "cost_per_1k": 0.003, "max_tokens": 2000, "provider": "deepseek"},
+    4: {"model": DEEPSEEK_PRO, "type": "chat", "cost_per_1k": 0.015, "max_tokens": 2048, "provider": "deepseek"},
     5: {"model": "doubao-seedream-5-0-260128", "type": "image", "cost_per_image": 0.02},
 }
 
@@ -42,7 +49,17 @@ MAX_CACHE = 500
 
 
 def _call_ark(messages: list, model: str, max_tokens: int = 500,
-              response_format: Optional[dict] = None, temperature: float = 0.3) -> dict:
+              response_format: Optional[dict] = None, temperature: float = 0.3,
+              provider: Optional[str] = None) -> dict:
+    # v6.5 双底座路由: provider=deepseek → DeepSeek API, 默认 → 豆包 ARK
+    if provider == "deepseek":
+        api_key = DEEPSEEK_API_KEY
+        base = DEEPSEEK_BASE
+        if not api_key:
+            raise RuntimeError("DEEPSEEK_API_KEY 未配置")
+    else:
+        api_key = ARK_API_KEY
+        base = ARK_BASE
     payload = {
         "model": model,
         "messages": messages,
@@ -51,11 +68,14 @@ def _call_ark(messages: list, model: str, max_tokens: int = 500,
     }
     if response_format:
         payload["response_format"] = response_format
-    
+    if provider == "deepseek":
+        # DeepSeek V4 关闭思考链 (蒸馏场景不需要), 加快响应
+        payload["thinking"] = {"type": "disabled"}
+
     req = urllib.request.Request(
-        f"{ARK_BASE}/chat/completions",
+        f"{base}/chat/completions",
         data=json.dumps(payload).encode(),
-        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {ARK_API_KEY}'}
+        headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'}
     )
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = json.loads(resp.read())
@@ -105,7 +125,8 @@ def call_llm(prompt: str, tier: int = 3, json_mode: bool = False,
             t0 = time.time()
             result = _call_ark(messages, tinfo["model"], 
                               tinfo.get("max_tokens", 800), 
-                              response_format=fmt, temperature=temperature)
+                              response_format=fmt, temperature=temperature,
+                              provider=tinfo.get("provider"))
             elapsed = time.time() - t0
             
             # JSON 验证
