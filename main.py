@@ -1216,6 +1216,12 @@ async def palace_refine(limit: int = 20):
     import palace
     return await palace.refine_cards(pool, limit=limit)
 
+@app.post("/api/v1/palace/extract")
+async def palace_extract(batch: int = 20):
+    """资料室事实提取: 对话→facts→自动建档 (幂等)"""
+    import palace
+    return await palace.extract_facts_pipeline(pool, batch=batch)
+
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
     r_q = (await get_embedding([query]))[0]

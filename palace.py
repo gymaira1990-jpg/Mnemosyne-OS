@@ -284,6 +284,55 @@ async def refine_cards(pool, limit: int = 20) -> dict:
     return {"refined": done, "failed": failed}
 
 
+# ── 资料室: 事实提取管道 (对话→facts→建档) ──
+async def extract_facts_pipeline(pool, batch: int = 20) -> dict:
+    """从 session/worklog 提取事实 → 入 memories(preference/knowledge) → 自动建档
+    复用 tmt/factextract.py 逻辑, 幂等 (metadata fact_extracted 标记)
+    """
+    from tmt import factextract
+    from tmt.distill import get_pool  # noqa: F401 (确保环境)
+    processed, facts_created = 0, 0
+    try:
+        candidates = await factextract.find_candidates(pool, batch)
+        for c in candidates:
+            if factextract.is_skip(c["content"] or ""):
+                continue
+            facts, status = await factextract.extract_facts(c["content"] or "")
+            if facts:
+                for f in facts:
+                    ftype = factextract.classify_fact(f)
+                    ok = await factextract.insert_fact(pool, c["id"], c["category"] or "", f, ftype)
+                    if ok:
+                        facts_created += 1
+                        # 新事实自动建档 (分类+档号+卡片)
+                        cls = classify(f, ftype)
+                        archive_no = f"F·{cls['room'].upper()}·{datetime.now().year}-{int(datetime.now().timestamp()) % 100000:05d}"
+                        try:
+                            async with pool.acquire() as conn:
+                                nid = await conn.fetchval(
+                                    "SELECT id FROM memories WHERE user_id='default' AND is_deleted=FALSE "
+                                    "AND content=$1 ORDER BY id DESC LIMIT 1", f)
+                                if nid:
+                                    await conn.execute(
+                                        "UPDATE memories SET archive_no=$1 WHERE id=$2 AND (archive_no IS NULL OR archive_no='')",
+                                        archive_no, nid)
+                                    await conn.execute(
+                                        "INSERT INTO tome_cards (memory_id, title, summary, archive_no, wing, room, shelf, tags, retention, source_session, created_by) "
+                                        "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'long','', 'fact') ON CONFLICT (memory_id) DO NOTHING",
+                                        nid, f[:30], f[:120], archive_no, cls["wing"], cls["room"], cls["shelf"], [ftype])
+                        except Exception:
+                            pass
+            # 标记已提取 (无论有无事实)
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{\"fact_extracted\":true}'::jsonb "
+                    "WHERE id=$1", c["id"])
+            processed += 1
+    except Exception as e:
+        return {"processed": processed, "facts_created": facts_created, "error": str(e)[:200]}
+    return {"processed": processed, "facts_created": facts_created}
+
+
 if __name__ == "__main__":
     # 自测
     tests = [
