@@ -333,6 +333,41 @@ async def extract_facts_pipeline(pool, batch: int = 20) -> dict:
     return {"processed": processed, "facts_created": facts_created}
 
 
+# ── 永恒分级生命周期 ──
+RETENTION_RULES = {
+    "permanent": {"decay": 0.0, "keep_days": None},   # 永久: 不衰减, 不清理
+    "long":      {"decay": 0.999, "keep_days": None},  # 长期: 极慢衰减, 不自动清
+    "short":     {"decay": 0.98, "keep_days": 90},     # 短期: 快衰减, 90天自动撤架
+}
+
+async def apply_lifecycle(pool, user_id: str = "default") -> dict:
+    """永恒分级: 按保管期限调整热度 + 短期过期自动软删
+    返回: {expired: N, degraded: N}
+    """
+    import json
+    expired, degraded = 0, 0
+    async with pool.acquire() as conn:
+        # 1. 短期: 超过 keep_days 自动软删 (撤架)
+        rows = await conn.fetch(
+            "SELECT c.memory_id, m.created_at FROM tome_cards c "
+            "JOIN memories m ON m.id = c.memory_id "
+            "WHERE c.retention='short' AND m.user_id=$1 AND m.is_deleted=FALSE",
+            user_id)
+        for r in rows:
+            if r["created_at"] and (datetime.now() - r["created_at"]).days > RETENTION_RULES["short"]["keep_days"]:
+                await conn.execute(
+                    "UPDATE memories SET is_deleted=TRUE, forgotten_at=NOW() WHERE id=$1", r["memory_id"])
+                expired += 1
+        # 2. 永久/长期: 热度保护 (permanent 不衰减, 已由 decay=0 表达; 这里给永久卷热度下限)
+        await conn.execute(
+            "UPDATE memories SET heat_score = GREATEST(heat_score, 0.8) "
+            "WHERE id IN (SELECT memory_id FROM tome_cards WHERE retention='permanent') "
+            "AND user_id=$1 AND is_deleted=FALSE", user_id)
+        degraded = await conn.fetchval(
+            "SELECT count(*) FROM tome_cards WHERE retention='permanent'")
+    return {"expired": expired, "permanent_protected": degraded}
+
+
 if __name__ == "__main__":
     # 自测
     tests = [

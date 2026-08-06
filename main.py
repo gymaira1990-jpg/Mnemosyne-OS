@@ -1222,6 +1222,22 @@ async def palace_extract(batch: int = 20):
     import palace
     return await palace.extract_facts_pipeline(pool, batch=batch)
 
+@app.post("/api/v1/palace/lifecycle")
+async def palace_lifecycle():
+    """永恒分级: 短期过期撤架 + 永久卷热度保护"""
+    import palace
+    return await palace.apply_lifecycle(pool)
+
+@app.post("/api/v1/palace/pin")
+async def palace_pin(memory_id: int, retention: str = "permanent"):
+    """把某条记忆钉为永久卷 (规则/红线/身份类)"""
+    if retention not in ("permanent", "long", "short"):
+        raise HTTPException(status_code=400, detail="retention must be permanent/long/short")
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE tome_cards SET retention=$1 WHERE memory_id=$2", retention, memory_id)
+    return {"memory_id": memory_id, "retention": retention}
+
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
     r_q = (await get_embedding([query]))[0]
