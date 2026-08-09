@@ -691,6 +691,9 @@ async def search_memories(req: MemorySearch):
             "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW(), "
             "heat_score = LEAST(1.0, heat_score + $2), "
             "retrieval_strength = GREATEST(retrieval_strength, storage_strength), "
+            "mention_count = mention_count + 1, "
+            "last_mention = NOW(), "
+            "storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)), "
             "metadata = COALESCE(metadata,'{}'::jsonb) || "
             "jsonb_build_object('repetition', COALESCE((metadata->>'repetition')::int, 0) + 1, 'last_access_ts', EXTRACT(EPOCH FROM NOW())::int) "
             "WHERE user_id = $1 AND id = ANY($3::bigint[]) AND is_deleted = FALSE",
@@ -1517,6 +1520,45 @@ async def reflect(user_id: str, mode: str = "light"):
             WHERE user_id = $1 AND is_deleted = FALSE
               AND COALESCE(metadata->>'forget_candidate','false') = 'true'
               AND COALESCE(metadata->>'pinned','false') != 'true'
+        """, user_id)
+        # 2.7 综合 Rank (v7.3 整理优化): 从遗忘转向动态整理
+        #    Rank = 0.3S + 0.3R + 0.2ln(mention+1)/ln(1001)*10 + 0.2heat*10
+        #    抽屉按 Rank 分档: hot前10% / normal 10-30% / cool 30-70% / frozen 70%+
+        await conn.execute("""
+            WITH ranked AS (
+              SELECT id,
+                ROUND((0.3*storage_strength + 0.3*retrieval_strength +
+                       0.2*10.0*(LN(mention_count+1)/LN(1001)) +
+                       0.2*heat_score*10)::numeric, 4) AS rank_score
+              FROM memories WHERE user_id=$1 AND is_deleted=FALSE
+            ),
+            percentile AS (
+              SELECT id, rank_score,
+                PERCENT_RANK() OVER (ORDER BY rank_score DESC) AS pr
+              FROM ranked
+            )
+            UPDATE memories m SET
+              rank_score = p.rank_score,
+              temp_drawer = CASE
+                WHEN p.pr <= 0.10 THEN 'hot'
+                WHEN p.pr <= 0.30 THEN 'normal'
+                WHEN p.pr <= 0.70 THEN 'cool'
+                ELSE 'frozen'
+              END
+            FROM percentile p WHERE m.id = p.id
+        """, user_id)
+        # 更新快速指针表 (upsert)
+        await conn.execute("""
+            INSERT INTO memory_pointer (memory_id, rank_score, palace_path, archive_no, mention_count, last_mention)
+            SELECT m.id, m.rank_score, NULL, m.archive_no, m.mention_count, COALESCE(m.last_mention, m.last_accessed, m.created_at)
+            FROM memories m
+            WHERE m.user_id=$1 AND m.is_deleted=FALSE
+            ON CONFLICT (memory_id) DO UPDATE SET
+              rank_score = EXCLUDED.rank_score,
+              archive_no = EXCLUDED.archive_no,
+              mention_count = EXCLUDED.mention_count,
+              last_mention = EXCLUDED.last_mention,
+              updated_at = NOW()
         """, user_id)
         # 3. 深度模式: 实体提取
         if mode == "deep":
