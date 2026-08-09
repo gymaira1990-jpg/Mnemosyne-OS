@@ -753,9 +753,12 @@ async def search_memories(req: MemorySearch):
     temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
     
     async with pool.acquire() as conn:
+        # v7.3 区域化检索: 先在高 Rank 区(hot+normal)检索 → 不足再全库 (frozen 默认排除)
+        region_filter = "AND m.temp_drawer IN ('hot','normal','cool') "
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
+            + region_filter +
             "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
@@ -764,6 +767,21 @@ async def search_memories(req: MemorySearch):
             "LIMIT $3",
             req.user_id, q_str, req.top_k
         )
+        if len(rows) < req.top_k:
+            # 兜底: 全库 (含 frozen) — 区域不足时扩展
+            fallback = await conn.fetch(
+                "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
+                "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
+                "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
+                "  + 0.15 * (" + bm25_sql + ") "
+                "  + 0.15 * (" + temporal_sql + ") "
+                "  + 0.15 * m.reliability "
+                "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
+                "LIMIT $3",
+                req.user_id, q_str, req.top_k
+            )
+            seen = {r["id"] for r in rows}
+            rows = list(rows) + [r for r in fallback if r["id"] not in seen][:req.top_k - len(rows)]
         if rows:  # v6.2: 命中加热
             await heat_hits(conn, [r["id"] for r in rows[:5]])
     
