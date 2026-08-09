@@ -673,6 +673,7 @@ class MemorySearch(BaseModel):
     category_filter: Optional[str] = None
     tier_filter: Optional[str] = None
     sort: str = "hybrid"  # hybrid (default), created_at — time-ordered search
+    include_frozen: bool = False  # v7.3: 是否包含 frozen 区 (默认排除, 区域化检索)
 
 @app.post("/api/v1/memories/search")
 async def search_memories(req: MemorySearch):
@@ -754,7 +755,8 @@ async def search_memories(req: MemorySearch):
     
     async with pool.acquire() as conn:
         # v7.3 区域化检索: 先在高 Rank 区(hot+normal)检索 → 不足再全库 (frozen 默认排除)
-        region_filter = "AND m.temp_drawer IN ('hot','normal','cool') "
+        # v7.3 评审修复: include_frozen 可选开关 (用户要搜冷记忆时可开)
+        region_filter = "AND m.temp_drawer IN ('hot','normal','cool') " if not req.include_frozen else ""
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
@@ -940,6 +942,8 @@ async def delete_memory(memory_id: int, user_id: str):
             "UPDATE memories SET is_deleted = TRUE, forgotten_at = NOW() WHERE id = $1 AND user_id = $2",
             memory_id, user_id
         )
+        # v7.3 评审修复: 删除时同步清理指针 (防 stale)
+        await conn.execute("DELETE FROM memory_pointer WHERE memory_id = $1", memory_id)
         await clean_age_relations(conn, memory_id)
     return {"status": "soft-deleted"}
 
@@ -1035,6 +1039,22 @@ async def update_memory(memory_id: int, user_id: str, update: MemoryUpdate):
                 )
             except Exception:
                 pass
+
+        # v7.3 评审修复: 更新后同步指针 (rank/mention/archive_no 变化)
+        try:
+            await conn.execute("""
+                INSERT INTO memory_pointer (memory_id, rank_score, archive_no, mention_count, last_mention)
+                SELECT m.id, m.rank_score, m.archive_no, m.mention_count, COALESCE(m.last_mention, m.last_accessed, m.created_at)
+                FROM memories m WHERE m.id = $1
+                ON CONFLICT (memory_id) DO UPDATE SET
+                  rank_score = EXCLUDED.rank_score,
+                  archive_no = EXCLUDED.archive_no,
+                  mention_count = EXCLUDED.mention_count,
+                  last_mention = EXCLUDED.last_mention,
+                  updated_at = NOW()
+            """, memory_id)
+        except Exception:
+            pass
 
     return {"status": "updated", "memory_id": memory_id}
 
@@ -1151,18 +1171,27 @@ async def scan_mentions(user_id: str, body: MentionScan):
                     matched_ids.append(r["id"])
                     if len(matched_ids) >= body.top_k:
                         break
-        # 2. 触发提及
+        # 2. 触发提及 — v7.3 评审修复: 熔断 (单日单记忆自动提及≤2, 防误触发Rank虚高)
         if matched_ids:
-            await conn.execute("""
-                UPDATE memories SET
-                  mention_count = mention_count + 1,
-                  last_mention = NOW(),
-                  retrieval_strength = GREATEST(retrieval_strength, storage_strength),
-                  storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)),
-                  heat_score = LEAST(1.0, heat_score + 0.03),
-                  updated_at = NOW()
-                WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE
+            allowed = await conn.fetch("""
+                SELECT id FROM memories
+                WHERE user_id = $1 AND id = ANY($2::bigint[])
+                  AND COALESCE(metadata->>'auto_mention_today','0')::int < 2
             """, user_id, matched_ids)
+            allowed_ids = [r["id"] for r in allowed]
+            if allowed_ids:
+                await conn.execute("""
+                    UPDATE memories SET
+                      mention_count = mention_count + 1,
+                      last_mention = NOW(),
+                      retrieval_strength = GREATEST(retrieval_strength, storage_strength),
+                      storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)),
+                      heat_score = LEAST(1.0, heat_score + 0.03),
+                      metadata = COALESCE(metadata,'{}'::jsonb) ||
+                        jsonb_build_object('auto_mention_today', COALESCE((metadata->>'auto_mention_today')::int, 0) + 1),
+                      updated_at = NOW()
+                    WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE
+                """, user_id, allowed_ids)
     return {"mentions": matched_ids, "count": len(matched_ids)}
 
 # ── 抽屉 API (v7.1 抽屉化: 分布/遗忘候选/手动遗忘) ──
@@ -1562,7 +1591,7 @@ async def reflect(user_id: str, mode: str = "light"):
                         WHEN last_accessed < NOW() - INTERVAL '7 days' THEN 0.02
                         ELSE 0.01
                     END
-                ) WHERE user_id = $1 AND is_deleted = FALSE
+                ) WHERE user_id = $1 AND is_deleted = FALSE AND heat_score > 0.02
             """, user_id)
             # 访问加权 (近期高频访问+0.05)
             await conn.execute("""
@@ -1599,15 +1628,7 @@ async def reflect(user_id: str, mode: str = "light"):
         # 2.5 双抽屉流转 (v7.1 抽屉化: 温度抽屉 × 时间抽屉)
         # 温度: hot≥0.7 / normal 0.3-0.7 / cool 0.1-0.3 / frozen<0.1 (与 tier L1-L4 对齐但独立维度)
         # 时间: recent<30d / mid 30-90d / long≥90d (基于 last_accessed)
-        await conn.execute("""
-            UPDATE memories SET temp_drawer = CASE
-                WHEN heat_score >= 0.7 THEN 'hot'
-                WHEN heat_score >= 0.3 THEN 'normal'
-                WHEN heat_score >= 0.1 THEN 'cool'
-                ELSE 'frozen'
-            END
-            WHERE user_id = $1 AND is_deleted = FALSE
-        """, user_id)
+        # v7.3: temp_drawer 已由 Rank 百分位段统一设置, 此处删除旧 heat 规则 (避免全表白写)
         await conn.execute("""
             UPDATE memories SET time_drawer = CASE
                 WHEN COALESCE(last_accessed, created_at) > NOW() - INTERVAL '30 days' THEN 'recent'
@@ -1615,6 +1636,12 @@ async def reflect(user_id: str, mode: str = "light"):
                 ELSE 'long'
             END
             WHERE user_id = $1 AND is_deleted = FALSE
+              AND time_drawer IS DISTINCT FROM (
+                CASE
+                  WHEN COALESCE(last_accessed, created_at) > NOW() - INTERVAL '30 days' THEN 'recent'
+                  WHEN COALESCE(last_accessed, created_at) > NOW() - INTERVAL '90 days' THEN 'mid'
+                  ELSE 'long'
+                END)
         """, user_id)
         # 2.6 Bjork S/R 分离 (v7.2): 存储强度S不衰减 / 检索强度R指数衰减(半衰期30天)
         #    R = R0 * 0.5^(天数/30), 下限1; 访问后重置 R=S; pin 兜底 R≥5
@@ -1638,6 +1665,7 @@ async def reflect(user_id: str, mode: str = "light"):
                   END
                 WHERE user_id = $1 AND is_deleted = FALSE
                   AND COALESCE(metadata->>'use_sr','true') = 'true'
+                  AND retrieval_strength > 1.05
             """, user_id)
         else:
             # 主人不在: 仅保留「近期访问重置」, 不做时间衰减; 清除暂停标记由回归时处理
@@ -1687,13 +1715,45 @@ async def reflect(user_id: str, mode: str = "light"):
                 ELSE 'frozen'
               END
             FROM percentile p WHERE m.id = p.id
+              AND m.rank_score IS DISTINCT FROM p.rank_score
         """, user_id)
-        # 更新快速指针表 (upsert)
+        # v7.3 评审修复: 每周日强制全量同步抽屉 (清除抖动缓冲边界滞留)
+        today = datetime.now(timezone.utc)
+        if today.weekday() == 6:  # Sunday
+            await conn.execute("""
+                WITH ranked AS (
+                  SELECT id,
+                    ROUND((0.3*storage_strength + 0.3*retrieval_strength +
+                           0.2*10.0*(LN(mention_count+1)/LN(1001)) +
+                           0.2*heat_score*10)::numeric, 4) AS rank_score
+                  FROM memories WHERE user_id=$1 AND is_deleted=FALSE
+                ),
+                percentile AS (
+                  SELECT id, rank_score,
+                    PERCENT_RANK() OVER (ORDER BY rank_score DESC) AS pr
+                  FROM ranked
+                )
+                UPDATE memories m SET
+                  rank_score = p.rank_score,
+                  temp_drawer = CASE
+                    WHEN p.pr <= 0.10 THEN 'hot'
+                    WHEN p.pr <= 0.30 THEN 'normal'
+                    WHEN p.pr <= 0.70 THEN 'cool'
+                    ELSE 'frozen'
+                  END,
+                  metadata = COALESCE(metadata,'{}'::jsonb) - 'auto_mention_today'
+                FROM percentile p WHERE m.id = p.id
+            """, user_id)
+        # 更新快速指针表 (upsert) — 优化: 只在 rank/mention 变化时写, 减少全量写
         await conn.execute("""
             INSERT INTO memory_pointer (memory_id, rank_score, palace_path, archive_no, mention_count, last_mention)
             SELECT m.id, m.rank_score, NULL, m.archive_no, m.mention_count, COALESCE(m.last_mention, m.last_accessed, m.created_at)
             FROM memories m
+            LEFT JOIN memory_pointer p ON p.memory_id = m.id
             WHERE m.user_id=$1 AND m.is_deleted=FALSE
+              AND (p.memory_id IS NULL
+                   OR p.rank_score IS DISTINCT FROM m.rank_score
+                   OR p.mention_count IS DISTINCT FROM m.mention_count)
             ON CONFLICT (memory_id) DO UPDATE SET
               rank_score = EXCLUDED.rank_score,
               archive_no = EXCLUDED.archive_no,
