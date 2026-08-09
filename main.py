@@ -16,7 +16,7 @@ import asyncpg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os, sys, json, uuid, math, re, time, difflib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import logging
 logger = logging.getLogger("mnemosyne")
@@ -1397,27 +1397,52 @@ async def evolve_belief(belief_id: int, user_id: str, new_confidence: float = No
 @app.post("/api/v1/reflect")
 async def reflect(user_id: str, mode: str = "light"):
     async with pool.acquire() as conn:
+        # 0. 用户活跃感知 (v7.2 遗忘节流): 最近7天有写入/访问 = 活跃
+        #    主人不在场时暂停衰减 — 记忆陪主人等, 不独自变冷 (用户红线: 旅游回来全变冷)
+        last_active = await conn.fetchval("""
+            SELECT GREATEST(MAX(created_at), MAX(last_accessed)) FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE
+        """, user_id)
+        user_active = last_active is not None and last_active >= datetime.now(timezone.utc) - timedelta(days=7)
+        absence_days = (datetime.now(timezone.utc) - last_active).days if (last_active is not None and not user_active) else 0
         # 1. 热度v2: 多维衰减
         # 时间衰减 (最后一次访问越久越冷); v6.3: 保护衰减 — pinned/preference 几乎不衰减
-        await conn.execute("""
-            UPDATE memories SET heat_score = GREATEST(0.0, heat_score -
-                CASE
-                    WHEN metadata->>'pinned' = 'true' OR category = 'preference' THEN 0.005
-                    WHEN last_accessed IS NULL THEN 0.02
-                    WHEN last_accessed < NOW() - INTERVAL '90 days' THEN 0.08
-                    WHEN last_accessed < NOW() - INTERVAL '30 days' THEN 0.04
-                    WHEN last_accessed < NOW() - INTERVAL '7 days' THEN 0.02
-                    ELSE 0.01
-                END
-            ) WHERE user_id = $1 AND is_deleted = FALSE
-        """, user_id)
-        # 访问加权 (近期高频访问+0.05)
-        await conn.execute("""
-            UPDATE memories SET heat_score = LEAST(1.0, heat_score + 0.05)
-            WHERE user_id = $1 AND is_deleted = FALSE AND access_count >= 5
-              AND last_accessed > NOW() - INTERVAL '7 days'
-        """, user_id)
-        # 矛盾记忆加速衰减
+        # v7.2: 用户不活跃时暂停全部衰减 (只标记 pause 透明)
+        if user_active:
+            await conn.execute("""
+                UPDATE memories SET heat_score = GREATEST(0.0, heat_score -
+                    CASE
+                        WHEN metadata->>'pinned' = 'true' OR category = 'preference' THEN 0.005
+                        WHEN last_accessed IS NULL THEN 0.02
+                        WHEN last_accessed < NOW() - INTERVAL '90 days' THEN 0.08
+                        WHEN last_accessed < NOW() - INTERVAL '30 days' THEN 0.04
+                        WHEN last_accessed < NOW() - INTERVAL '7 days' THEN 0.02
+                        ELSE 0.01
+                    END
+                ) WHERE user_id = $1 AND is_deleted = FALSE
+            """, user_id)
+            # 访问加权 (近期高频访问+0.05)
+            await conn.execute("""
+                UPDATE memories SET heat_score = LEAST(1.0, heat_score + 0.05)
+                WHERE user_id = $1 AND is_deleted = FALSE AND access_count >= 5
+                  AND last_accessed > NOW() - INTERVAL '7 days'
+            """, user_id)
+        else:
+            # 主人不在: 不衰减, 打暂停标记 (透明, 恢复时清除)
+            await conn.execute("""
+                UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) ||
+                  ('{"paused_absence":true,"paused_days":' || $2::text || '}')::jsonb
+                WHERE user_id = $1 AND is_deleted = FALSE
+            """, user_id, absence_days)
+            # 回归检测: 若之前有暂停标记但现在活跃了, 清除 (下次活跃轮触发)
+        # 活跃回归: 清除暂停标记 (用户回来了, 记忆恢复独立衰减)
+        if user_active:
+            await conn.execute("""
+                UPDATE memories SET metadata = metadata - 'paused_absence' - 'paused_days'
+                WHERE user_id = $1 AND is_deleted = FALSE
+                  AND metadata ? 'paused_absence'
+            """, user_id)
+        # 矛盾记忆加速衰减 (始终运行 — 矛盾是数据质量问题, 不因主人不在而保留)
         await conn.execute("""
             UPDATE memories SET heat_score = GREATEST(0.0, heat_score - 0.1)
             WHERE user_id = $1 AND is_deleted = FALSE AND invalid_at IS NOT NULL
@@ -1451,24 +1476,33 @@ async def reflect(user_id: str, mode: str = "light"):
         # 2.6 Bjork S/R 分离 (v7.2): 存储强度S不衰减 / 检索强度R指数衰减(半衰期30天)
         #    R = R0 * 0.5^(天数/30), 下限1; 访问后重置 R=S; pin 兜底 R≥5
         #    回退开关: metadata->>'use_sr' = 'false' 则跳过 (保留纯 heat 模式)
-        await conn.execute("""
-            UPDATE memories SET
-              retrieval_strength = GREATEST(1.0,
-                CASE
-                  WHEN COALESCE(metadata->>'pinned','false') = 'true' THEN GREATEST(5.0, retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at)))/86400.0)/30.0))
-                  WHEN last_accessed IS NOT NULL AND last_accessed >= NOW() - INTERVAL '7 days'
-                    THEN GREATEST(storage_strength, retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - last_accessed))/86400.0)/30.0))
-                  ELSE retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at)))/86400.0)/30.0)
-                END),
-              temp_drawer = CASE
-                WHEN storage_strength >= 7 AND retrieval_strength >= 5 THEN 'hot'
-                WHEN storage_strength >= 5 OR retrieval_strength >= 3 THEN 'normal'
-                WHEN storage_strength >= 3 THEN 'cool'
-                ELSE 'frozen'
-              END
-            WHERE user_id = $1 AND is_deleted = FALSE
-              AND COALESCE(metadata->>'use_sr','true') = 'true'
-        """, user_id)
+        #    v7.2 节流: 用户不活跃(user_active=False)时 R 不衰减 (只保留访问重置), 抽屉保持
+        if user_active:
+            await conn.execute("""
+                UPDATE memories SET
+                  retrieval_strength = GREATEST(1.0,
+                    CASE
+                      WHEN COALESCE(metadata->>'pinned','false') = 'true' THEN GREATEST(5.0, retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at)))/86400.0)/30.0))
+                      WHEN last_accessed IS NOT NULL AND last_accessed >= NOW() - INTERVAL '7 days'
+                        THEN GREATEST(storage_strength, retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - last_accessed))/86400.0)/30.0))
+                      ELSE retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at)))/86400.0)/30.0)
+                    END),
+                  temp_drawer = CASE
+                    WHEN storage_strength >= 7 AND retrieval_strength >= 5 THEN 'hot'
+                    WHEN storage_strength >= 5 OR retrieval_strength >= 3 THEN 'normal'
+                    WHEN storage_strength >= 3 THEN 'cool'
+                    ELSE 'frozen'
+                  END
+                WHERE user_id = $1 AND is_deleted = FALSE
+                  AND COALESCE(metadata->>'use_sr','true') = 'true'
+            """, user_id)
+        else:
+            # 主人不在: 仅保留「近期访问重置」, 不做时间衰减; 清除暂停标记由回归时处理
+            await conn.execute("""
+                UPDATE memories SET retrieval_strength = GREATEST(retrieval_strength, storage_strength)
+                WHERE user_id = $1 AND is_deleted = FALSE
+                  AND last_accessed IS NOT NULL AND last_accessed >= NOW() - INTERVAL '7 days'
+            """, user_id)
         # 遗忘候选标记: frozen + long + 非pin + 非preference → forget_candidate=true (不物理删, 等30天宽限或用户确认)
         await conn.execute("""
             UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{"forget_candidate":true}'::jsonb
