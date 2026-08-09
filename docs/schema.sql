@@ -583,6 +583,12 @@ CREATE TABLE public.memories (
     hall character varying(16) DEFAULT 'research'::character varying,
     parent_memory_id bigint,
     verification_status character varying(16) DEFAULT 'pending'::character varying,
+    temp_drawer character varying(10) DEFAULT 'normal'::character varying,
+    time_drawer character varying(10) DEFAULT 'recent'::character varying,
+    dedup_fingerprint character varying(64),
+    full_content_archived text,
+    CONSTRAINT chk_temp_drawer CHECK (((temp_drawer)::text = ANY ((ARRAY['hot'::character varying, 'normal'::character varying, 'cool'::character varying, 'frozen'::character varying])::text[]))),
+    CONSTRAINT chk_time_drawer CHECK (((time_drawer)::text = ANY ((ARRAY['recent'::character varying, 'mid'::character varying, 'long'::character varying])::text[]))),
     CONSTRAINT chk_hall CHECK (((hall)::text = ANY ((ARRAY['research'::character varying, 'engineering'::character varying, 'archive'::character varying])::text[]))),
     CONSTRAINT chk_verification CHECK (((verification_status)::text = ANY ((ARRAY['pending'::character varying, 'passed'::character varying, 'failed'::character varying])::text[])))
 );

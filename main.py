@@ -1179,6 +1179,7 @@ async def authorize_action(user_id: str, body: AuthorizeAction | None = None,
 
         if action == "compress":
             # 压缩备份: 原文入 full_content_archived, 内容截为摘要前缀
+            # ⚠️ 截断后必须重算 embedding, 否则向量=全文, 检索返回不匹配摘要
             await conn.execute("""
                 UPDATE memories SET
                   full_content_archived = content,
@@ -1187,6 +1188,18 @@ async def authorize_action(user_id: str, body: AuthorizeAction | None = None,
                   updated_at = NOW()
                 WHERE user_id = $1 AND id = ANY($2::bigint[])
             """, user_id, ids)
+            # 重算被压缩记忆的 embedding (摘要版)
+            comp_rows = await conn.fetch(
+                "SELECT id, content FROM memories WHERE user_id=$1 AND id = ANY($2::bigint[]) AND is_deleted=FALSE",
+                user_id, ids)
+            for cr in comp_rows:
+                try:
+                    emb = await get_embedding([cr["content"]])
+                    await conn.execute(
+                        "UPDATE memories SET embedding = $1::vector WHERE id = $2",
+                        emb[0], cr["id"])
+                except Exception:
+                    pass  # 向量失败不阻塞压缩
             return {"status": "compressed", "action": "compress", "processed": len(ids)}
 
         if action in ("delete", "soft_delete"):
@@ -1471,7 +1484,7 @@ async def root():
 async def capabilities():
     return {
         "service": "Mnemosyne OS v6.4.0",
-        "version": "7.0.0",
+        "version": "7.1.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1508,7 +1521,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.0.0"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.1.0"}
 
 # ── v7.0 魔法记忆宫殿 API ──
 @app.get("/api/v1/palace/status")
