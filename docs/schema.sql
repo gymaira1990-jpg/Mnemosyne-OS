@@ -514,6 +514,21 @@ ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
 -- Name: media_memories; Type: TABLE; Schema: public; Owner: -
 --
 
+CREATE TABLE public.memory_pointer (
+    memory_id bigint NOT NULL PRIMARY KEY REFERENCES public.memories(id) ON DELETE CASCADE,
+    rank_score numeric DEFAULT 0,
+    palace_path text,
+    archive_no text,
+    mention_count integer DEFAULT 0,
+    last_mention timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE INDEX idx_pointer_rank ON public.memory_pointer (rank_score DESC);
+CREATE INDEX idx_pointer_palace ON public.memory_pointer (palace_path);
+CREATE INDEX idx_pointer_archive ON public.memory_pointer (archive_no);
+
 CREATE TABLE public.media_memories (
     id bigint NOT NULL,
     user_id text NOT NULL,
@@ -589,6 +604,9 @@ CREATE TABLE public.memories (
     full_content_archived text,
     storage_strength double precision DEFAULT 3,
     retrieval_strength double precision DEFAULT 3,
+    mention_count integer DEFAULT 0,
+    last_mention timestamp with time zone,
+    rank_score numeric DEFAULT 0,
     CONSTRAINT chk_temp_drawer CHECK (((temp_drawer)::text = ANY ((ARRAY['hot'::character varying, 'normal'::character varying, 'cool'::character varying, 'frozen'::character varying])::text[]))),
     CONSTRAINT chk_time_drawer CHECK (((time_drawer)::text = ANY ((ARRAY['recent'::character varying, 'mid'::character varying, 'long'::character varying])::text[]))),
     CONSTRAINT chk_hall CHECK (((hall)::text = ANY ((ARRAY['research'::character varying, 'engineering'::character varying, 'archive'::character varying])::text[]))),

@@ -1,5 +1,28 @@
 # Changelog
 
+## v7.3.0 (2026-08-09) — 🧠 综合算法 + 高效检索 (从遗忘转向整理优化)
+
+**核心理念**: 记忆不该强调遗忘, 该强调整理优化。提及即升级, 检索分区域, 指针快速定位。用户转向: 时间久远但总被提及→升级; 降级后被多次提起→再升级 (双向动态)。
+
+### 🧠 综合记忆强度 Rank
+- **Rank = 0.3S + 0.3R + 0.2ln(mention+1) + 0.2heat** (多维融合, 权重可配)
+- **双向动态**: 提及→mention+1→R回弹→累计5次S+1 (降级可回弹)
+- 提及信号: 显式(搜索/召唤命中) + 隐式(对话实体匹配, 阈值>0.85)
+- 抽屉改 Rank 百分位分档: hot前10% / normal 10-30% / cool 30-70% / frozen 70%+
+
+### ⚡ 快速全盘指针
+- **memory_pointer 表**: 全库 1/10 体积, B树索引 <10ms
+- `GET /pointers/top` (Rank topN, 可选分区) / `GET /pointers/search` (指针级检索)
+- `POST /pointers/trigger-mention` (对话提及钩子)
+
+### 🗂️ 区域化检索
+- 混合搜索默认限定 hot/normal/cool (frozen 排除), 不足才全库兜底
+- Type A 档号哈希 O(1) / Type B 分区指针 / Type C 全库向量兜底
+
+### 🧪 测试
+- test_rank_v73.py 13 项 (Rank公式/S升级/抽屉分档)
+- 全量 pytest 148 passed
+
 ## v7.2.0 (2026-08-09) — 🧠 Bjork S/R 分离 + GZ 调优
 
 **核心理念**: 遗忘 ≠ 丢失。存储强度 S 不衰减(信息永远在), 检索强度 R 衰减(访问性下降可恢复)。访问重置 R=S + S 微增(间隔重复效应)。网络调研: Bjork New Theory of Disuse + FSRS/Anki 间隔重复。
