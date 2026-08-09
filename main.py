@@ -1276,8 +1276,8 @@ async def reflect(user_id: str, mode: str = "light"):
         """, user_id)
         await conn.execute("""
             UPDATE memories SET time_drawer = CASE
-                WHEN last_accessed IS NULL OR last_accessed >= NOW() - INTERVAL '30 days' THEN 'recent'
-                WHEN last_accessed >= NOW() - INTERVAL '90 days' THEN 'mid'
+                WHEN COALESCE(last_accessed, created_at) >= NOW() - INTERVAL '30 days' THEN 'recent'
+                WHEN COALESCE(last_accessed, created_at) >= NOW() - INTERVAL '90 days' THEN 'mid'
                 ELSE 'long'
             END
             WHERE user_id = $1 AND is_deleted = FALSE

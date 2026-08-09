@@ -1,5 +1,29 @@
 # Changelog
 
+## v7.1.0 (2026-08-09) — 🗄️ 抽屉化记忆 (双轨制)
+
+**核心理念**: 遗忘是检索质量干预,不是存储问题。温度抽屉(热/常温/冷却/冻结) × 时间抽屉(近期/中期/远期) 双轨制,热度轴+时间轴+特殊标记自动化遗忘。用户启发: 抽屉化记忆(热度/常温/冷藏 × 近期/中期/远期) + 压缩去噪/去重/蒸馏合并; 理论根基: Bjork 双强度理论(存储强度不衰减,检索强度衰减) + Mem0 四遗忘策略 + SCM 睡眠整合记忆。
+
+### 🗄️ 双抽屉字段 (migration v7.1)
+- **temp_drawer**: hot(≥0.7) / normal(0.3-0.7) / cool(0.1-0.3) / frozen(<0.1)
+- **time_drawer**: recent(<30d) / mid(30-90d) / long(≥90d), 基于 COALESCE(last_accessed, created_at)
+- CHECK 约束 + 局部索引 + 存量回填 (热75/常温1984/冷却5247/冻结2048)
+
+### 🧠 reflect 增强
+- 双抽屉随 reflect 自动流转 (每4h light / 每日 deep)
+- **遗忘候选标记**: frozen+long+非pin+非preference → forget_candidate=true
+- 遗忘候选每轮额外降温 -0.03 (加速沉降, 对应 Mem0 salience 思路)
+
+### ✏️ 更新端点 (补齐记忆修改权)
+- `PUT /api/v1/memories/{id}`: 修改 content/category/importance/heat_score/metadata/pin
+- `PATCH`: 部分更新别名; content 变更自动重算向量+重分类+记 trace
+- pin=true 强制 heat≥0.5 (钉卷至少回常温)
+
+### 📊 抽屉 API
+- `GET /drawers/status`: 双抽屉分布 + 遗忘候选数 + 钉卷数
+- `GET /drawers/forget-candidates`: 列出遗忘候选
+- `POST /drawers/forget`: 手动遗忘 (留统计指纹, 软删可恢复)
+
 ## v7.0.0 (2026-08-06) — 🏰 魔法记忆宫殿
 
 **核心理念**: 记忆宫殿法空间编码(翼/房间/书架/书卷) + 档案学著录(档号) + 三室分工(资料室精炼/档案馆存档/图书馆检索/中药柜召唤)。

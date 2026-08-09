@@ -32,8 +32,8 @@ UPDATE public.memories SET temp_drawer = CASE
 WHERE is_deleted = FALSE;
 
 UPDATE public.memories SET time_drawer = CASE
-    WHEN last_accessed IS NULL OR last_accessed >= NOW() - INTERVAL '30 days' THEN 'recent'
-    WHEN last_accessed >= NOW() - INTERVAL '90 days' THEN 'mid'
+    WHEN COALESCE(last_accessed, created_at) >= NOW() - INTERVAL '30 days' THEN 'recent'
+    WHEN COALESCE(last_accessed, created_at) >= NOW() - INTERVAL '90 days' THEN 'mid'
     ELSE 'long'
   END
 WHERE is_deleted = FALSE;
