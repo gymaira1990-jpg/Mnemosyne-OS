@@ -485,8 +485,11 @@ async def delete_media(media_id: int, user_id: str = "default"):
         return {"status": "deleted", "id": media_id, "affected": int(deleted)}
 
 async def init_age_connection(conn):
-    """每个新连接加载 AGE 扩展"""
-    await conn.execute("LOAD 'age'")
+    """每个新连接加载 AGE 扩展; 环境无 AGE 时优雅降级 (生产必装, 本地开发可缺)"""
+    try:
+        await conn.execute("LOAD 'age'")
+    except Exception:
+        pass
 
 @app.on_event("startup")
 async def startup():
