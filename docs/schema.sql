@@ -587,6 +587,8 @@ CREATE TABLE public.memories (
     time_drawer character varying(10) DEFAULT 'recent'::character varying,
     dedup_fingerprint character varying(64),
     full_content_archived text,
+    storage_strength double precision DEFAULT 3,
+    retrieval_strength double precision DEFAULT 3,
     CONSTRAINT chk_temp_drawer CHECK (((temp_drawer)::text = ANY ((ARRAY['hot'::character varying, 'normal'::character varying, 'cool'::character varying, 'frozen'::character varying])::text[]))),
     CONSTRAINT chk_time_drawer CHECK (((time_drawer)::text = ANY ((ARRAY['recent'::character varying, 'mid'::character varying, 'long'::character varying])::text[]))),
     CONSTRAINT chk_hall CHECK (((hall)::text = ANY ((ARRAY['research'::character varying, 'engineering'::character varying, 'archive'::character varying])::text[]))),

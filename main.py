@@ -682,7 +682,8 @@ async def search_memories(req: MemorySearch):
             return
         await conn.execute(
             "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW(), "
-            "heat_score = LEAST(1.0, heat_score + $2) "
+            "heat_score = LEAST(1.0, heat_score + $2), "
+            "retrieval_strength = GREATEST(retrieval_strength, storage_strength) "
             "WHERE user_id = $1 AND id = ANY($3::bigint[]) AND is_deleted = FALSE",
             req.user_id, delta, ids,
         )
@@ -1438,6 +1439,27 @@ async def reflect(user_id: str, mode: str = "light"):
             END
             WHERE user_id = $1 AND is_deleted = FALSE
         """, user_id)
+        # 2.6 Bjork S/R 分离 (v7.2): 存储强度S不衰减 / 检索强度R指数衰减(半衰期30天)
+        #    R = R0 * 0.5^(天数/30), 下限1; 访问后重置 R=S; pin 兜底 R≥5
+        #    回退开关: metadata->>'use_sr' = 'false' 则跳过 (保留纯 heat 模式)
+        await conn.execute("""
+            UPDATE memories SET
+              retrieval_strength = GREATEST(1.0,
+                CASE
+                  WHEN COALESCE(metadata->>'pinned','false') = 'true' THEN GREATEST(5.0, retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at)))/86400.0)/30.0))
+                  WHEN last_accessed IS NOT NULL AND last_accessed >= NOW() - INTERVAL '7 days'
+                    THEN GREATEST(storage_strength, retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - last_accessed))/86400.0)/30.0))
+                  ELSE retrieval_strength * POW(0.5, (EXTRACT(EPOCH FROM (NOW() - COALESCE(last_accessed, created_at)))/86400.0)/30.0)
+                END),
+              temp_drawer = CASE
+                WHEN storage_strength >= 7 AND retrieval_strength >= 5 THEN 'hot'
+                WHEN storage_strength >= 5 OR retrieval_strength >= 3 THEN 'normal'
+                WHEN storage_strength >= 3 THEN 'cool'
+                ELSE 'frozen'
+              END
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND COALESCE(metadata->>'use_sr','true') = 'true'
+        """, user_id)
         # 遗忘候选标记: frozen + long + 非pin + 非preference → forget_candidate=true (不物理删, 等30天宽限或用户确认)
         await conn.execute("""
             UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{"forget_candidate":true}'::jsonb
@@ -1500,7 +1522,7 @@ async def root():
 async def capabilities():
     return {
         "service": "Mnemosyne OS v6.4.0",
-        "version": "7.1.0",
+        "version": "7.2.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1537,7 +1559,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.1.0"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.2.0"}
 
 # ── v7.0 魔法记忆宫殿 API ──
 @app.get("/api/v1/palace/status")
@@ -1889,4 +1911,4 @@ async def list_sessions(user_id: str = "default", limit: int = 20):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8010, workers=2, log_level="info")
+    uvicorn.run("main:app", host="127.0.0.1", port=8010, workers=4, log_level="info")
