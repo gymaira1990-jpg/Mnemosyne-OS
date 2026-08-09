@@ -1025,6 +1025,80 @@ async def patch_memory(memory_id: int, user_id: str, update: MemoryUpdate):
     """PATCH 别名: 与 PUT 相同语义 (部分更新)。"""
     return await update_memory(memory_id, user_id, update)
 
+# ── 指针 API (v7.3 综合算法: 快速全盘指针 + 提及触发) ──
+@app.get("/api/v1/pointers/top")
+async def pointers_top(user_id: str, top_n: int = 50, palace_path: str | None = None):
+    """快速全盘指针: 按 Rank 取 topN (区域化检索第一层)。
+    palace_path 可选: 限定宫殿分区 (如 'K/proxy')。"""
+    async with pool.acquire() as conn:
+        if palace_path:
+            rows = await conn.fetch("""
+                SELECT p.memory_id, p.rank_score, p.archive_no, p.mention_count,
+                       LEFT(m.content, 80) AS preview, m.category, m.temp_drawer
+                FROM memory_pointer p JOIN memories m ON m.id = p.memory_id
+                WHERE m.user_id = $1 AND m.is_deleted = FALSE
+                  AND p.palace_path LIKE $2 || '%'
+                ORDER BY p.rank_score DESC LIMIT $3
+            """, user_id, palace_path, top_n)
+        else:
+            rows = await conn.fetch("""
+                SELECT p.memory_id, p.rank_score, p.archive_no, p.mention_count,
+                       LEFT(m.content, 80) AS preview, m.category, m.temp_drawer
+                FROM memory_pointer p JOIN memories m ON m.id = p.memory_id
+                WHERE m.user_id = $1 AND m.is_deleted = FALSE
+                ORDER BY p.rank_score DESC LIMIT $2
+            """, user_id, top_n)
+    return {"pointers": [dict(r) for r in rows], "count": len(rows)}
+
+@app.get("/api/v1/pointers/search")
+async def pointers_search(user_id: str, q: str, limit: int = 20):
+    """指针级检索: 只扫指针表(1/10体积), 先出候选再拉全文。
+    区域化检索第二层 — 不触发全库向量扫描。"""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT p.memory_id, p.rank_score, p.archive_no, p.mention_count,
+                   m.content, m.category, m.temp_drawer, m.storage_strength, m.retrieval_strength
+            FROM memory_pointer p JOIN memories m ON m.id = p.memory_id
+            WHERE m.user_id = $1 AND m.is_deleted = FALSE
+              AND (m.content ILIKE '%' || $2 || '%' OR p.archive_no ILIKE '%' || $2 || '%')
+            ORDER BY p.rank_score DESC LIMIT $3
+        """, user_id, q, limit)
+    return {"pointers": [dict(r) for r in rows], "count": len(rows)}
+
+class MentionTrigger(BaseModel):
+    memory_ids: list[int]
+
+@app.post("/api/v1/pointers/trigger-mention")
+async def trigger_mention(user_id: str, body: MentionTrigger | None = None, memory_ids: list[int] | None = None):
+    """触发提及: 对话中提到某记忆 → mention+1 + R回弹 + 累计5次S+1。
+    供 Hermes 对话流钩子调用 (显式提及)。"""
+    ids = body.memory_ids if body is not None else memory_ids
+    if not ids:
+        return {"status": "nothing", "processed": 0}
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE memories SET
+              mention_count = mention_count + 1,
+              last_mention = NOW(),
+              last_accessed = NOW(),
+              access_count = access_count + 1,
+              retrieval_strength = GREATEST(retrieval_strength, storage_strength),
+              storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)),
+              heat_score = LEAST(1.0, heat_score + 0.03),
+              updated_at = NOW()
+            WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE
+        """, user_id, ids)
+        await conn.execute("""
+            INSERT INTO memory_pointer (memory_id, rank_score, mention_count, last_mention)
+            SELECT m.id, m.rank_score, m.mention_count, m.last_mention
+            FROM memories m WHERE m.user_id=$1 AND m.id = ANY($2::bigint[]) AND m.is_deleted=FALSE
+            ON CONFLICT (memory_id) DO UPDATE SET
+              mention_count = EXCLUDED.mention_count,
+              last_mention = EXCLUDED.last_mention,
+              updated_at = NOW()
+        """, user_id, ids)
+    return {"status": "mentioned", "processed": len(ids)}
+
 # ── 抽屉 API (v7.1 抽屉化: 分布/遗忘候选/手动遗忘) ──
 # v7.1 空间感知: 水位检查 (预警/授权 用)
 async def _storage_usage() -> dict:
