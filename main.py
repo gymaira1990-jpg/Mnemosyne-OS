@@ -1165,7 +1165,7 @@ async def authorize_action(user_id: str, body: AuthorizeAction | None = None,
                 "count": len(cands), "candidates": cands[:20],
                 "hint": "确认后调用 POST /drawers/authorize action=delete|soft_delete|compress + ids"}
 
-    # 执行类动作
+    # 执行类动作 — 安全护栏: 拦截对重要记忆的操作 (pin/高热度/preference)
     async with pool.acquire() as conn:
         if all_candidates:
             rows = await conn.fetch("""
@@ -1176,6 +1176,22 @@ async def authorize_action(user_id: str, body: AuthorizeAction | None = None,
             ids = [r["id"] for r in rows]
         if not ids:
             return {"status": "nothing", "action": action, "processed": 0}
+
+        if action in ("delete", "soft_delete", "compress"):
+            # 校验: 受保护记忆 (pin/preference/高热度) 不允许被授权动作处理
+            protected = await conn.fetch("""
+                SELECT id FROM memories
+                WHERE user_id = $1 AND id = ANY($2::bigint[])
+                  AND (COALESCE(metadata->>'pinned','false') = 'true'
+                       OR category = 'preference'
+                       OR heat_score >= 0.7)
+            """, user_id, ids)
+            if protected:
+                pids = [r["id"] for r in protected]
+                return {"status": "blocked_protected",
+                        "message": "以下记忆受保护(pin/偏好/高热度), 不允许此操作",
+                        "protected_ids": pids,
+                        "hint": "如需处理请先取消保护 (PUT /memories/{id} pin=false 或降低热度)"}
 
         if action == "compress":
             # 压缩备份: 原文入 full_content_archived, 内容截为摘要前缀

@@ -21,6 +21,8 @@ ALTER TABLE public.memories ADD CONSTRAINT chk_time_drawer
 CREATE INDEX IF NOT EXISTS idx_memories_temp_drawer ON public.memories (temp_drawer) WHERE is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_memories_time_drawer ON public.memories (time_drawer) WHERE is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_memories_forget_candidate ON public.memories ((metadata->>'forget_candidate')) WHERE is_deleted = FALSE;
+-- v7.1 评审补: 联合索引 (高频抽屉查询: 状态/遗忘候选统计)
+CREATE INDEX IF NOT EXISTS idx_memories_drawers_join ON public.memories (temp_drawer, time_drawer) WHERE is_deleted = FALSE;
 
 -- 4. 存量初始化: 按当前 heat_score + last_accessed 回填抽屉 (跑一次, 之后由 reflect 维护)
 UPDATE public.memories SET temp_drawer = CASE
