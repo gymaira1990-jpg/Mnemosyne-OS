@@ -647,11 +647,18 @@ async def create_memory(mem: MemoryCreate):
             meta["conflict_type"] = "superseded"
         # 正常存入（含valid_from）；v6.0: 原始碎片 tmt_level=1，tier 由 reflect 维护
         # v6.3: 写入 heat_score = 认知写入信号 (初始热度)
+        # v7.2: 初始 S 由写入信号映射 (heat_init≥0.7→7 / ≥0.6→5 / 其他→3), R=S; 4维标记进 metadata
+        s_init = 7 if heat_init >= 0.7 else (5 if heat_init >= 0.6 else 3)
+        meta_extra = dict(locals().get("meta", mem.metadata)) if isinstance(locals().get("meta", mem.metadata), dict) else {}
+        meta_extra.setdefault("novelty", 1)        # 新内容
+        meta_extra.setdefault("valence", 0)        # 中性
+        meta_extra.setdefault("relevance", 0)      # 待任务绑定
+        meta_extra.setdefault("repetition", 0)     # 访问次数 (与 access_count 联动)
         row = await conn.fetchrow(
-            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score) '
-            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8) RETURNING id',
+            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score, storage_strength, retrieval_strength) '
+            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8,$9,$10) RETURNING id',
             uid, mem.project_id, mem.content, cat, vec_str,
-            json.dumps(locals().get("meta", mem.metadata)), mem.session_id, heat_init
+            json.dumps(meta_extra), mem.session_id, heat_init, s_init, s_init
         )
         mid = row["id"]
         if mem.entities:
@@ -683,7 +690,9 @@ async def search_memories(req: MemorySearch):
         await conn.execute(
             "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW(), "
             "heat_score = LEAST(1.0, heat_score + $2), "
-            "retrieval_strength = GREATEST(retrieval_strength, storage_strength) "
+            "retrieval_strength = GREATEST(retrieval_strength, storage_strength), "
+            "metadata = COALESCE(metadata,'{}'::jsonb) || "
+            "jsonb_build_object('repetition', COALESCE((metadata->>'repetition')::int, 0) + 1, 'last_access_ts', EXTRACT(EPOCH FROM NOW())::int) "
             "WHERE user_id = $1 AND id = ANY($3::bigint[]) AND is_deleted = FALSE",
             req.user_id, delta, ids,
         )
