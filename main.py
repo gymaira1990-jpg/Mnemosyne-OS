@@ -1013,9 +1013,50 @@ async def patch_memory(memory_id: int, user_id: str, update: MemoryUpdate):
     return await update_memory(memory_id, user_id, update)
 
 # ── 抽屉 API (v7.1 抽屉化: 分布/遗忘候选/手动遗忘) ──
+# v7.1 空间感知: 水位检查 (预警/授权 用)
+async def _storage_usage() -> dict:
+    """计算记忆系统存储水位: 基于 memories 内容总字节 vs 磁盘/库容量。"""
+    try:
+        async with pool.acquire() as conn:
+            content_bytes = await conn.fetchval(
+                "SELECT COALESCE(SUM(LENGTH(content)), 0)::bigint FROM memories WHERE is_deleted = FALSE"
+            )
+            deleted_bytes = await conn.fetchval(
+                "SELECT COALESCE(SUM(LENGTH(content)), 0)::bigint FROM memories WHERE is_deleted = TRUE"
+            )
+            db_size = await conn.fetchval("SELECT pg_database_size(current_database())")
+            db_cap = await conn.fetchval("SHOW data_directory") and None  # 占位, 用磁盘
+    except Exception:
+        content_bytes, deleted_bytes, db_size = 0, 0, 0
+    # 磁盘总容量/已用 (只读 / 文件系统)
+    disk_total = disk_used = 0
+    try:
+        import shutil
+        du = shutil.disk_usage("/")
+        disk_total, disk_used = du.total, du.used
+    except Exception:
+        pass
+    ratio = (disk_used / disk_total * 100) if disk_total else 0
+    level = "low"
+    if ratio >= 90:
+        level = "critical"
+    elif ratio >= 70:
+        level = "warning"
+    return {
+        "disk_used_gb": round(disk_used / 1024**3, 1),
+        "disk_total_gb": round(disk_total / 1024**3, 1),
+        "disk_usage_pct": round(ratio, 1),
+        "memory_content_mb": round((content_bytes or 0) / 1024**2, 2),
+        "deleted_content_mb": round((deleted_bytes or 0) / 1024**2, 2),
+        "db_size_mb": round((db_size or 0) / 1024**2, 1),
+        "level": level,
+        "message": "空间充足" if level == "low" else ("⚠️ 警戒水位" if level == "warning" else "🚨 高水位"),
+    }
+
+
 @app.get("/api/v1/drawers/status")
 async def drawers_status(user_id: str):
-    """双抽屉分布 + 遗忘候选概览 (周报/盘点用)。"""
+    """双抽屉分布 + 遗忘候选概览 + 存储水位 (周报/盘点用)。"""
     async with pool.acquire() as conn:
         temp = await conn.fetch("""
             SELECT temp_drawer, COUNT(*) AS cnt FROM memories
@@ -1030,16 +1071,24 @@ async def drawers_status(user_id: str):
             WHERE user_id = $1 AND is_deleted = FALSE
               AND COALESCE(metadata->>'forget_candidate','false') = 'true'
         """, user_id)
+        garbage = await conn.fetchrow("""
+            SELECT COUNT(*) AS cnt FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND COALESCE(metadata->>'is_garbage','false') = 'true'
+        """, user_id)
         pinned = await conn.fetchrow("""
             SELECT COUNT(*) AS cnt FROM memories
             WHERE user_id = $1 AND is_deleted = FALSE
               AND COALESCE(metadata->>'pinned','false') = 'true'
         """, user_id)
+    storage = await _storage_usage()
     return {
         "temp_drawers": {r["temp_drawer"]: r["cnt"] for r in temp},
         "time_drawers": {r["time_drawer"]: r["cnt"] for r in time_d},
         "forget_candidates": forget["cnt"],
+        "garbage_marked": garbage["cnt"],
         "pinned": pinned["cnt"],
+        "storage": storage,
     }
 
 @app.get("/api/v1/drawers/forget-candidates")
@@ -1058,7 +1107,65 @@ async def forget_candidates(user_id: str, limit: int = 20):
 
 @app.post("/api/v1/drawers/forget")
 async def forget_memories(user_id: str, ids: list[int] | None = None, all_candidates: bool = False):
-    """手动遗忘: 软删指定记忆 (或全部遗忘候选)。留统计指纹。"""
+    """[兼容] 手动遗忘: 软删指定记忆 (或全部遗忘候选)。留统计指纹。= authorize soft_delete"""
+    return await authorize_action(user_id, "soft_delete", ids, all_candidates)
+
+
+# v7.1 空间感知: 授权动作 — 关键遗忘/空间不足 不自动执行, 必须人工授权
+class AuthorizeAction(BaseModel):
+    action: str                                   # delete / recommend / expand / soft_delete / compress
+    ids: list[int] | None = None                  # 指定记忆 (recommend 可省略, 返回候选)
+    all_candidates: bool = False                  # 是否覆盖全部遗忘候选
+
+
+@app.post("/api/v1/drawers/authorize")
+async def authorize_action(user_id: str, body: AuthorizeAction | None = None,
+                           action: str | None = None):
+    """授权动作: 用户在空间预警/关键遗忘时手动拍板。
+    - delete      彻底删除 (软删 + 指纹, 物理清理交给 cleanup)
+    - soft_delete 伪删除 (is_deleted=true, 可恢复)
+    - compress    压缩备份 (全文入 full_content_archived, 只留摘要)
+    - expand      记录扩容提示 (不删任何记忆)
+    - recommend   返回推荐候选列表 (综合分排序, 不执行)
+    """
+    # 兼容: body JSON 或 query action 两种传法
+    ids = None
+    all_candidates = False
+    if body is not None:
+        action = action or body.action
+        ids = body.ids
+        all_candidates = body.all_candidates
+    if action == "expand":
+        return {"status": "expand_hint",
+                "message": "请扩容存储 (当前水位见 /drawers/status); 未删除任何记忆",
+                "action": "expand"}
+
+    if action == "recommend":
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, LEFT(content, 120) AS preview, category, heat_score, access_count,
+                       LENGTH(content) AS content_len,
+                       COALESCE(metadata->>'forget_candidate','false') AS is_candidate,
+                       COALESCE(metadata->>'is_garbage','false') AS is_garbage
+                FROM memories
+                WHERE user_id = $1 AND is_deleted = FALSE
+                  AND (COALESCE(metadata->>'forget_candidate','false') = 'true'
+                       OR COALESCE(metadata->>'is_garbage','false') = 'true')
+                ORDER BY heat_score ASC, COALESCE(access_count,0) ASC
+                LIMIT $2
+            """, user_id, 50)
+        # 综合分 = 0.6×不常用度 + 0.4×(1-影响分近似: 短内容低影响)
+        def score(r):
+            uncommon = 1.0 / (1 + (r["access_count"] or 0))
+            impact = min(1.0, (r["content_len"] or 0) / 5000)
+            return round(0.6 * uncommon + 0.4 * (1 - impact), 3)
+        cands = [dict(r, score=score(r)) for r in rows]
+        cands.sort(key=lambda x: -x["score"])
+        return {"status": "recommendations", "action": "recommend",
+                "count": len(cands), "candidates": cands[:20],
+                "hint": "确认后调用 POST /drawers/authorize action=delete|soft_delete|compress + ids"}
+
+    # 执行类动作
     async with pool.acquire() as conn:
         if all_candidates:
             rows = await conn.fetch("""
@@ -1068,24 +1175,41 @@ async def forget_memories(user_id: str, ids: list[int] | None = None, all_candid
             """, user_id)
             ids = [r["id"] for r in rows]
         if not ids:
-            return {"status": "nothing_to_forget", "forgotten": 0}
-        # 留指纹: 写入 fingerprints 表 (若存在), 再软删
-        try:
-            for mid in ids:
-                row = await conn.fetchrow("SELECT content, category FROM memories WHERE id=$1", mid)
-                if row:
-                    await conn.execute("""
-                        INSERT INTO memory_fingerprints (original_id, category, summary_hash, destroyed_at)
-                        VALUES ($1, $2, $3, NOW())
-                        ON CONFLICT DO NOTHING
-                    """, mid, row["category"], hash(row["content"]) % (10**8))
-        except Exception:
-            pass  # 无指纹表则跳过 (不阻塞)
-        await conn.execute("""
-            UPDATE memories SET is_deleted = TRUE, forgotten_at = NOW()
-            WHERE user_id = $1 AND id = ANY($2::bigint[])
-        """, user_id, ids)
-    return {"status": "forgotten", "forgotten": len(ids)}
+            return {"status": "nothing", "action": action, "processed": 0}
+
+        if action == "compress":
+            # 压缩备份: 原文入 full_content_archived, 内容截为摘要前缀
+            await conn.execute("""
+                UPDATE memories SET
+                  full_content_archived = content,
+                  content = LEFT(content, 200),
+                  metadata = COALESCE(metadata,'{}'::jsonb) || '{"compressed":true}'::jsonb,
+                  updated_at = NOW()
+                WHERE user_id = $1 AND id = ANY($2::bigint[])
+            """, user_id, ids)
+            return {"status": "compressed", "action": "compress", "processed": len(ids)}
+
+        if action in ("delete", "soft_delete"):
+            # 留指纹 (fingerprints 表存在时), 再软删
+            try:
+                for mid in ids:
+                    row = await conn.fetchrow("SELECT content, category FROM memories WHERE id=$1", mid)
+                    if row:
+                        await conn.execute("""
+                            INSERT INTO memory_fingerprints (original_id, category, summary_hash, destroyed_at)
+                            VALUES ($1, $2, $3, NOW())
+                            ON CONFLICT DO NOTHING
+                        """, mid, row["category"], hash(row["content"]) % (10**8))
+            except Exception:
+                pass
+            await conn.execute("""
+                UPDATE memories SET is_deleted = TRUE, forgotten_at = NOW()
+                WHERE user_id = $1 AND id = ANY($2::bigint[])
+            """, user_id, ids)
+            return {"status": "soft_deleted", "action": action, "processed": len(ids),
+                    "note": "软删可恢复; 彻底清理走 POST /api/v1/cleanup"}
+
+    return {"status": "unknown_action", "action": action, "supported": ["delete", "recommend", "expand", "soft_delete", "compress"]}
 
 # ── 反馈 API ──
 @app.post("/api/v1/memories/{memory_id}/feedback")
