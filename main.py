@@ -909,6 +909,181 @@ async def delete_memory(memory_id: int, user_id: str):
         await clean_age_relations(conn, memory_id)
     return {"status": "soft-deleted"}
 
+# ── 更新 API (v7.1 抽屉化: 补齐记忆修改权 — 内容纠错/替换, 不删重存) ──
+class MemoryUpdate(BaseModel):
+    content: str | None = None
+    category: str | None = None
+    importance: float | None = None
+    heat_score: float | None = None
+    metadata: dict | None = None
+    pin: bool | None = None          # True=钉为永久卷, False=取消钉
+
+@app.put("/api/v1/memories/{memory_id}")
+async def update_memory(memory_id: int, user_id: str, update: MemoryUpdate):
+    """更新记忆内容/属性。不重建 embedding 时保留原向量; content 变了会重算向量+重分类+刷新档号。"""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, content, category, embedding, metadata, archive_no FROM memories WHERE id = $1 AND user_id = $2 AND is_deleted = FALSE",
+            memory_id, user_id
+        )
+        if not row:
+            return {"status": "not_found", "memory_id": memory_id}
+
+        sets = []
+        params = [memory_id, user_id]
+        idx = 3
+        new_content = None
+
+        if update.content is not None:
+            if len(update.content.strip()) < 1:
+                return {"status": "error", "message": "content cannot be empty"}
+            new_content = update.content.strip()
+            sets.append(f"content = ${idx}")
+            params.append(new_content)
+            idx += 1
+        if update.category is not None:
+            sets.append(f"category = ${idx}")
+            params.append(update.category)
+            idx += 1
+        if update.importance is not None:
+            sets.append(f"importance = ${idx}")
+            params.append(max(0.0, min(1.0, update.importance)))
+            idx += 1
+        if update.heat_score is not None:
+            sets.append(f"heat_score = ${idx}")
+            params.append(max(0.0, min(1.0, update.heat_score)))
+            idx += 1
+        if update.pin is not None:
+            # pin 状态存 metadata (与 palace/pin 一致)
+            pin_flag = "true" if update.pin else "false"
+            sets.append(f"metadata = COALESCE(metadata,'{{}}'::jsonb) || ('{{\"pinned\":\"{pin_flag}\"}}')::jsonb")
+            if update.pin:
+                sets.append("heat_score = GREATEST(heat_score, 0.5)")  # 钉卷至少回常温
+
+        if update.metadata is not None:
+            sets.append(f"metadata = COALESCE(metadata,'{{}}'::jsonb) || ${idx}::jsonb")
+            params.append(json.dumps(update.metadata))
+            idx += 1
+
+        if not sets:
+            return {"status": "no_changes"}
+
+        sets.append("updated_at = NOW()")
+        await conn.execute(
+            f"UPDATE memories SET {', '.join(sets)} WHERE id = $1 AND user_id = $2",
+            *params
+        )
+
+        # content 变更 → 重算向量 + 重分类 + 归档档号
+        if new_content is not None:
+            try:
+                emb = await get_embedding([new_content])
+                await conn.execute(
+                    "UPDATE memories SET embedding = $1::vector WHERE id = $2",
+                    emb[0], memory_id
+                )
+            except Exception:
+                pass  # 向量失败不阻塞内容更新
+            # 重新分类 (复用 palace 分类嗅探, 若无则跳过)
+            try:
+                from palace import classify
+                cls = classify(new_content)
+                if cls and cls.get("room") and cls.get("room") != "unfiled":
+                    new_cat = cls["room"]
+                    await conn.execute("UPDATE memories SET category = $1 WHERE id = $2", new_cat, memory_id)
+            except Exception:
+                pass
+            # 记录 trace
+            try:
+                await conn.execute(
+                    "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'update', $2)",
+                    memory_id, json.dumps({"old_len": len(row["content"]), "new_len": len(new_content)})
+                )
+            except Exception:
+                pass
+
+    return {"status": "updated", "memory_id": memory_id}
+
+@app.patch("/api/v1/memories/{memory_id}")
+async def patch_memory(memory_id: int, user_id: str, update: MemoryUpdate):
+    """PATCH 别名: 与 PUT 相同语义 (部分更新)。"""
+    return await update_memory(memory_id, user_id, update)
+
+# ── 抽屉 API (v7.1 抽屉化: 分布/遗忘候选/手动遗忘) ──
+@app.get("/api/v1/drawers/status")
+async def drawers_status(user_id: str):
+    """双抽屉分布 + 遗忘候选概览 (周报/盘点用)。"""
+    async with pool.acquire() as conn:
+        temp = await conn.fetch("""
+            SELECT temp_drawer, COUNT(*) AS cnt FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE GROUP BY 1 ORDER BY 1
+        """, user_id)
+        time_d = await conn.fetch("""
+            SELECT time_drawer, COUNT(*) AS cnt FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE GROUP BY 1 ORDER BY 1
+        """, user_id)
+        forget = await conn.fetchrow("""
+            SELECT COUNT(*) AS cnt FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND COALESCE(metadata->>'forget_candidate','false') = 'true'
+        """, user_id)
+        pinned = await conn.fetchrow("""
+            SELECT COUNT(*) AS cnt FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND COALESCE(metadata->>'pinned','false') = 'true'
+        """, user_id)
+    return {
+        "temp_drawers": {r["temp_drawer"]: r["cnt"] for r in temp},
+        "time_drawers": {r["time_drawer"]: r["cnt"] for r in time_d},
+        "forget_candidates": forget["cnt"],
+        "pinned": pinned["cnt"],
+    }
+
+@app.get("/api/v1/drawers/forget-candidates")
+async def forget_candidates(user_id: str, limit: int = 20):
+    """列出遗忘候选 (frozen+long+非pin)。"""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, content, category, heat_score, last_accessed, created_at
+            FROM memories
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND COALESCE(metadata->>'forget_candidate','false') = 'true'
+            ORDER BY heat_score ASC, last_accessed ASC
+            LIMIT $2
+        """, user_id, limit)
+    return {"candidates": [dict(r) for r in rows]}
+
+@app.post("/api/v1/drawers/forget")
+async def forget_memories(user_id: str, ids: list[int] | None = None, all_candidates: bool = False):
+    """手动遗忘: 软删指定记忆 (或全部遗忘候选)。留统计指纹。"""
+    async with pool.acquire() as conn:
+        if all_candidates:
+            rows = await conn.fetch("""
+                SELECT id FROM memories
+                WHERE user_id = $1 AND is_deleted = FALSE
+                  AND COALESCE(metadata->>'forget_candidate','false') = 'true'
+            """, user_id)
+            ids = [r["id"] for r in rows]
+        if not ids:
+            return {"status": "nothing_to_forget", "forgotten": 0}
+        # 留指纹: 写入 fingerprints 表 (若存在), 再软删
+        try:
+            for mid in ids:
+                row = await conn.fetchrow("SELECT content, category FROM memories WHERE id=$1", mid)
+                if row:
+                    await conn.execute("""
+                        INSERT INTO memory_fingerprints (original_id, category, summary_hash, destroyed_at)
+                        VALUES ($1, $2, $3, NOW())
+                        ON CONFLICT DO NOTHING
+                    """, mid, row["category"], hash(row["content"]) % (10**8))
+        except Exception:
+            pass  # 无指纹表则跳过 (不阻塞)
+        await conn.execute("""
+            UPDATE memories SET is_deleted = TRUE, forgotten_at = NOW()
+            WHERE user_id = $1 AND id = ANY($2::bigint[])
+        """, user_id, ids)
+    return {"status": "forgotten", "forgotten": len(ids)}
+
 # ── 反馈 API ──
 @app.post("/api/v1/memories/{memory_id}/feedback")
 async def feedback_memory(memory_id: int, user_id: str, feedback: str):
@@ -1087,6 +1262,41 @@ async def reflect(user_id: str, mode: str = "light"):
         await conn.execute("UPDATE memories SET tier = 'L2' WHERE user_id = $1 AND heat_score BETWEEN 0.2 AND 0.7 AND tier NOT IN ('L2','L3','L4')", user_id)
         await conn.execute("UPDATE memories SET tier = 'L3' WHERE user_id = $1 AND heat_score < 0.2 AND last_accessed < NOW() - INTERVAL '30 days' AND tier NOT IN ('L3','L4')", user_id)
         await conn.execute("UPDATE memories SET tier = 'L4', forgotten_at = NOW() WHERE user_id = $1 AND heat_score < 0.05 AND last_accessed < NOW() - INTERVAL '90 days' AND is_deleted = FALSE AND tier != 'L4'", user_id)
+        # 2.5 双抽屉流转 (v7.1 抽屉化: 温度抽屉 × 时间抽屉)
+        # 温度: hot≥0.7 / normal 0.3-0.7 / cool 0.1-0.3 / frozen<0.1 (与 tier L1-L4 对齐但独立维度)
+        # 时间: recent<30d / mid 30-90d / long≥90d (基于 last_accessed)
+        await conn.execute("""
+            UPDATE memories SET temp_drawer = CASE
+                WHEN heat_score >= 0.7 THEN 'hot'
+                WHEN heat_score >= 0.3 THEN 'normal'
+                WHEN heat_score >= 0.1 THEN 'cool'
+                ELSE 'frozen'
+            END
+            WHERE user_id = $1 AND is_deleted = FALSE
+        """, user_id)
+        await conn.execute("""
+            UPDATE memories SET time_drawer = CASE
+                WHEN last_accessed IS NULL OR last_accessed >= NOW() - INTERVAL '30 days' THEN 'recent'
+                WHEN last_accessed >= NOW() - INTERVAL '90 days' THEN 'mid'
+                ELSE 'long'
+            END
+            WHERE user_id = $1 AND is_deleted = FALSE
+        """, user_id)
+        # 遗忘候选标记: frozen + long + 非pin + 非preference → forget_candidate=true (不物理删, 等30天宽限或用户确认)
+        await conn.execute("""
+            UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{"forget_candidate":true}'::jsonb
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND temp_drawer = 'frozen' AND time_drawer = 'long'
+              AND COALESCE(metadata->>'pinned','false') != 'true'
+              AND category != 'preference'
+        """, user_id)
+        # 遗忘候选降温: 被命中过但不再相关的记忆, 每轮 reflect 额外 -0.03 (加速沉降, 对应 Mem0 salience 思路)
+        await conn.execute("""
+            UPDATE memories SET heat_score = GREATEST(0.0, heat_score - 0.03)
+            WHERE user_id = $1 AND is_deleted = FALSE
+              AND COALESCE(metadata->>'forget_candidate','false') = 'true'
+              AND COALESCE(metadata->>'pinned','false') != 'true'
+        """, user_id)
         # 3. 深度模式: 实体提取
         if mode == "deep":
             unproc = await conn.fetch("SELECT m.id, m.content FROM memories m LEFT JOIN memory_entities me ON m.id = me.memory_id WHERE m.user_id = $1 AND me.memory_id IS NULL AND m.is_deleted = FALSE LIMIT 100", user_id)
