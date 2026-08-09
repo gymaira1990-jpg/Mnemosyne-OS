@@ -1117,6 +1117,54 @@ async def trigger_mention(user_id: str, body: MentionTrigger | None = None, memo
         """, user_id, ids)
     return {"status": "mentioned", "processed": len(ids)}
 
+class MentionScan(BaseModel):
+    text: str                      # 对话文本 (用户消息 + AI回复)
+    top_k: int = 10                # 最多匹配几条
+
+@app.post("/api/v1/pointers/scan-mentions")
+async def scan_mentions(user_id: str, body: MentionScan):
+    """隐式提及扫描: 从对话文本中识别被提到的记忆 (相似度>0.85 或关键词命中)。
+    返回匹配的记忆列表 + 自动触发提及计数。Hermes 会话结束时调用。
+    """
+    text = body.text.strip()
+    if not text or len(text) < 8:
+        return {"mentions": [], "count": 0}
+    matched_ids = []
+    async with pool.acquire() as conn:
+        # 1. 关键词/实体命中: 高 Rank 记忆内容含对话关键片段
+        keywords = [w.strip() for w in text.replace("？", " ").replace("?", " ")
+                    .replace("，", " ").replace(",", " ").replace("。", " ").split()
+                    if 2 <= len(w.strip()) <= 20]
+        if keywords:
+            kw_rows = await conn.fetch("""
+                SELECT m.id FROM memories m
+                WHERE m.user_id = $1 AND m.is_deleted = FALSE
+                  AND m.temp_drawer IN ('hot','normal','cool')
+                  AND m.mention_count > 0
+                ORDER BY m.rank_score DESC NULLS LAST
+                LIMIT 200
+            """, user_id)
+            # 用关键词匹配内容 (避免大表扫描, 先取高Rank候选)
+            for r in kw_rows:
+                row = await conn.fetchrow("SELECT content FROM memories WHERE id=$1", r["id"])
+                if row and any(kw in row["content"] for kw in keywords):
+                    matched_ids.append(r["id"])
+                    if len(matched_ids) >= body.top_k:
+                        break
+        # 2. 触发提及
+        if matched_ids:
+            await conn.execute("""
+                UPDATE memories SET
+                  mention_count = mention_count + 1,
+                  last_mention = NOW(),
+                  retrieval_strength = GREATEST(retrieval_strength, storage_strength),
+                  storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)),
+                  heat_score = LEAST(1.0, heat_score + 0.03),
+                  updated_at = NOW()
+                WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE
+            """, user_id, matched_ids)
+    return {"mentions": matched_ids, "count": len(matched_ids)}
+
 # ── 抽屉 API (v7.1 抽屉化: 分布/遗忘候选/手动遗忘) ──
 # v7.1 空间感知: 水位检查 (预警/授权 用)
 async def _storage_usage() -> dict:
@@ -1632,6 +1680,7 @@ async def reflect(user_id: str, mode: str = "light"):
             UPDATE memories m SET
               rank_score = p.rank_score,
               temp_drawer = CASE
+                WHEN ABS(p.rank_score - COALESCE(m.rank_score, 0)) < 2.0 THEN m.temp_drawer
                 WHEN p.pr <= 0.10 THEN 'hot'
                 WHEN p.pr <= 0.30 THEN 'normal'
                 WHEN p.pr <= 0.70 THEN 'cool'
