@@ -21,6 +21,12 @@ load_env()
 import asyncpg  # noqa: E402
 import jieba  # noqa: E402
 
+# v7.5 专家评审 P1: 加载专业词典 (术语分词)
+import os as _os
+_DICT_PATH = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki_dict.txt")
+if _os.path.exists(_DICT_PATH):
+    jieba.load_userdict(_DICT_PATH)
+
 USER_ID = "default"
 
 STOPWORDS = set()  # 停用词精简, 交给 jieba 默认词典

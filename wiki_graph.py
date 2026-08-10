@@ -17,6 +17,11 @@ async def graph_expand(conn, query: str, user_id: str = "default", top_k: int = 
     """图谱扩展: 返回 {page_scores: {page_id: score}, entities: [name,...]}"""
     try:
         import jieba
+        # 加载专业词典 (v7.5 专家评审 P1: 术语分词) — jieba 全局单例, 只加载一次
+        import os as _os
+        _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki_dict.txt")
+        if _os.path.exists(_dict_path):
+            jieba.load_userdict(_dict_path)
     except ImportError:
         return {"page_scores": {}, "entities": []}
 

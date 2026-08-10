@@ -2067,6 +2067,10 @@ async def search_wiki(body: WikiSearchRequest):
         if hybrid:
             try:
                 import jieba
+                import os as _os
+                _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki_dict.txt")
+                if _os.path.exists(_dict_path):
+                    jieba.load_userdict(_dict_path)  # v7.5: 专业词典 (专家评审 P1)
                 from wiki_bm25 import compute_bm25_scores, rrf_fuse
                 query_tokens = [t.strip() for t in jieba.cut(query) if len(t.strip()) >= 2]
                 if query_tokens:
