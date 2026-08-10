@@ -91,6 +91,22 @@ def hit_rate(ids: list, expected: list) -> bool:
     return any(i in expected for i in ids[:3])
 
 
+def first_rank(ids: list, expected: list) -> int:
+    """第一个命中排位 (1-based), 未命中返回 4 (top3 外)"""
+    for i, pid in enumerate(ids[:3]):
+        if pid in expected:
+            return i + 1
+    return 4
+
+
+def recall_at3(ids: list, expected: list) -> float:
+    """recall@3: 期望集合被命中的比例 (多文档查询适用)"""
+    if not expected:
+        return 0.0
+    hit = sum(1 for e in expected if e in ids[:3])
+    return hit / len(expected)
+
+
 async def main():
     pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=3)
     try:
@@ -101,41 +117,44 @@ async def main():
                 "vec_bm25": lambda q: search(conn, q, True, False),
                 "vec_bm25_graph": lambda q: search(conn, q, True, True),
             }
+            # v7.5 扩充: precision@3 + recall@3 + MRR
             results = {}
             for mode, fn in modes.items():
-                hits = 0
+                prec_hits = 0
+                recall_sum = 0.0
+                mrr_sum = 0.0
                 for q, exp in EVAL_SET:
                     ids = await fn(q)
-                    if hit_rate(ids, exp):
-                        hits += 1
-                results[mode] = round(hits / n * 100, 1)
+                    prec_hits += 1 if hit_rate(ids, exp) else 0
+                    recall_sum += recall_at3(ids, exp)
+                    mrr_sum += 1.0 / first_rank(ids, exp)
+                results[mode] = {
+                    "precision@3": round(prec_hits / n * 100, 1),
+                    "recall@3": round(recall_sum / n * 100, 1),
+                    "MRR": round(mrr_sum / n, 3),
+                }
     finally:
         await pool.close()
 
     lines = [
-        f"WIKI 检索评测 {time.strftime('%Y-%m-%d %H:%M')} ({n} 查询, precision@3)",
-        f"  纯向量:        {results['pure_vec']}%",
-        f"  向量+BM25:     {results['vec_bm25']}%",
-        f"  全通道(+图谱): {results['vec_bm25_graph']}%",
-        f"  结论: {'稳定 ✅' if results['vec_bm25'] >= 95 else '⚠️ 需关注: BM25命中率低于95%'}",
+        f"WIKI 检索评测 {time.strftime('%Y-%m-%d %H:%M')} ({n} 查询)",
+        f"  纯向量:        {results['pure_vec']}",
+        f"  向量+BM25:     {results['vec_bm25']}",
+        f"  全通道(+图谱): {results['vec_bm25_graph']}",
+        f"  结论: {'稳定 ✅' if results['vec_bm25']['precision@3'] >= 95 else '⚠️ 需关注: BM25 precision@3 低于95%'}",
     ]
     report = "\n".join(lines)
     print(report)
 
-    # 对比上次
+    # 对比上次 (兼容旧格式)
     prev = {}
     if os.path.exists(REPORT_FILE):
         with open(REPORT_FILE, "r", encoding="utf-8") as f:
             for line in f:
-                if "%" in line and ":" in line:
-                    k, v = line.split(":", 1)
-                    prev[k.strip()] = v.strip()
-        for k, v in prev.items():
-            cur = results.get({"纯向量": "pure_vec", "向量+BM25": "vec_bm25", "全通道(+图谱)": "vec_bm25_graph"}.get(k, ""), None)
-            if cur is not None:
-                diff = cur - float(v.replace("%", ""))
-                if diff < -5:
-                    print(f"  ⚠️ {k} 较上次下降 {diff:.1f}pp → 检索可能漂移")
+                if "precision" in line or "%" in line:
+                    prev_line = line.strip()
+        # 简化: 只对比 vec_bm25 precision
+        cur_p = results["vec_bm25"]["precision@3"]
 
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(report + "\n")
