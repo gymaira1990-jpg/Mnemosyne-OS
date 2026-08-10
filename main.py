@@ -518,6 +518,32 @@ async def create_wiki_page(body: WikiPageCreate):
                 "INSERT INTO wiki_versions (page_id, version, content, embedding) VALUES ($1,1,$2,$3::vector)",
                 page_id, content, v_str
             )
+        # v7.5: 同步关键词索引 (BM25 通道需要, 否则新页面 hybrid 搜不到)
+        if content and len(content) >= 20:
+            try:
+                import jieba
+                import os as _os
+                _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki_dict.txt")
+                if _os.path.exists(_dict_path):
+                    jieba.load_userdict(_dict_path)
+                from collections import Counter as _Counter
+                def _clean_tok(t):
+                    return len(t) >= 2 and len(t) <= 20 and not t.isdigit() and not t.isspace()
+                title_toks = [t.strip() for t in jieba.cut(title) if _clean_tok(t.strip())]
+                body_toks = [t.strip() for t in jieba.cut(content[:20000]) if _clean_tok(t.strip())]
+                cnt = _Counter()
+                for t in title_toks:
+                    cnt[t] += 3
+                for t in body_toks:
+                    cnt[t] += 1
+                if cnt:
+                    await conn.executemany(
+                        "INSERT INTO wiki_keywords (page_id, token, freq) VALUES ($1,$2,$3) "
+                        "ON CONFLICT (page_id, token) DO UPDATE SET freq=EXCLUDED.freq",
+                        [(page_id, t, f) for t, f in cnt.items()]
+                    )
+            except Exception as e:
+                logger.warning(f"wiki 关键词索引同步失败: {e}")
         return {"status": "created", "id": page_id, "version": 1}
 
 
@@ -2058,7 +2084,7 @@ async def search_wiki(body: WikiSearchRequest):
             "wp.embedding <=> $1::vector AS dist "
             "FROM wiki_pages wp WHERE wp.user_id = $2 AND wp.content IS NOT NULL AND wp.embedding IS NOT NULL "
             "ORDER BY wp.embedding <=> $1::vector LIMIT $3",
-            q_str, user_id, top_k + 20
+            q_str, user_id, 50  # v7.5: 候选池 50, 防止 BM25 命中的新页面被向量排名挤出
         )
         vec_ranked = [(r["id"], r["dist"]) for r in rows]
 
@@ -2099,7 +2125,24 @@ async def search_wiki(body: WikiSearchRequest):
         if bm25_scores or graph_scores:
             fused = rrf_fuse(vec_ranked, bm25_scores, graph_scores)
             id2row = {r["id"]: r for r in rows}
-            ranked = [id2row[pid] for pid, _ in fused[:top_k] if pid in id2row]
+            ranked = []
+            missing_ids = []
+            for pid, _ in fused[:top_k]:
+                if pid in id2row:
+                    ranked.append(id2row[pid])
+                else:
+                    missing_ids.append(pid)  # BM25 独有页面 (向量候选外)
+            # 补查 BM25 独有页面
+            if missing_ids:
+                try:
+                    extra = await conn.fetch(
+                        "SELECT id, title, content, source_path, source_url, source_type, 0 AS dist "
+                        "FROM wiki_pages WHERE user_id=$1 AND id = ANY($2::bigint[])",
+                        user_id, missing_ids
+                    )
+                    ranked.extend(extra)
+                except Exception as e:
+                    logger.warning(f"wiki 补查 BM25 独有页面失败: {e}")
         else:
             ranked = rows[:top_k]
 
