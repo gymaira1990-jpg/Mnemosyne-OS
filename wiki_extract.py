@@ -97,7 +97,7 @@ async def extract_page(conn, page):
                 pid, eid
             )
 
-        # 关系: 实体对之间建 AGE 边 (RELATED_TO) — 用 MERGE 确保节点存在
+        # 关系: 实体对之间建 AGE 边 (RELATED_TO) — 先查重再 MERGE (AGE 无边索引时 MERGE 可能重复)
         edge_count = 0
         for rel in relations:
             frm = (rel.get("from") or "").strip()
@@ -105,6 +105,15 @@ async def extract_page(conn, page):
             rel_name = (rel.get("relation") or "related_to").strip()[:60]
             if frm in name2id and to in name2id and frm != to:
                 try:
+                    # 查重: 同三元组已存在则跳过 (2026-08-10: 清理 2257 重复边后固化)
+                    exists = await conn.fetch(
+                        "SELECT * FROM cypher('mnemosyne_graph', $$ "
+                        "MATCH (a:Entity {entity_id: '%s'})-[r:RELATED_TO {relation: '%s'}]->(b:Entity {entity_id: '%s'}) "
+                        "RETURN count(*) $$) AS (v agtype)"
+                        % (name2id[frm], rel_name.replace("'", ""), name2id[to])
+                    )
+                    if exists and str(exists[0]["v"]).strip('"') != "0":
+                        continue  # 已存在, 跳过
                     await conn.execute(
                         "SELECT * FROM cypher('mnemosyne_graph', $$ "
                         "MERGE (a:Entity {entity_id: '%s'}) "
