@@ -1,5 +1,23 @@
 # Changelog
 
+## v7.4.0 (2026-08-10) — WIKI 知识图谱 MD 记忆
+
+### ✨ 新功能
+- **全文快照档案馆**: wiki_pages 加 source_path/source_url/content_hash/source_type/source_lost 列, 论文/文章全文入库防源损毁, 源地址仅作指针
+- **md_ingest 导入管线** (`scripts/md_ingest.py`): 本地权威单向同步 — `--sync` 导入/更新 (hash 幂等: 同源同hash→exists, 异hash→updated+版本历史), `--verify` 校验 (一致/漂移/源丢失), 源丢失后线上快照仍可查证
+- **LLM 实体+关系抽取** (`wiki_extract.py`): 替代正则粗提取, 每页抽 8-20 实体 + 5-15 关系 → entities + wiki_entities + AGE 图 (RELATED_TO / MENTIONS 边)
+- **by-source 快速查证端点**: GET /api/v1/wiki/by-source 按来源路径/URL 精确查快照
+- **语义搜索升级**: POST /api/v1/wiki/search 直查 wiki_pages.embedding HNSW (原查 versions 表, 基本搜不到)
+
+### 🔧 修复
+- 修 wiki 端点重复定义 bug: main.py 415 简单版 vs 1945 完整版同路径, 统一为 body model (WikiPageCreate/WikiSearchRequest), 行为一致
+
+### 📦 其他
+- wiki_entities 关联表 + wiki_pages.extracted_at 标记
+- 测试: tests/test_wiki_v74.py 9 用例 (幂等/指纹/抽取解析), 全量 157 passed
+- hermes verify ok=true
+
+
 ## v7.3.0 (2026-08-09) — 🧠 综合算法 + 高效检索 (从遗忘转向整理优化)
 
 **核心理念**: 记忆不该强调遗忘, 该强调整理优化。提及即升级, 检索分区域, 指针快速定位。用户转向: 时间久远但总被提及→升级; 降级后被多次提起→再升级 (双向动态)。

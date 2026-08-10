@@ -1903,7 +1903,7 @@ async def root():
 async def capabilities():
     return {
         "service": "Mnemosyne OS v6.4.0",
-        "version": "7.3.0",
+        "version": "7.4.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1940,7 +1940,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.3.0"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.4.0"}
 
 # ── v7.0 魔法记忆宫殿 API ──
 @app.get("/api/v1/palace/status")

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.3.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.4.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -213,7 +213,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
-| [v7.3.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.3.0) | 2026-08-09 | 🧠 综合Rank + 提及双向升级 + 快速指针 + 区域化检索 |
+| [v7.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.4.0) | 2026-08-09 | 🧠 综合Rank + 提及双向升级 + 快速指针 + 区域化检索 |
 | [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork 双强度S/R + GZ调优(pg_stat_statements/workers/水位告警) |
 | [v7.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.1.0) | 2026-08-09 | 🗄️ 抽屉化记忆: 温度×时间双轨制 + 遗忘候选 + 更新端点 + 抽屉API |
 | [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 魔法记忆宫殿: 分类树+档号+著录卡片+三通道召唤+资料室事实提取+永恒分级 |
