@@ -401,6 +401,7 @@ class WikiSearchRequest(BaseModel):
     top_k: int = 5
     hybrid: bool = True
     rerank: bool = False
+    graph: bool = False  # 图谱扩展默认关 (A/B 实测会引入噪音, 作为可选增强)
 
 
 @app.get("/api/v1/wiki")
@@ -2041,12 +2042,13 @@ async def graph_search(query: str, user_id: str, max_hops: int = 2):
 
 @app.post("/api/v1/wiki/search")
 async def search_wiki(body: WikiSearchRequest):
-    """语义搜索 Wiki (v7.5: hybrid = 向量 HNSW + BM25 关键词, RRF 融合; 可选 rerank)"""
+    """语义搜索 Wiki (v7.5: hybrid = 向量 HNSW + BM25 关键词 + 图谱扩展, RRF 融合)"""
     query = body.query
     user_id = body.user_id
     top_k = body.top_k
     hybrid = body.hybrid if hasattr(body, "hybrid") else True
     do_rerank = body.rerank if hasattr(body, "rerank") else False
+    use_graph = body.graph if hasattr(body, "graph") else True
 
     r_q = (await get_embedding([query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
@@ -2077,11 +2079,21 @@ async def search_wiki(body: WikiSearchRequest):
                     total_pages = await conn.fetchval("SELECT count(*) FROM wiki_pages WHERE user_id=$1 AND content IS NOT NULL", user_id)
                     bm25_scores = compute_bm25_scores(list(kw_rows), query_tokens, total_pages or 71)
             except Exception as e:
-                logger.warning(f"wiki BM25 通道失败(降级纯向量): {e}")
+                logger.warning(f"wiki BM25 通道失败(降级): {e}")
 
-        # RRF 融合
-        if bm25_scores:
-            fused = rrf_fuse(vec_ranked, bm25_scores)
+        # 图谱扩展通道 (v7.5 P1: 实体锚定 + 1跳)
+        graph_scores = {}
+        if use_graph:
+            try:
+                from wiki_graph import graph_expand
+                gres = await graph_expand(conn, query, user_id, top_k)
+                graph_scores = gres.get("page_scores", {})
+            except Exception as e:
+                logger.warning(f"wiki 图谱通道失败(降级): {e}")
+
+        # 三方 RRF 融合
+        if bm25_scores or graph_scores:
+            fused = rrf_fuse(vec_ranked, bm25_scores, graph_scores)
             id2row = {r["id"]: r for r in rows}
             ranked = [id2row[pid] for pid, _ in fused[:top_k] if pid in id2row]
         else:
@@ -2092,7 +2104,6 @@ async def search_wiki(body: WikiSearchRequest):
             try:
                 docs = [r["content"][:3000] for r in ranked]
                 reordered = await rerank_docs(query, docs, top_k)
-                # rerank_docs 返回文档文本, 映射回页面
                 text2row = {r["content"][:3000]: r for r in ranked}
                 ranked = [text2row[d] for d in reordered if d in text2row] or ranked
             except Exception as e:
@@ -2105,6 +2116,7 @@ async def search_wiki(body: WikiSearchRequest):
             "source_path": r["source_path"], "source_url": r["source_url"],
             "source_type": r["source_type"], "distance": round(r["dist"], 4),
             "bm25": round(bm25_scores.get(r["id"], 0), 4) if bm25_scores else 0,
+            "graph": round(graph_scores.get(r["id"], 0), 4) if graph_scores else 0,
         } for r in ranked]
 
 @app.post("/api/v1/extract-entities")

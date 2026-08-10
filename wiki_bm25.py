@@ -45,20 +45,29 @@ def compute_bm25_scores(rows, query_tokens: list, total_pages: int) -> dict:
     return scores
 
 
-def rrf_fuse(vec_ranked: list, bm25_scores: dict, k: int = 60) -> list:
-    """Reciprocal Rank Fusion: 融合向量排序 + BM25 分数。
+def rrf_fuse(vec_ranked: list, bm25_scores: dict = None, graph_scores: dict = None, k: int = 60) -> list:
+    """Reciprocal Rank Fusion: 融合多通道 (向量 + BM25 + 图谱加成)。
     vec_ranked: [(page_id, distance), ...] 按距离升序(越近越好)
-    bm25_scores: {page_id: score}
+    bm25_scores: {page_id: score} (可空) — 独立通道, 给 RRF 排名分
+    graph_scores: {page_id: score} (可空) — 加成通道, 只提升已有页面排名 (防噪音)
     返回 [(page_id, rrf_score), ...] 降序
     """
+    bm25_scores = bm25_scores or {}
+    graph_scores = graph_scores or {}
     rrf = {}
     for rank, (pid, _dist) in enumerate(vec_ranked):
         rrf[pid] = rrf.get(pid, 0) + 1.0 / (k + rank + 1)
-    for pid, score in bm25_scores.items():
-        if score > 0:
-            # BM25 通道也按排名给 RRF 分 (降序排名)
-            sorted_bm = sorted(bm25_scores.items(), key=lambda x: -x[1])
-            rank = [i for i, (p, _) in enumerate(sorted_bm) if p == pid]
-            if rank:
-                rrf[pid] = rrf.get(pid, 0) + 1.0 / (k + rank[0] + 1)
+
+    # BM25 通道: 按分数降序给排名分 (独立通道)
+    if bm25_scores:
+        sorted_bm = sorted(bm25_scores.items(), key=lambda x: -x[1])
+        for rank, (pid, _) in enumerate(sorted_bm):
+            rrf[pid] = rrf.get(pid, 0) + 1.0 / (k + rank + 1)
+
+    # 图谱通道: 加成而非独立通道 — 只提升已命中页面, 不引入新页面 (防噪音)
+    if graph_scores:
+        for pid, score in graph_scores.items():
+            if pid in rrf and score > 0:
+                rrf[pid] = rrf[pid] + 0.02 * min(score, 1.0)
+
     return sorted(rrf.items(), key=lambda x: -x[1])
