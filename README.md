@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.5.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.5.1-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -306,7 +306,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
-| [v7.5.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.5.0) | 2026-08-09 | 🧠 Composite rank + dual-direction mention upgrade + fast pointers + regional retrieval |
+| [v7.5.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.5.1) | 2026-08-09 | 🧠 Composite rank + dual-direction mention upgrade + fast pointers + regional retrieval |
 | [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork S/R dual strength + GZ tuning (pg_stat_statements/workers/perf alerts) |
 | [v7.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.1.0) | 2026-08-09 | 🗄️ Drawerized memory: temp×time dual-track + forget candidates + update endpoint + drawers API |
 | [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 Magic Memory Palace: taxonomy + archive-no + tome cards + 3-channel summon + fact extraction + retention tiers |
