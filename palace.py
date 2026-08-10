@@ -242,6 +242,22 @@ async def summon(pool, query: str, user_id: str = "default", top_k: int = 5) -> 
     except Exception:
         pass
 
+    # ④ 文库 (v7.5): 顺带查 WIKI 知识库 — 论文/方案全文快照
+    try:
+        from core.embedding import get_embedding_async as _ge
+        w_vec = (await _ge([query]))[0]
+        w_str = "[" + ",".join(str(x) for x in w_vec) + "]"
+        async with pool.acquire() as conn:
+            w_rows = await conn.fetch(
+                "SELECT id, title, content, (embedding <=> $2::vector) AS dist "
+                "FROM wiki_pages WHERE user_id=$1 AND content IS NOT NULL AND embedding IS NOT NULL "
+                "ORDER BY embedding <=> $2::vector LIMIT $3",
+                user_id, w_str, top_k)
+            result["wiki"] = [{"id": r["id"], "title": r["title"], "content": (r["content"] or "")[:120],
+                               "dist": round(float(r["dist"]), 4)} for r in w_rows]
+    except Exception:
+        pass
+
     return result
 
 
