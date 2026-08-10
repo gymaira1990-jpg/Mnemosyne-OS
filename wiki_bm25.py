@@ -31,13 +31,13 @@ def compute_bm25_scores(rows, query_tokens: list, total_pages: int) -> dict:
 
     scores = {}
     for tok in query_tokens:
-        idf = _idf_from_stats(total_pages, rows[0]["pages_with_token"] if rows else 0)
-        # 只对当前 token 的行打分
+        # 每行用自己的 pages_with_token 算 IDF (稀有词 IDF 更高)
         for r in rows:
             if r["token"] != tok:
                 continue
             pid = r["page_id"]
             freq = r["freq"]
+            idf = _idf_from_stats(total_pages, r["pages_with_token"])
             dl = page_dl.get(pid, 1)
             denom = freq + k1 * (1 - b + b * dl / max(avgdl, 1))
             score = idf * (freq * (k1 + 1)) / max(denom, 0.001)
