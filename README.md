@@ -162,6 +162,16 @@ mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
 mnemosyne_media          · session_search        · mnemosyne_tree
 ```
 
+**WIKI knowledge base** (v7.4+, full-text snapshot archive for papers/plans):
+
+```
+mnemosyne_wiki search      → semantic search (vector HNSW + BM25 keywords, RRF fusion, default on)
+mnemosyne_wiki by_source   → exact lookup by source path/URL (snapshot survives source loss)
+mnemosyne_wiki get/list    → read full text by ID / list pages
+Optional: rerank=true (doubao rerank, high-precision), graph=true (1-hop KG expansion, default off)
+Eval (20 queries, v7.5): precision@3 100% / recall@3 98.3% / MRR 1.0
+```
+
 ```text
 on_session_end   → sync + fact extraction     on_turn_start    → prefetch
 on_pre_compress  → inject before compression  on_delegation    → log subtasks

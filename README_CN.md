@@ -152,6 +152,16 @@ mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
 mnemosyne_media          · session_search        · mnemosyne_tree
 ```
 
+**WIKI 知识库检索**（v7.4+，论文/方案全文快照档案馆）：
+
+```
+mnemosyne_wiki search      → 语义搜索（向量 HNSW + BM25 关键词，RRF 融合，默认开）
+mnemosyne_wiki by_source   → 按来源路径/URL 精确查证（防源损毁）
+mnemosyne_wiki get/list    → 按 ID 读全文 / 列表
+可选参数: rerank=true（豆包重排，高精度场景）、graph=true（图谱 1 跳扩展，默认关）
+效果: 20 查询评测 precision@3 100% / recall@3 98.3% / MRR 1.0（v7.5）
+```
+
 ```
 on_session_end   → 同步 + 事实提取        on_turn_start    → 预取
 on_pre_compress  → 压缩前注入            on_delegation    → 记录子任务
