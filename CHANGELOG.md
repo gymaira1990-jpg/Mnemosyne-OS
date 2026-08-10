@@ -1,3 +1,17 @@
+## v7.6.0 · 记忆隔离与来源追踪 (2026-08-10)
+
+### 新增
+- `MemoryCreate.source` 字段 → 写入 metadata['source']（支撑压缩归档/子代理批次召回）
+- `GET /memories?source=` 过滤参数（metadata->>'source' 精确过滤，OVERFLOW 批次召回用）
+- 分身记忆隔离：mnemosyne-agent/website-agent 不再收敛到 default（分区防污染）
+
+### 配套（Hermes 集成层）
+- 钩子机制 + on_pre_compress 防丢闭环（压缩前归档带 ID 钩子）
+- prefetch 双因子优化（低热度过滤 + 上限 3 条）
+
+### 修复
+- content 分身 MNEMOSYNE_USER_ID 误配 catnest-agent → 改 content-agent
+
 # Changelog
 
 ## v7.5.1 (2026-08-10) — 图谱质量 + 评测扩充 (专家评审验收)
