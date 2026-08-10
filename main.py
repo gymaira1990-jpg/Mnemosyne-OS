@@ -399,6 +399,8 @@ class WikiSearchRequest(BaseModel):
     query: str
     user_id: str = "default"
     top_k: int = 5
+    hybrid: bool = True
+    rerank: bool = False
 
 
 @app.get("/api/v1/wiki")
@@ -2039,10 +2041,13 @@ async def graph_search(query: str, user_id: str, max_hops: int = 2):
 
 @app.post("/api/v1/wiki/search")
 async def search_wiki(body: WikiSearchRequest):
-    """语义搜索 Wiki (v7.4: 直接查 wiki_pages.embedding HNSW, versions 仅作历史)"""
+    """语义搜索 Wiki (v7.5: hybrid = 向量 HNSW + BM25 关键词, RRF 融合; 可选 rerank)"""
     query = body.query
     user_id = body.user_id
     top_k = body.top_k
+    hybrid = body.hybrid if hasattr(body, "hybrid") else True
+    do_rerank = body.rerank if hasattr(body, "rerank") else False
+
     r_q = (await get_embedding([query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
     async with pool.acquire() as conn:
@@ -2051,15 +2056,56 @@ async def search_wiki(body: WikiSearchRequest):
             "wp.embedding <=> $1::vector AS dist "
             "FROM wiki_pages wp WHERE wp.user_id = $2 AND wp.content IS NOT NULL AND wp.embedding IS NOT NULL "
             "ORDER BY wp.embedding <=> $1::vector LIMIT $3",
-            q_str, user_id, top_k
+            q_str, user_id, top_k + 20
         )
+        vec_ranked = [(r["id"], r["dist"]) for r in rows]
+
+        # BM25 关键词通道
+        bm25_scores = {}
+        if hybrid:
+            try:
+                import jieba
+                from wiki_bm25 import compute_bm25_scores, rrf_fuse
+                query_tokens = [t.strip() for t in jieba.cut(query) if len(t.strip()) >= 2]
+                if query_tokens:
+                    kw_rows = await conn.fetch(
+                        "SELECT wk.page_id, wk.token, wk.freq, "
+                        "(SELECT count(DISTINCT page_id) FROM wiki_keywords wk2 WHERE wk2.token=wk.token) AS pages_with_token "
+                        "FROM wiki_keywords wk WHERE wk.token = ANY($1::text[]) ORDER BY wk.freq DESC",
+                        query_tokens
+                    )
+                    total_pages = await conn.fetchval("SELECT count(*) FROM wiki_pages WHERE user_id=$1 AND content IS NOT NULL", user_id)
+                    bm25_scores = compute_bm25_scores(list(kw_rows), query_tokens, total_pages or 71)
+            except Exception as e:
+                logger.warning(f"wiki BM25 通道失败(降级纯向量): {e}")
+
+        # RRF 融合
+        if bm25_scores:
+            fused = rrf_fuse(vec_ranked, bm25_scores)
+            id2row = {r["id"]: r for r in rows}
+            ranked = [id2row[pid] for pid, _ in fused[:top_k] if pid in id2row]
+        else:
+            ranked = rows[:top_k]
+
+        # rerank (可选): 豆包 embedding 相似度重排
+        if do_rerank and ranked:
+            try:
+                docs = [r["content"][:3000] for r in ranked]
+                reordered = await rerank_docs(query, docs, top_k)
+                # rerank_docs 返回文档文本, 映射回页面
+                text2row = {r["content"][:3000]: r for r in ranked}
+                ranked = [text2row[d] for d in reordered if d in text2row] or ranked
+            except Exception as e:
+                logger.warning(f"wiki rerank 失败(保持原序): {e}")
+
         return [{
             "id": r["id"], "title": r["title"],
             "content_preview": (r["content"] or "")[:300],
             "content_length": len(r["content"] or ""),
             "source_path": r["source_path"], "source_url": r["source_url"],
-            "source_type": r["source_type"], "distance": round(r["dist"], 4)
-        } for r in rows]
+            "source_type": r["source_type"], "distance": round(r["dist"], 4),
+            "bm25": round(bm25_scores.get(r["id"], 0), 4) if bm25_scores else 0,
+        } for r in ranked]
 
 @app.post("/api/v1/extract-entities")
 async def extract_entities(user_id: str, max_memories: int = 50):
