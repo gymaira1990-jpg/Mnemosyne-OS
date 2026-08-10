@@ -38,6 +38,23 @@ CATEGORY_WHITELIST = {
     "temp":        ["temp", "临时", "提醒"],
 }
 
+# v7.6.1: 三分类记忆打标 (对齐业界 episodic/semantic/procedural)
+# 规则映射: category → memory_type (存 metadata['memory_type'])
+CAT_MEMORY_TYPE = {
+    "session": "episodic",     # 会话/事件
+    "chat": "episodic",        # 对话
+    "worklog": "episodic",     # 工作记录(事件)
+    "fact": "semantic",        # 事实
+    "preference": "semantic",  # 偏好
+    "knowledge": "semantic",   # 知识
+    "reference": "semantic",   # 参考
+    "temp": "semantic",        # 临时
+    "pitfall": "procedural",   # 踩坑教训(操作)
+    "ops": "procedural",       # 运维操作
+    "deploy": "procedural",    # 部署步骤
+    "project": "procedural",   # 项目流程
+}
+
 def normalize_category(cat: str) -> str:
     """分类归一化: 中文/旧英文 → 受控词表主键。未知分类默认 knowledge。
     匹配规则: ①全等(key/别名) ②中文别名(≥2字)子串包含。"""
@@ -783,6 +800,7 @@ async def create_memory(mem: MemoryCreate):
         meta_extra.setdefault("repetition", 0)     # 访问次数 (与 access_count 联动)
         if mem.source:                             # v7.6: source 进 metadata, 支撑按来源批次召回
             meta_extra["source"] = mem.source
+        meta_extra["memory_type"] = CAT_MEMORY_TYPE.get(cat, "semantic")  # v7.6.1: 三分类打标
         row = await conn.fetchrow(
             'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score, storage_strength, retrieval_strength) '
             'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8,$9,$10) RETURNING id',
@@ -1942,7 +1960,7 @@ async def root():
 async def capabilities():
     return {
         "service": "Mnemosyne OS v6.4.0",
-        "version": "7.6.0",
+        "version": "7.6.1",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1979,7 +1997,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.6.0"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.6.1"}
 
 # ── v7.0 魔法记忆宫殿 API ──
 @app.get("/api/v1/palace/status")

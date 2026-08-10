@@ -1,3 +1,10 @@
+## v7.6.1 · 三分类记忆打标 (2026-08-10)
+
+### 新增
+- `metadata['memory_type']` 三分类打标: episodic(情景: session/chat/worklog) / semantic(语义: fact/preference/knowledge) / procedural(程序: pitfall/ops/deploy/project)
+- 新写入自动打标（category 规则映射, 零 LLM 成本）
+- 存量 9952 条批量打标完成（semantic 7202 / episodic 2706 / procedural 45）
+
 ## v7.6.0 · 记忆隔离与来源追踪 (2026-08-10)
 
 ### 新增
