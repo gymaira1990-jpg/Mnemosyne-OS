@@ -711,6 +711,7 @@ class MemoryCreate(BaseModel):
     metadata: dict = {}
     entities: Optional[List[str]] = None
     session_id: Optional[str] = None
+    source: Optional[str] = None  # v7.6: 写入来源标识(hermes-precompress/hermes-delegation/...), 存 metadata['source']
 
 SIGNAL_WEIGHTS = [
     (("待办", "下一步", "TODO", "pending", "未完成", "接着", "继续做"), 0.15, "未完成任务"),
@@ -741,7 +742,9 @@ async def create_memory(mem: MemoryCreate):
     vec_str = "[" + ",".join(str(x) for x in raw_vec) + "]"
     # v6.0: 分类归一化 + user_id 收敛单用户
     cat = normalize_category(mem.category)
-    uid = "default" if mem.user_id in ("g-cat", "noah", "mnemosyne-agent", "website-agent", "system", "test", "audit") else (mem.user_id or "default")
+    # v7.6: 收敛列表移除 mnemosyne-agent/website-agent → 全分身记忆隔离(分区防污染)
+    #       content-agent/catnest-agent 本就独立; g-cat/noah/system/test/audit 仍收敛
+    uid = "default" if mem.user_id in ("g-cat", "noah", "system", "test", "audit") else (mem.user_id or "default")
     # v6.3: 认知写入信号 — 初始热度按内容重要性加分 (抽屉级联温度设计, 纯正则不调LLM)
     heat_init = compute_write_heat(mem.content, cat)
     async with pool.acquire() as conn:
@@ -778,6 +781,8 @@ async def create_memory(mem: MemoryCreate):
         meta_extra.setdefault("valence", 0)        # 中性
         meta_extra.setdefault("relevance", 0)      # 待任务绑定
         meta_extra.setdefault("repetition", 0)     # 访问次数 (与 access_count 联动)
+        if mem.source:                             # v7.6: source 进 metadata, 支撑按来源批次召回
+            meta_extra["source"] = mem.source
         row = await conn.fetchrow(
             'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score, storage_strength, retrieval_strength) '
             'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8,$9,$10) RETURNING id',
@@ -947,11 +952,12 @@ async def search_memories(req: MemorySearch):
 @app.get("/api/v1/memories")
 async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = None, 
                         category: Optional[str] = None, sort: str = "created_at",
-                        search: Optional[str] = None):
+                        search: Optional[str] = None, source: Optional[str] = None):
     """List memories with optional search and sort.
     
     sort: created_at (default), heat, updated_at
     search: optional keyword filter (ILIKE match)
+    source: v7.6 — 按 metadata->>'source' 过滤(压缩归档/子代理批次召回)
     """
     query = "SELECT id, content, category, tier, heat_score, access_count, created_at, updated_at, valid_to FROM memories WHERE user_id = $1 AND is_deleted = FALSE AND (valid_to IS NULL OR valid_to > NOW())"
     params = [user_id]
@@ -967,6 +973,10 @@ async def list_memories(user_id: str, limit: int = 20, tier: Optional[str] = Non
     if search:
         query += f" AND content ILIKE ${idx}"
         params.append(f"%{search}%")
+        idx += 1
+    if source:
+        query += f" AND metadata->>'source' = ${idx}"
+        params.append(source)
         idx += 1
     
     # Sort: time (default) or heat
