@@ -382,6 +382,25 @@ async def list_conflicts(user_id: str = "default", limit: int = 20):
 
 
 
+# ── WIKI 全文快照 (v7.4) ──
+class WikiPageCreate(BaseModel):
+    title: str
+    content: str = ""
+    user_id: str = "default"
+    tags: list = None
+    source_path: str = ""
+    source_url: str = ""
+    source_type: str = "memo"
+    content_hash: str = ""
+    skip_embedding: bool = False
+
+
+class WikiSearchRequest(BaseModel):
+    query: str
+    user_id: str = "default"
+    top_k: int = 5
+
+
 @app.get("/api/v1/wiki")
 async def list_wiki_pages(user_id: str = "default", limit: int = 20):
     """List wiki knowledge pages"""
@@ -398,6 +417,32 @@ async def list_wiki_pages(user_id: str = "default", limit: int = 20):
                   "updated": str(r["updated_at"])[:19] if r["updated_at"] else "",
                  } for r in rows]
 
+@app.get("/api/v1/wiki/by-source")
+async def get_wiki_by_source(source_path: str = "", source_url: str = "", user_id: str = "default"):
+    """快速查证: 按来源路径/URL 精确查快照 (v7.4 防损毁档案馆)"""
+    async with pool.acquire() as conn:
+        if source_path:
+            row = await conn.fetchrow(
+                "SELECT id, title, content, source_path, source_url, source_type, content_hash, version, "
+                "source_lost, created_at, updated_at FROM wiki_pages WHERE user_id=$1 AND source_path=$2",
+                user_id, source_path
+            )
+        else:
+            row = await conn.fetchrow(
+                "SELECT id, title, content, source_path, source_url, source_type, content_hash, version, "
+                "source_lost, created_at, updated_at FROM wiki_pages WHERE user_id=$1 AND source_url=$2",
+                user_id, source_url
+            )
+        if not row:
+            return {"found": False}
+        return {"found": True,
+                "id": row["id"], "title": row["title"], "content": row["content"] or "",
+                "source_path": row["source_path"], "source_url": row["source_url"],
+                "source_type": row["source_type"], "content_hash": row["content_hash"],
+                "version": row["version"], "source_lost": row["source_lost"],
+                "created": str(row["created_at"])[:19] if row["created_at"] else "",
+                "updated": str(row["updated_at"])[:19] if row["updated_at"] else ""}
+
 @app.get("/api/v1/wiki/{page_id}")
 async def get_wiki_page(page_id: int):
     """Get wiki page full content"""
@@ -413,14 +458,64 @@ async def get_wiki_page(page_id: int):
                 "updated": str(row["updated_at"])[:19] if row["updated_at"] else ""}
 
 @app.post("/api/v1/wiki")
-async def create_wiki_page(title: str, content: str = "", user_id: str = "default"):
-    """Create a wiki page"""
+async def create_wiki_page(body: WikiPageCreate):
+    """Create a wiki page (全文快照档案馆). v7.4: 支持来源/指纹/版本历史."""
+    import json as _json
+    title = body.title
+    content = body.content
+    user_id = body.user_id
+    tags = body.tags or []
+    source_path = body.source_path or ""
+    source_url = body.source_url or ""
+    source_type = body.source_type or "memo"
+    content_hash = body.content_hash or ""
+    skip_embedding = body.skip_embedding
     async with pool.acquire() as conn:
+        # 幂等: 同一 source_path 已存在则返回已有页 (不重复建)
+        if source_path:
+            existing = await conn.fetchrow(
+                "SELECT id, content_hash, version FROM wiki_pages WHERE user_id=$1 AND source_path=$2",
+                user_id, source_path
+            )
+            if existing:
+                if existing["content_hash"] == content_hash and content_hash:
+                    return {"status": "exists", "id": existing["id"], "version": existing["version"], "unchanged": True}
+                # hash 不同 → 更新内容并写版本历史
+                v = existing["version"] + 1
+                if not skip_embedding:
+                    r_v = (await get_embedding([content]))[0]
+                    v_str = "[" + ",".join(str(x) for x in r_v) + "]"
+                    await conn.execute(
+                        "UPDATE wiki_pages SET content=$1, tags=$2, embedding=$3::vector, version=$4, content_hash=$5, "
+                        "source_url=$6, source_type=$7, updated_at=now() WHERE id=$8",
+                        content, _json.dumps(tags, ensure_ascii=False), v_str, v, content_hash, source_url, source_type, existing["id"]
+                    )
+                    await conn.execute(
+                        "INSERT INTO wiki_versions (page_id, version, content, embedding) VALUES ($1,$2,$3,$4::vector)",
+                        existing["id"], v, content, v_str
+                    )
+                else:
+                    await conn.execute(
+                        "UPDATE wiki_pages SET content=$1, tags=$2, version=$3, content_hash=$4, "
+                        "source_url=$5, source_type=$6, updated_at=now() WHERE id=$7",
+                        content, _json.dumps(tags, ensure_ascii=False), v, content_hash, source_url, source_type, existing["id"]
+                    )
+                return {"status": "updated", "id": existing["id"], "version": v}
         row = await conn.fetchrow(
-            "INSERT INTO wiki_pages (title, content, user_id) VALUES ($1, $2, $3) RETURNING id",
-            title, content, user_id
+            "INSERT INTO wiki_pages (title, content, user_id, tags, source_path, source_url, source_type, content_hash) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+            title, content, user_id, _json.dumps(tags, ensure_ascii=False), source_path, source_url, source_type, content_hash
         )
-        return {"status": "created", "id": row["id"]}
+        page_id = row["id"]
+        if not skip_embedding and content:
+            r_v = (await get_embedding([content]))[0]
+            v_str = "[" + ",".join(str(x) for x in r_v) + "]"
+            await conn.execute("UPDATE wiki_pages SET embedding=$1::vector WHERE id=$2", v_str, page_id)
+            await conn.execute(
+                "INSERT INTO wiki_versions (page_id, version, content, embedding) VALUES ($1,1,$2,$3::vector)",
+                page_id, content, v_str
+            )
+        return {"status": "created", "id": page_id, "version": 1}
 
 
 
@@ -1942,23 +2037,29 @@ async def graph_search(query: str, user_id: str, max_hops: int = 2):
         )
     return {"nodes": [dict(r) for r in rows], "memories": [m["content"] for m in mems]}
 
-@app.post("/api/v1/wiki")
-async def create_wiki(user_id: str, title: str, content: str):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("INSERT INTO wiki_pages (user_id, title, content) VALUES ($1,$2,$3) RETURNING id", user_id, title, content)
-        page_id = row["id"]
-        r_v = (await get_embedding([content]))[0]
-        v_str = "[" + ",".join(str(x) for x in r_v) + "]"
-        await conn.execute("INSERT INTO wiki_versions (page_id, version, content, embedding) VALUES ($1,1,$2,$3::vector)", page_id, content, v_str)
-    return {"id": page_id, "status": "created"}
-
 @app.post("/api/v1/wiki/search")
-async def search_wiki(query: str, user_id: str, top_k: int = 5):
+async def search_wiki(body: WikiSearchRequest):
+    """语义搜索 Wiki (v7.4: 直接查 wiki_pages.embedding HNSW, versions 仅作历史)"""
+    query = body.query
+    user_id = body.user_id
+    top_k = body.top_k
     r_q = (await get_embedding([query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT wv.content, wv.embedding <=> $1::vector AS dist FROM wiki_versions wv JOIN wiki_pages wp ON wv.page_id = wp.id WHERE wp.user_id = $2 ORDER BY dist LIMIT $3", q_str, user_id, top_k)
-        return [dict(r) for r in rows]
+        rows = await conn.fetch(
+            "SELECT wp.id, wp.title, wp.content, wp.source_path, wp.source_url, wp.source_type, "
+            "wp.embedding <=> $1::vector AS dist "
+            "FROM wiki_pages wp WHERE wp.user_id = $2 AND wp.content IS NOT NULL AND wp.embedding IS NOT NULL "
+            "ORDER BY wp.embedding <=> $1::vector LIMIT $3",
+            q_str, user_id, top_k
+        )
+        return [{
+            "id": r["id"], "title": r["title"],
+            "content_preview": (r["content"] or "")[:300],
+            "content_length": len(r["content"] or ""),
+            "source_path": r["source_path"], "source_url": r["source_url"],
+            "source_type": r["source_type"], "distance": round(r["dist"], 4)
+        } for r in rows]
 
 @app.post("/api/v1/extract-entities")
 async def extract_entities(user_id: str, max_memories: int = 50):

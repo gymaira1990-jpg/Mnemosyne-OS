@@ -865,7 +865,12 @@ CREATE TABLE public.wiki_pages (
     embedding public.vector(1024),
     version integer DEFAULT 1,
     created_at timestamp without time zone DEFAULT now(),
-    updated_at timestamp without time zone DEFAULT now()
+    updated_at timestamp without time zone DEFAULT now(),
+    source_path text,
+    source_url text,
+    content_hash text,
+    source_type text DEFAULT 'memo'::text,
+    source_lost boolean DEFAULT false
 );
 
 
@@ -1767,4 +1772,15 @@ CREATE TABLE IF NOT EXISTS tome_links (
     rel TEXT DEFAULT 'related',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+
+-- Name: wiki_entities; Type: TABLE; Schema: public
+CREATE TABLE public.wiki_entities (
+    id bigint NOT NULL,
+    wiki_page_id bigint NOT NULL,
+    entity_id bigint NOT NULL,
+    relation text,
+    created_at timestamp without time zone DEFAULT now()
+);
+ALTER TABLE public.wiki_entities ADD CONSTRAINT wiki_entities_pkey PRIMARY KEY (id);
 
