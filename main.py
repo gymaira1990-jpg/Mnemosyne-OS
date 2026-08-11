@@ -5,7 +5,7 @@ Mnemosyne 记忆核心引擎 v5.0
 v5.0 升级:
   - 豆包 API 全替代本地模型 (embedding-vision 1024d + seed-2.0)
   - 模型分级路由 (Tier1-5)
-  - GZ 7×24 独立运行，无反向隧道依赖
+  - 生产服务器 7×24 独立运行，无反向隧道依赖
   - 三馆闭环知识生产流水线 (Phase 2)
 """
 import os
@@ -83,7 +83,7 @@ from core.chunker import chunk_memory as chunk_memory_fn, chunk_all_unprocessed
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v6.4.0 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.6.1 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -676,7 +676,7 @@ async def get_embedding(texts: List[str]) -> List[List[float]]:
 async def rerank_docs(query: str, documents: List[str], top_k: int = 5) -> List[str]:
     """
     v5.1 Reranker: 豆包 doubao-embedding-vision-251215 主用 (余弦相似度排序)
-    本地 Qwen3-Embed (GZ :11436) 作为 fallback
+    本地 Qwen3-Embed 作为 fallback
     """
     RERANK_URL = "http://127.0.0.1:11436/v1/embeddings"
     
@@ -1954,19 +1954,19 @@ async def health_report(user_id: str):
 # ── 自描述化 API ──
 @app.get("/")
 async def root():
-    return {"service": "Mnemosyne Memory Engine v6.0", "docs": "/api/v1/capabilities"}
+    return {"service": "Mnemosyne OS v7.6.1", "docs": "/api/v1/capabilities"}
 
 @app.get("/api/v1/capabilities")
 async def capabilities():
     return {
-        "service": "Mnemosyne OS v6.4.0",
+        "service": "Mnemosyne OS v7.6.1",
         "version": "7.6.1",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
         "endpoints": [
-            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
-            {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories/search -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"noah\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
+            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"default\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
+            {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories/search -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"default\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories", "purpose": "按热度/分类列出记忆", "params": {"user_id": "str", "limit": "int(20)", "tier": "str?", "category": "str?"}, "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories/{id}", "purpose": "获取单条记忆详情", "tags": ["core", "read"]},
             {"path": "DELETE /api/v1/memories/{id}", "purpose": "软删除记忆", "tags": ["core", "write"]},

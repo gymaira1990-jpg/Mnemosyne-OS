@@ -265,9 +265,9 @@ async def summon(pool, query: str, user_id: str = "default", top_k: int = 5) -> 
 def refine_prompt(content: str) -> str:
     return f"""你是记忆宫殿的图书管理员。给一条记忆生成著录卡片。
 要求:
-1. 题名: 10字以内, 概括主题 (如 "GZ xray部署")
+1. 题名: 10字以内, 概括主题 (如 "xray部署")
 2. 摘要: 30字以内, 一句话要点
-3. 标签: 2-4个, 用中括号逗号分隔 (如 [GZ][xray][部署])
+3. 标签: 2-4个, 用中括号逗号分隔 (如 [xray][部署])
 
 记忆内容:
 {content[:500]}

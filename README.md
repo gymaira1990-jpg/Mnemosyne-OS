@@ -35,7 +35,7 @@
 
 | | |
 |---|---|
-| **Memories** | 8,873 archived · 6,231 structured facts · 100% archive coverage |
+| **Memories** | 9,952+ archived · 6,231 structured facts · 100% archive coverage |
 | **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
 | **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
@@ -288,7 +288,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Metric | Value |
 |---|---|
-| Memories archived | 8,873+ (100% archive coverage) |
+| Memories archived | 9,952+ (100% archive coverage) |
 | Structured facts | 6,231 (knowledge 5,230 + preference 1,001) |
 | Tome cards | 8,682 |
 | Taxonomy | 7 wings × 20 rooms (30 nodes) |

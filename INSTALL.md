@@ -125,7 +125,7 @@ sudo make install PG_CONFIG=/usr/local/opt/postgresql@16/bin/pg_config
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 cd Mnemosyne-OS
 
-# 导入完整表结构（32+ 张表，含宫殿/图谱/知识库）
+# 导入完整表结构（30 张表，含宫殿/图谱/知识库）
 # ⚠️ 需用数据库超级用户（如 postgres）执行：CREATE EXTENSION 需要高权限
 # schema.sql 自带 CREATE EXTENSION（age/vector/pg_trgm），导入即自动建扩展
 sudo -u postgres psql -d mnemosyne -f docs/schema.sql

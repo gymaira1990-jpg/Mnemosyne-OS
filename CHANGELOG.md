@@ -1,3 +1,24 @@
+## fix · 遗漏清理 (2026-08-11)
+
+### 版本号修复 (对外 API 自描述)
+- main.py: root 端点 / FastAPI title / capabilities service 名 — v6.x → v7.6.1
+- GZ 已部署验证: capabilities 返回 Mnemosyne OS v7.6.1
+
+### 内部代号脱敏 (代码注释)
+- main.py: GZ → 生产服务器; Qwen3-Embed (GZ :11436) → 本地 fallback; noah 示例 → default
+- palace.py / tmt/router.py: 示例与时区注释 GZ → 通用
+
+### 废弃清理
+- cron/cron-hermes-kanban.sh 删除 (kanban 派发模式已废弃)
+- GZ crontab 移除 kanban dispatch 残留 (每2min)
+- docs/requirements.txt 删除 (历史 pip freeze 快照, 含 llama_cpp_python 误导)
+- docs/schema.sql 清理 4 个 tmt_*_old 残留表 + 6 索引 + 1 失效 FK (实测: 34→30 表, 0 残留)
+
+### 数据同步
+- README/README_CN/WHITEPAPER: 记忆数 8,873/8,647 → 9,952+
+- INSTALL.md: 表数 32+ → 30
+- PROGRESS.md: 运行状态 v7.0.0 → v7.6.1, 下一步对齐 v8.0
+
 ## docs · 仓库装修第二轮 (2026-08-11)
 
 ### 结构规整

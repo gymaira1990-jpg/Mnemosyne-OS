@@ -12,7 +12,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-# v6.5 时区修复: GZ 服务器为 Asia/Shanghai (+08), 本地日期必须用本地时区构造窗口,
+# v6.5 时区修复: 生产服务器为 Asia/Shanghai (+08), 本地日期必须用本地时区构造窗口,
 # 否则 daily/weekly 端点把 8/6 本地日期标成 UTC → 窗口偏移 8h → 永远 no_children
 LOCAL_TZ = timezone(timedelta(hours=8))
 

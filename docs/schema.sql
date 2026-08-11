@@ -734,80 +734,8 @@ CREATE SEQUENCE public.projects_id_seq
 ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 
---
--- Name: tmt_daily_old; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tmt_daily_old (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id text NOT NULL,
-    date date NOT NULL,
-    summary text,
-    embedding public.vector(1024),
-    heat_score double precision DEFAULT 0.5,
-    themes jsonb DEFAULT '[]'::jsonb,
-    session_ids uuid[],
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
 
 
---
--- Name: tmt_profiles_old; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tmt_profiles_old (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id text NOT NULL,
-    period_start timestamp with time zone NOT NULL,
-    period_end timestamp with time zone NOT NULL,
-    profile_json jsonb DEFAULT '{}'::jsonb,
-    summary text,
-    embedding public.vector(1024),
-    heat_score double precision DEFAULT 0.5,
-    is_active boolean DEFAULT true,
-    previous_id uuid,
-    weekly_ids uuid[],
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: tmt_sessions_old; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tmt_sessions_old (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id text NOT NULL,
-    summary text,
-    embedding public.vector(1024),
-    heat_score double precision DEFAULT 0.5,
-    start_time timestamp with time zone,
-    end_time timestamp with time zone,
-    fragment_ids integer[],
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: tmt_weekly_old; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tmt_weekly_old (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id text NOT NULL,
-    week_start date NOT NULL,
-    week_end date NOT NULL,
-    summary text,
-    embedding public.vector(1024),
-    heat_score double precision DEFAULT 0.5,
-    patterns jsonb DEFAULT '[]'::jsonb,
-    daily_ids uuid[],
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
 
 
 --
@@ -1299,44 +1227,9 @@ ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_project_id_key UNIQUE (project_id);
 
 
---
--- Name: tmt_daily_old tmt_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tmt_daily_old
-    ADD CONSTRAINT tmt_daily_pkey PRIMARY KEY (id);
 
 
---
--- Name: tmt_daily_old tmt_daily_user_id_date_key; Type: CONSTRAINT; Schema: public; Owner: -
---
 
-ALTER TABLE ONLY public.tmt_daily_old
-    ADD CONSTRAINT tmt_daily_user_id_date_key UNIQUE (user_id, date);
-
-
---
--- Name: tmt_profiles_old tmt_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tmt_profiles_old
-    ADD CONSTRAINT tmt_profiles_pkey PRIMARY KEY (id);
-
-
---
--- Name: tmt_sessions_old tmt_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tmt_sessions_old
-    ADD CONSTRAINT tmt_sessions_pkey PRIMARY KEY (id);
-
-
---
--- Name: tmt_weekly_old tmt_weekly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tmt_weekly_old
-    ADD CONSTRAINT tmt_weekly_pkey PRIMARY KEY (id);
 
 
 --
@@ -1585,42 +1478,30 @@ CREATE INDEX idx_memory_traces_memory ON public.memory_traces USING btree (memor
 -- Name: idx_tmt_daily_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_daily_user ON public.tmt_daily_old USING btree (user_id);
-
 
 --
 -- Name: idx_tmt_profiles_active; Type: INDEX; Schema: public; Owner: -
 --
-
-CREATE INDEX idx_tmt_profiles_active ON public.tmt_profiles_old USING btree (user_id) WHERE (is_active = true);
 
 
 --
 -- Name: idx_tmt_profiles_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_profiles_user ON public.tmt_profiles_old USING btree (user_id);
-
 
 --
 -- Name: idx_tmt_sessions_embedding; Type: INDEX; Schema: public; Owner: -
 --
-
-CREATE INDEX idx_tmt_sessions_embedding ON public.tmt_sessions_old USING ivfflat (embedding public.vector_cosine_ops);
 
 
 --
 -- Name: idx_tmt_sessions_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_sessions_user ON public.tmt_sessions_old USING btree (user_id);
-
 
 --
 -- Name: idx_tmt_weekly_user; Type: INDEX; Schema: public; Owner: -
 --
-
-CREATE INDEX idx_tmt_weekly_user ON public.tmt_weekly_old USING btree (user_id);
 
 
 --
@@ -1698,13 +1579,6 @@ ALTER TABLE ONLY public.memory_entities
 ALTER TABLE ONLY public.memory_traces
     ADD CONSTRAINT memory_traces_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id);
 
-
---
--- Name: tmt_profiles_old tmt_profiles_previous_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tmt_profiles_old
-    ADD CONSTRAINT tmt_profiles_previous_id_fkey FOREIGN KEY (previous_id) REFERENCES public.tmt_profiles_old(id);
 
 
 --
