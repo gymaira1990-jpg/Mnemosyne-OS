@@ -183,7 +183,6 @@ WSL 离线？本地 SQLite 缓存。恢复联网？静默推送 PostgreSQL。Cro
 | 🤖 给 Hermes Agent 长期记忆 | `hermes config set memory.provider mnemosyne` | ~2 分钟 |
 | 🐍 在自己代码里调用 | 独立部署 + Python SDK | ~15 分钟 |
 | 🏠 自托管完整服务 | 按 [INSTALL.md](INSTALL.md) | ~15 分钟 |
-| 🚀 Docker 一键（v8.0 规划中） | `docker compose up` | — |
 
 ```bash
 # Hermes Agent（一条命令）
@@ -263,13 +262,12 @@ python main.py  # → :8010
 
 | | |
 |---|---|
-| [INSTALL.md](INSTALL.md) | 分环境安装指南（Linux/macOS/WSL/Docker） |
+| [INSTALL.md](INSTALL.md) | 分环境安装指南（Linux/macOS/WSL） |
 | [AGENTS.md](AGENTS.md) | AI Agent 手册 — API速查/环境变量/Hermes接入 |
 | [ROADMAP.md](ROADMAP.md) | 当前 → 下一步 |
 | [CHANGELOG.md](CHANGELOG.md) | 完整版本历史 |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 产品白皮书 — 宫殿架构 |
 | [docs/palace-architecture.md](docs/palace-architecture.md) | 魔法记忆宫殿详细设计 |
-| [docs/docker-plan.md](docs/docker-plan.md) | Docker 一键部署蓝图 (v8.0) |
 | [docs/schema.sql](docs/schema.sql) | 完整数据库结构（含宫殿表） |
 
 <p align="center">

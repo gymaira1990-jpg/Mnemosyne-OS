@@ -22,7 +22,6 @@
   - [Ubuntu/Debian](#ubuntudebian)
   - [macOS](#macos)
   - [Windows (WSL2)](#windows-wsl2)
-  - [Docker（规划中）](#docker规划中)
 - [常见问题 FAQ](#常见问题-faq)
 - [下一步](#下一步)
 
@@ -256,16 +255,11 @@ sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
 
 - PostgreSQL 16 + pgvector：Homebrew 直接装。
 - Apache AGE：无官方包，需 [源码编译](#age-源码编译macos--无-apt-包的环境)（10 分钟，Makefile 一条命令）。
-- 或直接 Docker（见下节规划）。
 
 ### Windows (WSL2)
 
 - 推荐 WSL2 + Ubuntu，完全按 Ubuntu 步骤。
 - 原生 Windows 跑 PostgreSQL 需手动装扩展，不推荐。
-
-### Docker（规划中）
-
-> 一键容器化（PG+AGE+服务）正在规划，将提供 `docker compose up` 一条命令体验。当前版本请用裸机安装。
 
 ---
 

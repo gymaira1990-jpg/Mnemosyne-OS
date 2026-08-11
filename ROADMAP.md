@@ -34,7 +34,6 @@ v5.4 (三馆激活) ✅ → v5.5 (时间有效性) ✅ → v6.0 (认知架构) �
 - [x] AGENTS.md 重写 (AI 对接手册: API速查/环境变量/Hermes接入)
 - [x] hermes-provider 同步运行版 (11 工具含 palace_summon)
 - [x] README 重构 + 仓库装修 (脱敏/模板/schema 修复)
-- [ ] Docker 一键部署 (docker-compose: PG16+AGE+服务) — 蓝图见 [docs/docker-plan.md](docs/docker-plan.md)
 - [ ] setup.sh 裸机一键安装脚本
 - [ ] 真实用户灰度安装验证 (找 1-2 位朋友实测)
 - [ ] LongMemEval 复测 (目标 ≥50%, 基线 16.7%)

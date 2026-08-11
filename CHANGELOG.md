@@ -6,7 +6,10 @@
 
 ### 重写
 - `AGENTS.md`: 76 → 236 行。AI 对接手册 (API 端点速查 / 环境变量全表 / Hermes/MCP 接入 / 最佳实践)
-- `README.md` / `README_CN.md`: Quick Start 修正为可执行路径 (补数据库步骤 + INSTALL 入口)
+- `README.md` / `README_CN.md`: Quick Start 修正为可执行路径 (补数据库步骤 + INSTALL 入口) + Start-Here 路径分流表
+
+### 移除
+- Docker 相关规划 (docker-plan.md 及 README/ROADMAP/INSTALL 引用) — 用户决策暂不做 Docker
 
 ### 修复
 - `docs/schema.sql`: pg_dump 外键顺序 bug (memory_pointer 引用未建 memories 表) + 宫殿段 search_path + 迁移残留表标注
