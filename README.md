@@ -226,6 +226,15 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jo
 
 ## Quick Start
 
+> **Start here** — pick your path:
+
+| You want to… | Do this | Time |
+|---|---|---|
+| 🤖 Give your Hermes Agent long-term memory | `hermes config set memory.provider mnemosyne` | ~2 min |
+| 🐍 Call Mnemosyne from your own code | Install + Python SDK | ~15 min |
+| 🏠 Self-host the full service | Follow [INSTALL.md](INSTALL.md) | ~15 min |
+| 🚀 Docker one-command (coming in v8.0) | `docker compose up` | — |
+
 ### Prerequisites
 
 - Python 3.12+ · PostgreSQL 16 + pgvector · Apache AGE
@@ -302,6 +311,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 | [CHANGELOG.md](CHANGELOG.md) | Full version history |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 product whitepaper — palace architecture |
 | [docs/palace-architecture.md](docs/palace-architecture.md) | Magic Memory Palace detailed design |
+| [docs/docker-plan.md](docs/docker-plan.md) | Docker one-command blueprint (v8.0) |
 | [docs/schema.sql](docs/schema.sql) | Full database schema (incl. palace tables) |
 | [docs/design/](docs/design/) | Per-version design docs (v6.2-v6.4) |
 | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Dev workflow, commit conventions |

@@ -176,6 +176,15 @@ WSL 离线？本地 SQLite 缓存。恢复联网？静默推送 PostgreSQL。Cro
 
 ## 快速开始
 
+> **从这里开始** —— 按需选择你的路径：
+
+| 你想要… | 怎么做 | 耗时 |
+|---|---|---|
+| 🤖 给 Hermes Agent 长期记忆 | `hermes config set memory.provider mnemosyne` | ~2 分钟 |
+| 🐍 在自己代码里调用 | 独立部署 + Python SDK | ~15 分钟 |
+| 🏠 自托管完整服务 | 按 [INSTALL.md](INSTALL.md) | ~15 分钟 |
+| 🚀 Docker 一键（v8.0 规划中） | `docker compose up` | — |
+
 ```bash
 # Hermes Agent（一条命令）
 hermes config set memory.provider mnemosyne
@@ -260,6 +269,7 @@ python main.py  # → :8010
 | [CHANGELOG.md](CHANGELOG.md) | 完整版本历史 |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 产品白皮书 — 宫殿架构 |
 | [docs/palace-architecture.md](docs/palace-architecture.md) | 魔法记忆宫殿详细设计 |
+| [docs/docker-plan.md](docs/docker-plan.md) | Docker 一键部署蓝图 (v8.0) |
 | [docs/schema.sql](docs/schema.sql) | 完整数据库结构（含宫殿表） |
 
 <p align="center">
