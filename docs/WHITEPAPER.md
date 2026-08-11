@@ -76,12 +76,30 @@ Dialogue → fact extraction (DeepSeek Tier3/4) → classify → archive-no → 
 - `system_prompt_block` palace state injection
 - `sync_turn` lossless session storage (2,000/3,000 chars)
 
+## Evolution: v7.1 → v7.6 (2026-08-09/10)
+
+The palace keeps growing. What shipped after v7.0:
+
+| Version | Ships |
+|---------|-------|
+| v7.1 | 🗄️ **Drawerized memory** — temp×time dual-track, forget candidates, update endpoint, drawers API |
+| v7.2 | 🧠 **Bjork S/R separation** — storage strength never decays (info stays), retrieval strength decays (accessibility fades, recoverable). Prod tuning: pg_stat_statements, workers 2→4 |
+| v7.3 | 📊 **Rank scoring** — composite ranking, S upgrades, drawer tiering |
+| v7.4 | 🧩 **WIKI knowledge base + knowledge graph** — full-text snapshot archive for papers/plans, Apache AGE entity graph |
+| v7.5 | 🔍 **WIKI retrieval optimization** — BM25 (jieba) + vector RRF fusion, precision@3 100% on 20-query eval; graph dedup cron |
+| v7.6 | 🔬 **Memory isolation & provenance** — per-identity namespaces, source tracking, episodic/semantic/procedural typing (9,952 memories migrated) |
+
+Key evolutions in behavior:
+- **Forgetting is now principled**: Bjork S/R + drawer candidates + retention tiers (permanent/long/short) replace blunt deletion. Nothing is lost, accessibility fades and recovers.
+- **Knowledge is now queryable**: WIKI knowledge base (BM25+vector RRF, 100% precision@3) + Apache AGE graph traversal (multi-hop entity discovery).
+- **Memory is now typed**: episodic (what happened) / semantic (what is true) / procedural (how to do) — classification at write time, zero LLM cost.
+
 ## v7.0 Metrics
 
 - 8,873 memories | 100% archive coverage | 8,682 tome cards | 30 taxonomy nodes
 - 6,231 structured facts
 - Summon latency ~100-400ms
-- Full test suite: 97 passed
+- Full test suite: 167 passed (v7.6.1)
 
 ## Docs Index
 

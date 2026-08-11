@@ -1,3 +1,22 @@
+## docs · 对外分享文档体系 (2026-08-11)
+
+### 新增
+- `INSTALL.md`: 分环境安装指南 (Linux/macOS/WSL + 数据库初始化 + 模型后端 + FAQ)
+- `integrations/hermes-provider/README.md`: Hermes 适配文档 (11 工具 + 自动钩子 + 配置)
+
+### 重写
+- `AGENTS.md`: 76 → 236 行。AI 对接手册 (API 端点速查 / 环境变量全表 / Hermes/MCP 接入 / 最佳实践)
+- `README.md` / `README_CN.md`: Quick Start 修正为可执行路径 (补数据库步骤 + INSTALL 入口)
+
+### 修复
+- `docs/schema.sql`: pg_dump 外键顺序 bug (memory_pointer 引用未建 memories 表) + 宫殿段 search_path + 迁移残留表标注
+- `requirements.txt`: 补 `jieba` (v7.5 WIKI BM25 硬依赖, 缺失会导致 ImportError)
+- `integrations/hermes-provider`: 同步 Hermes 运行版本 (10 → 11 工具, 补 palace_summon)
+- `deploy/mnemosyne.service`: 通用化 (原为生产环境专用, 且被 .gitignore 排除)
+
+### 脱敏
+- CHANGELOG/README/.gitignore 内部代号 GZ → 生产环境/生产服务器
+
 ## v7.6.1 · 三分类记忆打标 (2026-08-10)
 
 ### 新增
@@ -25,7 +44,7 @@
 
 ### ✨ 新功能
 - **eval 评测扩充**: 20 → 30 条查询 (长尾/跨域/边界), 指标 precision@3 + recall@3 + MRR
-- **图谱边定期去重**: wiki_dedupe.py (GZ cron 周一 8am), 防 AGE 重复边积累
+- **图谱边定期去重**: wiki_dedupe.py (生产 cron 周一 8am), 防 AGE 重复边积累
 
 ### 🔧 修复
 - **图谱边去重**: 3,263 → 1,006 条 RELATED_TO (删 2,257 重复, 跨页通用实体对), wiki_extract 建边前查重防复发
@@ -44,7 +63,7 @@
 - **专业词典**: wiki_dict.txt 145 词 (wiki 高频词 + 核心术语), 浑天芯算/金闪闪协议等术语正确切分
 - **图谱扩展通道 P1**: 实体锚定 + AGE 1跳 RELATED_TO → 页面评分; 加成模式防噪音, 默认关 (可选增强)
 - **palace summon 第4通道「文库」**: 查记忆顺带带出相关论文/方案
-- **eval 定期评测**: 20 查询 × 三档 (纯向量/向量+BM25/全通道), GZ cron 每周一 7am, 防漂移告警
+- **eval 定期评测**: 20 查询 × 三档 (纯向量/向量+BM25/全通道), 生产 cron 每周一 7am, 防漂移告警
 - **rerank 可选**: 复用 rerank_docs (豆包 embedding 相似度重排, 默认关)
 
 ### 📈 效果
@@ -104,7 +123,7 @@
 - test_rank_v73.py 13 项 (Rank公式/S升级/抽屉分档)
 - 全量 pytest 148 passed
 
-## v7.2.0 (2026-08-09) — 🧠 Bjork S/R 分离 + GZ 调优
+## v7.2.0 (2026-08-09) — 🧠 Bjork S/R 分离 + 生产调优
 
 **核心理念**: 遗忘 ≠ 丢失。存储强度 S 不衰减(信息永远在), 检索强度 R 衰减(访问性下降可恢复)。访问重置 R=S + S 微增(间隔重复效应)。网络调研: Bjork New Theory of Disuse + FSRS/Anki 间隔重复。
 
@@ -117,7 +136,7 @@
 - **回退开关**: metadata->>'use_sr'='false' 恢复纯 heat 模式
 - 效果: 高价值记忆永不冻结(底蕴), 低价值久未访问自动沉降
 
-### 🔧 GZ 调优
+### 🔧 生产调优
 - 启用 pg_stat_statements 慢查询监控 (原缺失, 最大隐性风险)
 - uvicorn workers 2→4 (压测 234 req/s, 100/100 OK)
 - perf_alert.py 每30分钟水位巡检 (内存/磁盘/PG连接/慢查询, 超阈值才告警)
@@ -245,7 +264,7 @@ LongMemEval 复测: 提取层对超长会话 (1.3万字符) 仍漏深处细节 �
 ### 🛡️ 健康监控备份新鲜度
 
 - `mnemosyne-health-monitor.sh` 新增备份新鲜度检查: >10 天无新 dump 或 0 备份 → 微信告警 (防静默丢记忆)
-- 修复: GZ 增强版之前未同步回仓库 (版本一致性)
+- 修复: 生产增强版之前未同步回仓库 (版本一致性)
 
 ### 📌 已知问题 (外部依赖, 不修)
 
@@ -262,7 +281,7 @@ LongMemEval 复测: 提取层对超长会话 (1.3万字符) 仍漏深处细节 �
 - 流程: 信号词候选筛选 → TEL 组装 → 豆包 Lite JSON 凝练 → ANN 去重闸机 (>0.92 跳过) → 入库 (knowledge→archive / pitfall→engineering) → metadata 溯源
 - 用法: `python3 tmt/distill.py --batch N [--dry-run] [--stats]`
 
-**部署**: GZ cron 每日 1:10 批量 60 条 (首轮 30 条: +22 knowledge, +1 pitfall, 5 fail 豆包偶发空返回下轮重捞)
+**部署**: 生产 cron 每日 1:10 批量 60 条 (首轮 30 条: +22 knowledge, +1 pitfall, 5 fail 豆包偶发空返回下轮重捞)
 
 ## v6.0.1 (2026-08-02)
 
@@ -279,7 +298,7 @@ LongMemEval 复测: 提取层对超长会话 (1.3万字符) 仍漏深处细节 �
 
 **备注**
 - 发布闭环：升级报告审阅 ✓ 用户验收 ✓ GitHub Release + tag ✓
-- GZ 备份：`main.py.bak.20260802` / `core/llm.py.bak.20260802` / `tmt/router.py.bak.20260802(.2/.predegrade)`
+- 生产备份：`main.py.bak.20260802` / `core/llm.py.bak.20260802` / `tmt/router.py.bak.20260802(.2/.predegrade)`
 
 ## v6.0.0 (2026-08-02)
 

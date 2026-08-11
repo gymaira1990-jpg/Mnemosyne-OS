@@ -1,0 +1,16 @@
+[Unit]
+Description=Mnemosyne OS — Memory Palace
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/path/to/Mnemosyne-OS
+ExecStart=/path/to/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8010
+Restart=always
+RestartSec=5
+EnvironmentFile=/path/to/Mnemosyne-OS/.env
+
+[Install]
+WantedBy=multi-user.target

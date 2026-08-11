@@ -1,41 +1,33 @@
 # Mnemosyne Memory Provider
 
-版本: 5.3.0 | 状态: 已发布 | 日期: 2026-07-06
+版本: 7.6.1 | 状态: 已发布 | 日期: 2026-08-11
+架构: Hermes ABC MemoryProvider 插件 (v1.1.0 演进)
 
 ## 版本历史
 
 | 版本 | 日期 | 核心变更 |
 |------|------|---------|
-| 5.2.1 | 2026-06-27 | 初始: 10工具 + sync_turn + prefetch + 写队列 + 熔断器 |
-| 5.3.0 | 未发布 | on_pre_compress + on_delegation + prefetch增强 + prompt增强 |
+| 7.6.1 | 2026-08-11 | 同步 Hermes 运行版本: palace_summon 工具 + v7 全套能力 |
+| 1.1.0 | 2026-07-29 | 写过滤(低价值跳过) + 首轮冷启动 + 格式优化 |
+| 1.0.0 | 2026-07-06 | 初始: 10工具 + sync_turn + prefetch + 写队列 + 熔断器 |
 
-## ABC 实现矩阵 (Hermes v0.18.0)
+## 工具矩阵 (11 tools)
 
-| Hook | 状态 |
+| 工具 | 状态 |
 |------|:---:|
-| initialize | ✅ |
-| system_prompt_block | ✅ (v5.3增强) |
-| prefetch | ✅ (v5.3增强) |
-| queue_prefetch | ✅ |
-| sync_turn | ✅ |
-| on_session_end | ✅ |
-| on_pre_compress | ❌ → v5.3.0 |
-| on_delegation | ❌ → v5.3.0 |
-| on_memory_write | ✅ |
-| on_session_switch | ✅ |
-| get_tool_schemas | ✅ 10工具 |
-| handle_tool_call | ✅ |
-| shutdown | ✅ |
+| mnemosyne_palace_summon | ✅ v7 三通道召唤 |
+| mnemosyne_search | ✅ |
+| mnemosyne_remember | ✅ |
+| mnemosyne_recall | ✅ |
+| mnemosyne_dialectic | ✅ |
+| mnemosyne_hot_memories | ✅ |
+| mnemosyne_tree | ✅ |
+| mnemosyne_tiered_read | ✅ |
+| mnemosyne_conflicts | ✅ |
+| mnemosyne_wiki | ✅ |
+| mnemosyne_media | ✅ |
 
-## 业界对标
+## 依赖
 
-| 能力 | Mem0 | Honcho | Zep | 我们 |
-|------|:---:|:---:|:---:|:---:|
-| 语义搜索 | ✅ | ✅ | ✅ | ✅ |
-| 自动同步 | ❌ | ✅ | ✅ | ✅ |
-| 预取注入 | ❌ | ✅ | ❌ | ✅ |
-| 会话蒸馏 | ❌ | ✅ | ❌ | ✅ |
-| 崩溃安全写队列 | ❌ | ❌ | ❌ | ✅ 独有 |
-| 熔断保护 | ❌ | ❌ | ❌ | ✅ 独有 |
-| on_pre_compress | ❌ | ❌ | ❌ | v5.3 ✅ |
-| on_delegation | ❌ | ❌ | ❌ | v5.3 ✅ |
+- Mnemosyne OS 服务 v5.5.1+（推荐 v7.x）
+- Hermes v0.19.0+

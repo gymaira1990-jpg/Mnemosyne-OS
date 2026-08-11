@@ -20,5 +20,6 @@ assignees: gymaira1990-jpg
 
 ## 环境
 - Mnemosyne 版本:
-- 部署环境 (GZ/WSL):
+- 部署方式 (Docker/裸机/Hermes集成):
 - Python 版本:
+- PostgreSQL 版本:

@@ -244,13 +244,19 @@ No other configuration needed.
 
 ### Standalone
 
+> Full step-by-step guide: **[INSTALL.md](INSTALL.md)** (database setup, permissions, model backends, FAQ).
+
 ```bash
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
-cd Mnemosyne-OS && pip install -r requirements.txt
+cd Mnemosyne-OS
+pip install -r requirements.txt
 
-export EMBED_MODEL=doubao-embedding-vision
-export ARK_API_KEY=your_key
-export LLM_MODEL_LITE=doubao-seed-2-0-lite
+# 1. PostgreSQL 16 + pgvector + Apache AGE (Ubuntu example):
+#    sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
+# 2. Import schema (superuser required for CREATE EXTENSION):
+#    sudo -u postgres psql -d mnemosyne -f docs/schema.sql
+# 3. Configure model backend in .env (ARK / DeepSeek / any OpenAI-compatible):
+cp .env.template .env   # fill in ARK_API_KEY (or OPENAI_API_KEY + MODEL_BACKEND=openai)
 
 python main.py  # → :8010
 ```
@@ -290,7 +296,8 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | | |
 |---|---|
-| [AGENTS.md](AGENTS.md) | AI agent manual — architecture, workflow, red lines |
+| [INSTALL.md](INSTALL.md) | Step-by-step installation guide (Linux / macOS / WSL / Docker) |
+| [AGENTS.md](AGENTS.md) | AI agent manual — API reference, env vars, Hermes/MCP setup |
 | [ROADMAP.md](ROADMAP.md) | Current priorities & next steps |
 | [CHANGELOG.md](CHANGELOG.md) | Full version history |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 product whitepaper — palace architecture |
@@ -306,8 +313,8 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
-| [v7.6.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.5.1) | 2026-08-09 | 🧠 Composite rank + dual-direction mention upgrade + fast pointers + regional retrieval |
-| [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork S/R dual strength + GZ tuning (pg_stat_statements/workers/perf alerts) |
+| [v7.6.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.1) | 2026-08-09 | 🧠 Composite rank + dual-direction mention upgrade + fast pointers + regional retrieval |
+| [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork S/R dual strength + prod tuning (pg_stat_statements/workers/perf alerts) |
 | [v7.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.1.0) | 2026-08-09 | 🗄️ Drawerized memory: temp×time dual-track + forget candidates + update endpoint + drawers API |
 | [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 Magic Memory Palace: taxonomy + archive-no + tome cards + 3-channel summon + fact extraction + retention tiers |
 | [v6.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.4.0) | 2026-08-05 | Fact extraction: dialogue → personal facts (preference/knowledge) |

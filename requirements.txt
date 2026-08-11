@@ -1,5 +1,5 @@
-# Mnemosyne OS v5.3.0 — 生产依赖
-# 零本地模型依赖 (v5.2.1+ 全豆包 API)
+# Mnemosyne OS v7.6.1 — 生产依赖
+# 零本地模型依赖 (v7.x 全 API 驱动)
 
 fastapi>=0.136
 uvicorn[standard]
@@ -10,3 +10,4 @@ pydantic>=2.13
 psutil>=7.2
 diskcache>=5.6
 numpy>=2.4
+jieba>=0.42          # v7.5+ WIKI BM25 中文分词 (main.py 硬依赖)

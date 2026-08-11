@@ -1,4 +1,4 @@
-# Mnemosyne OS v7.6.0 状态
+# Mnemosyne OS v7.6.1 状态
 
 ## 状态: ✅ 稳定运行 (2026-08-06)
 

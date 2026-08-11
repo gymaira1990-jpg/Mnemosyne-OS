@@ -181,11 +181,15 @@ WSL 离线？本地 SQLite 缓存。恢复联网？静默推送 PostgreSQL。Cro
 hermes config set memory.provider mnemosyne
 # 工具: mnemosyne_palace_summon · mnemosyne_search · mnemosyne_recall · …
 
-# 独立部署
+# 独立部署 → 完整步骤见 INSTALL.md（含数据库初始化/模型配置/验证）
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
-cd Mnemosyne-OS && pip install -r requirements.txt
+cd Mnemosyne-OS
+# ① 装 PostgreSQL 16 + pgvector + Apache AGE ② 导入 docs/schema.sql
+# ③ 配置 .env（模型后端）④ pip install -r requirements.txt
 python main.py  # → :8010
 ```
+
+> 📖 详细的分环境安装步骤（Linux/macOS/WSL + 权限说明 + 常见问题）见 [INSTALL.md](INSTALL.md)。
 
 ---
 
@@ -223,8 +227,8 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
-| [v7.6.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.5.1) | 2026-08-09 | 🧠 综合Rank + 提及双向升级 + 快速指针 + 区域化检索 |
-| [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork 双强度S/R + GZ调优(pg_stat_statements/workers/水位告警) |
+| [v7.6.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.1) | 2026-08-09 | 🧠 综合Rank + 提及双向升级 + 快速指针 + 区域化检索 |
+| [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork 双强度S/R + 生产调优(pg_stat_statements/workers/水位告警) |
 | [v7.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.1.0) | 2026-08-09 | 🗄️ 抽屉化记忆: 温度×时间双轨制 + 遗忘候选 + 更新端点 + 抽屉API |
 | [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 魔法记忆宫殿: 分类树+档号+著录卡片+三通道召唤+资料室事实提取+永恒分级 |
 | [v6.4.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v6.4.0) | 2026-08-05 | 事实提取管道: 对话→用户事实 (preference/knowledge) |
@@ -250,7 +254,8 @@ python main.py  # → :8010
 
 | | |
 |---|---|
-| [AGENTS.md](AGENTS.md) | AI Agent 手册 — 架构/流程/红线 |
+| [INSTALL.md](INSTALL.md) | 分环境安装指南（Linux/macOS/WSL/Docker） |
+| [AGENTS.md](AGENTS.md) | AI Agent 手册 — API速查/环境变量/Hermes接入 |
 | [ROADMAP.md](ROADMAP.md) | 当前 → 下一步 |
 | [CHANGELOG.md](CHANGELOG.md) | 完整版本历史 |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 产品白皮书 — 宫殿架构 |

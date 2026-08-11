@@ -515,7 +515,7 @@ ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
 --
 
 CREATE TABLE public.memory_pointer (
-    memory_id bigint NOT NULL PRIMARY KEY REFERENCES public.memories(id) ON DELETE CASCADE,
+    memory_id bigint NOT NULL PRIMARY KEY,
     rank_score numeric DEFAULT 0,
     palace_path text,
     archive_no text,
@@ -1740,6 +1740,7 @@ ALTER TABLE ONLY public.wiki_versions
 --
 -- v7.0 魔法记忆宫殿 (palace.py 建表)
 --
+SET search_path = public;
 
 CREATE TABLE IF NOT EXISTS archive_taxonomy (
     id SERIAL PRIMARY KEY,
@@ -1783,4 +1784,8 @@ CREATE TABLE public.wiki_entities (
     created_at timestamp without time zone DEFAULT now()
 );
 ALTER TABLE public.wiki_entities ADD CONSTRAINT wiki_entities_pkey PRIMARY KEY (id);
+
+-- ── 外键补充（pg_dump 顺序修复: memory_pointer 依赖 memories, 须在 memories 建表后添加）──
+ALTER TABLE public.memory_pointer ADD CONSTRAINT memory_pointer_memory_id_fkey
+    FOREIGN KEY (memory_id) REFERENCES public.memories(id) ON DELETE CASCADE;
 
