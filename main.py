@@ -540,7 +540,7 @@ async def create_wiki_page(body: WikiPageCreate):
             try:
                 import jieba
                 import os as _os
-                _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki_dict.txt")
+                _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki", "wiki_dict.txt")
                 if _os.path.exists(_dict_path):
                     jieba.load_userdict(_dict_path)
                 from collections import Counter as _Counter
@@ -2122,10 +2122,10 @@ async def search_wiki(body: WikiSearchRequest):
             try:
                 import jieba
                 import os as _os
-                _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki_dict.txt")
+                _dict_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wiki", "wiki_dict.txt")
                 if _os.path.exists(_dict_path):
                     jieba.load_userdict(_dict_path)  # v7.5: 专业词典 (专家评审 P1)
-                from wiki_bm25 import compute_bm25_scores, rrf_fuse
+                from wiki.wiki_bm25 import compute_bm25_scores, rrf_fuse
                 query_tokens = [t.strip() for t in jieba.cut(query) if len(t.strip()) >= 2]
                 if query_tokens:
                     kw_rows = await conn.fetch(
@@ -2143,7 +2143,7 @@ async def search_wiki(body: WikiSearchRequest):
         graph_scores = {}
         if use_graph:
             try:
-                from wiki_graph import graph_expand
+                from wiki.wiki_graph import graph_expand
                 gres = await graph_expand(conn, query, user_id, top_k)
                 graph_scores = gres.get("page_scores", {})
             except Exception as e:

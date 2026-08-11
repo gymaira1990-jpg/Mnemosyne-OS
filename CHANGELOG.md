@@ -1,3 +1,21 @@
+## docs · 仓库装修第二轮 (2026-08-11)
+
+### 结构规整
+- wiki_bm25/wiki_graph/wiki_extract/wiki_tokenize/wiki_dedupe/wiki_eval/wiki_sync_check + wiki_dict.txt → `wiki/` 子目录
+- main.py: 3 处引用修复 (wiki.wiki_bm25 / wiki.wiki_graph / wiki/wiki_dict.txt)
+- wiki/ 内 5 个独立脚本 sys.path 指向仓库根 (tmt/core 可导入)
+- tests/test_wiki_bm25_v75.py: 引用更新
+- GZ 生产同步: rsync wiki/ + main.py + crontab 4 条加 wiki/ 前缀 + 重启验证 ✅
+
+### 元信息
+- GitHub About 描述更新: v7.x 能力 + 中英双语
+
+### 规则固化
+- CONTRIBUTING.md: 新增「仓库结构规范」+「编辑发布规则」(版本三处一致/双语同步/文档表/CHANGELOG/ROADMAP/GZ同步/测试/审计)
+
+### 海报
+- docs/poster.html + poster.png: v7.6.1 重做 (暖色手绘风 + 姬卡立牌 + v7 系列 9 项新能力 + 860x1900)
+
 ## docs · 对外分享文档体系 (2026-08-11)
 
 ### 新增

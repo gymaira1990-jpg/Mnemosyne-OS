@@ -5,7 +5,7 @@
 """
 import sys
 sys.path.insert(0, ".")
-from wiki_bm25 import compute_bm25_scores, rrf_fuse
+from wiki.wiki_bm25 import compute_bm25_scores, rrf_fuse
 
 
 class TestBM25:

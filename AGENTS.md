@@ -29,6 +29,7 @@ Mnemosyne OS (FastAPI, 50+ 端点)
   ├── core/              LLM / Embedding / Chunker 引擎
   ├── api/               REST API 模块
   ├── tmt/               蒸馏引擎 (factextract/distill)
+  ├── wiki/              WIKI 知识库模块 (BM25/图谱/提取/评测)
   ├── security/          审计与净化
   ├── integrations/      Hermes 集成 (Memory Provider + MCP)
   │   └── hermes-provider/  Memory Provider v7 (11 工具, palace_summon)

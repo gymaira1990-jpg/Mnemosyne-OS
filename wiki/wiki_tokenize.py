@@ -15,6 +15,9 @@ import sys
 import time
 from collections import Counter
 
+# 仓库根入 path (wiki/ 子目录运行时需要 tmt/core)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from tmt.distill import load_env, PG_DSN
 load_env()
 

@@ -17,6 +17,9 @@ import os
 import sys
 import time
 
+# 仓库根入 path (wiki/ 子目录运行时需要 tmt/core)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # 必须最先 load_env (core.config 在 import 时读环境变量)
 from tmt.distill import load_env, PG_DSN
 load_env()
