@@ -1,3 +1,16 @@
+## release · v7.6.2 (2026-08-15)
+
+### 🔴 修复: project_id 类型契约 (str→int)
+- 根因: `MemoryCreate.project_id` / `MemorySearch.project_id` 模型定义 `Optional[str]`,但 DB 列是 bigint(int8)。写入时传档号字符串(如 'proj_xxx')→ asyncpg 500 崩溃
+- 修复: 两处模型改为 `Optional[int]` — pydantic 自动解析,传档号字符串 → 422 友好报错,不再 500
+- 实测: 复现场景 422 ✓ / 数字 id 写入 200 ✓
+
+### 🔴 修复: 知识类误冻 frozen (高价值记忆隐身)
+- 根因: v7.3 Rank 百分位分档 (PERCENT_RANK 后 30% → frozen),把 knowledge/pitfall/reference/preference 高价值记忆挤进 frozen 区;而搜索默认 `include_frozen=false` 排除 frozen → 该找的找不到
+- 修复: main.py 两处 Rank 分档 CASE(常规 reflect + 周日强制全量)给知识类加保底 `cool`(永不 frozen,可降温不可隐身)
+- 存量修复: 224 条误冻知识类已解冻回 cool
+- 实测: frozen 2531→2307(仅剩 session/worklog 冷碎片),知识类默认搜索命中 ✓
+
 ## fix · 遗漏清理 (2026-08-11)
 
 ### 版本号修复 (对外 API 自描述)

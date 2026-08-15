@@ -1,6 +1,6 @@
 # Mnemosyne Memory Provider — CHANGELOG
 
-## v7.6.1 (2026-08-11)
+## v7.6.2 (2026-08-11)
 
 ### 同步
 - 同步 Hermes 实际运行版本（plugins/memory/mnemosyne）

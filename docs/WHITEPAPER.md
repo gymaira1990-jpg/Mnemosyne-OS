@@ -99,7 +99,7 @@ Key evolutions in behavior:
 - 9,952+ memories | 100% archive coverage | 8,682 tome cards | 30 taxonomy nodes
 - 6,231 structured facts
 - Summon latency ~100-400ms
-- Full test suite: 167 passed (v7.6.1)
+- Full test suite: 167 passed (v7.6.2)
 
 ## Docs Index
 
