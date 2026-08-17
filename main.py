@@ -99,7 +99,7 @@ from core.llm import call_llm as llm_call
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.7.0 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.8.0 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -1621,7 +1621,12 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.7.0"}
+    # v7.8: 版本读 VERSION 文件, 根治硬编码漏同步
+    try:
+        ver = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")).read().strip()
+    except Exception:
+        ver = "unknown"
+    return {"status": "ok", "service": "Mnemosyne OS", "version": ver}
 
 # ── v7.0 魔法记忆宫殿 API ──
 @app.get("/api/v1/palace/status")

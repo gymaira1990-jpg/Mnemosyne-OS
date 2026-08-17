@@ -30,7 +30,7 @@ disk_used=$(df -h / | awk 'NR==2{print $5}')
 load=$(uptime | awk -F'load average:' '{print $2}' | xargs)
 
 # ── 4.5 备份新鲜度 (v6.2 新增: 防备份静默失败丢记忆) ──
-BK_DIR="/home/ubuntu/noah-buffer/backups"
+BK_DIR="/path/to/your/backups"
 latest_backup=$(ls -t "$BK_DIR"/mnemosyne-*.dump 2>/dev/null | head -1)
 if [ -n "$latest_backup" ]; then
   backup_days=$(( ($(date +%s) - $(date -r "$latest_backup" +%s 2>/dev/null || echo 0)) / 86400 ))

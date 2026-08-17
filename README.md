@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.7.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.8.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -334,6 +334,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v7.8.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.0) | 2026-08-18 | 🧹 Slim + AGE removal: cut 8 dead assets (memory_chunks/pointer/conversation_messages/halls/tools/projects/response/tome_links), real BM25, dedup fix |
 | [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-18 | 🚀 Injection Scheduler: procedural skill wing (skill_assets) + /injection/plan + embedding optimization (7.7x faster) |
 | [v7.6.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.2) | 2026-08-15 | 🛡 project_id type contract fix + knowledge never frozen (cool floor) |
 | [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork S/R dual strength + prod tuning (pg_stat_statements/workers/perf alerts) |

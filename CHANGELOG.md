@@ -1,3 +1,23 @@
+## release · v7.8.0 (2026-08-18) — 精准排雷 + 架构瘦身
+
+### 🧹 病灶切除 (三方专家审计 + 实修)
+- **drawer_pipeline dedup 每日崩溃修复**: PostgreSQL `::` 优先级高于 `||` 致残缺 JSON 类型转换报错; 改 jsonb_build_object, merged_from 追加保留合并链; 合并后重算 embedding(list→str 传 vector)
+- **entities 噪音清洗**: 43,256→21,113 条(纯词规则+wiki 豁免), 570MB→278MB
+- **主搜索真 BM25**: jieba 分词 + memory_keywords TF 加权(替换 ILIKE 假 BM25), 精确数字查询质变; 每日 4am 增量分词
+- **perf_alert 修复**: pg_stat_statements 累计均值误报 → 30min 时间窗 + 告警去重
+- **589 条 NULL embedding 补齐** + **facts 模板前缀剥壳 7,528 条**(存 metadata.fact_type)
+- **真 SQL 集成测试 5 条**(本地 mnemosyne_itest 库), 195 全绿; 修复前必须报错的防回归测试
+
+### 🗡️ Apache AGE 切除 (PG 升级自由)
+- 11 张业务表 ag_catalog→public; cypher 多跳/图写入全删; wiki_extract 只抽实体(省 LLM token); wiki_dedupe 删除
+- PG shared_preload_libraries 去 age; DROP EXTENSION age; schema.sql 全 public 化 28 表
+- graph/search 降级纯 SQL(entities→memory_entities 邻接)
+
+### ✂️ 瘦身第二刀 (无消费端资产, 28→21 表)
+- 切除: memory_chunks(231MB)+chunk 管道 / memory_pointer / conversation_messages(35MB, 双份存储) / tome_links / api-halls+gates / api-tools+tool_archives / api-projects / api-response(v5 遗留)
+- provider on_session_end 移除会话全保真同步(Hermes state.db 为权威)
+
+---
 ## release · v7.7.0 (2026-08-18) — 调度大厅: 注入智能内核
 
 ### 🆕 程序性记忆翼 (技能资产)
