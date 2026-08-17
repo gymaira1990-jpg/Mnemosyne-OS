@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v7.7.0 | 更新: 2026-08-11
+> 版本: v7.8.0 | 更新: 2026-08-18
 
 ---
 
@@ -191,7 +191,7 @@ python main.py
 # → FastAPI 服务监听 http://127.0.0.1:8010
 ```
 
-> ⚠️ 端口当前硬编码为 8010（v7.7.0）。如需换端口，改 `main.py` 最后一行 `port=8010`（环境变量 `MNEMOSYNE_PORT` 暂未生效，下版本修复）。
+> ⚠️ 端口当前硬编码为 8010（v7.8.0）。如需换端口，改 `main.py` 最后一行 `port=8010`（环境变量 `MNEMOSYNE_PORT` 暂未生效，下版本修复）。
 
 > 生产环境建议用 systemd 或进程管理器。参考 [deploy/mnemosyne.service](deploy/mnemosyne.service)（uvicorn 双 worker）。
 
@@ -200,7 +200,7 @@ python main.py
 ```bash
 # 健康检查
 curl http://127.0.0.1:8010/api/v1/echo
-# → {"status":"ok","service":"Mnemosyne OS","version":"7.7.0"}
+# → {"status":"ok","service":"Mnemosyne OS","version":"7.8.0"}
 
 # 存入一条记忆
 curl -X POST http://127.0.0.1:8010/api/v1/memories \

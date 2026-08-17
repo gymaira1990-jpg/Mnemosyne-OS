@@ -35,7 +35,7 @@
 
 | | |
 |---|---|
-| **Memories** | 9,952+ archived · 6,231 structured facts · 100% archive coverage |
+| **Memories** | 12,427+ archived · 8,299 structured facts · 99.9% archive coverage |
 | **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
 | **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
@@ -135,7 +135,7 @@ curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 | 📚 Library | retrieval | `/palace/summon` |
 | 🍵 Medicine cabinet | high-frequency fast access | taxonomy guide + archive-no |
 
-Conversation fragments (88% → 27% of storage) become **6,231 structured facts** — searchable, classifiable, referenceable knowledge instead of raw dialogue noise.
+Conversation fragments (88% → 27% of storage) become **8,299 structured facts** — searchable, classifiable, referenceable knowledge instead of raw dialogue noise.
 
 ### ⏳ Retention Tiers
 
@@ -301,9 +301,9 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Metric | Value |
 |---|---|
-| Memories archived | 9,952+ (100% archive coverage) |
-| Structured facts | 6,231 (knowledge 5,230 + preference 1,001) |
-| Tome cards | 8,682 |
+| Memories archived | 12,427+ (99.9% archive coverage) |
+| Structured facts | 8,299 (metadata.fact_type) |
+| Tome cards | 12,646 |
 | Taxonomy | 7 wings × 20 rooms (30 nodes) |
 | Summon latency | ~100-400ms (3-channel) |
 | Embedding | 1024d Doubao Embedding-Vision |

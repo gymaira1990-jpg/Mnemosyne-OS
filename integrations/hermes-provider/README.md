@@ -1,7 +1,7 @@
 # Mnemosyne Memory Provider
 
 > 让 **Hermes Agent** 拥有 Mnemosyne OS 记忆宫殿的官方 Memory Provider。
-> 版本: v7.7.0 | 适配: Hermes Agent (ABC MemoryProvider 协议)
+> 版本: v7.8.0 | 适配: Hermes Agent (ABC MemoryProvider 协议)
 
 ---
 

@@ -67,7 +67,7 @@ Vault        → raw conversations, lossless (Hermes state.db)
 ## Fact Pipeline
 
 Dialogue → fact extraction (DeepSeek Tier3/4) → classify → archive-no → tome card.
-2319 conversation fragments → 6,231 structured facts (knowledge 5,230 + preference 1,001).
+2319 conversation fragments → 8,299 structured facts (metadata.fact_type).
 
 ## Hermes Integration
 
@@ -96,10 +96,10 @@ Key evolutions in behavior:
 
 ## v7.0 Metrics
 
-- 9,952+ memories | 100% archive coverage | 8,682 tome cards | 30 taxonomy nodes
-- 6,231 structured facts
+- 12,427+ memories | 99.9% archive coverage | 12,646 tome cards | 30 taxonomy nodes
+- 8,299 structured facts
 - Summon latency ~100-400ms
-- Full test suite: 167 passed (v7.7.0)
+- Full test suite: 195 passed (v7.8.0)
 
 ## Docs Index
 

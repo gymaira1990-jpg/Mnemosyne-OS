@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.7.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.8.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
@@ -29,7 +29,7 @@
 
 | | |
 |---|---|
-| **记忆** | 9,952+ 条归档 · 6,231 条结构化事实 · 归档率 100% |
+| **记忆** | 12,427+ 条归档 · 8,299 条结构化事实 · 归档率 99.9% |
 | **搜索** | 🏰 三通道召唤（点名/引导/共鸣）· ~100-400ms |
 | **宫殿** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
 | **技术** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
@@ -125,7 +125,7 @@ curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 | 📚 图书馆 | 检索召唤 | `/palace/summon` |
 | 🍵 中药柜 | 高频快速取用 | 分类引导 + 档号点名 |
 
-对话碎片（存储占比 88% → 27%）变成 **6,231 条结构化 facts**——可检索、可分类、可引用的知识，不再是对话噪音。
+对话碎片（存储占比 88% → 27%）变成 **8,299 条结构化 facts**——可检索、可分类、可引用的知识，不再是对话噪音。
 
 ### ⏳ 永恒分级
 
@@ -234,9 +234,9 @@ python main.py  # → :8010
 
 | 指标 | 数值 |
 |---|---|
-| 归档记忆 | 9,952+ 条（归档率 100%） |
-| 结构化 facts | 6,231 条（knowledge 5,230 + preference 1,001） |
-| 著录卡片 | 8,682 张 |
+| 归档记忆 | 12,427+ 条（归档率 99.9%） |
+| 结构化 facts | 8,299 条（metadata.fact_type） |
+| 著录卡片 | 12,646 张 |
 | 分类树 | 7翼 × 20房（30 节点） |
 | 召唤延迟 | ~100-400ms（三通道） |
 | 向量化 | 1024d 豆包 Embedding-Vision |
@@ -248,6 +248,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v7.8.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.0) | 2026-08-18 | 🧹 瘦身+AGE切除: 切除 8 项无消费端资产(memory_chunks/pointer/conversation_messages/halls/tools/projects/response/tome_links) + 真BM25 + dedup修复 |
 | [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-18 | 🚀 调度大厅: 程序性记忆翼(技能资产) + /injection/plan 注入调度 + embedding 优化(7.7倍提速) |
 | [v7.6.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.2) | 2026-08-15 | 🛡 project_id 类型契约修复 + 知识类永不冻结(cool 保底) |
 | [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork 双强度S/R + 生产调优(pg_stat_statements/workers/水位告警) |
