@@ -54,7 +54,8 @@ def extract_prompt(content: str) -> str:
 - 每条一行, 以 "- " 开头
 - 中文表述
 - 最多{MAX_FACTS}条
-- 没有事实就输出 "无" """
+- 没有事实就输出 "无"
+- 严禁输出 "事件:" "能力:" "安排:" 等前缀标签, 直接写事实内容本身 """
 
 
 def parse_facts(text: str) -> list[str]:

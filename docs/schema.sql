@@ -1663,3 +1663,70 @@ ALTER TABLE public.wiki_entities ADD CONSTRAINT wiki_entities_pkey PRIMARY KEY (
 ALTER TABLE public.memory_pointer ADD CONSTRAINT memory_pointer_memory_id_fkey
     FOREIGN KEY (memory_id) REFERENCES public.memories(id) ON DELETE CASCADE;
 
+
+-- ═══ v7.5-v7.8 增量表(2026-08-18 审计补齐: 新部署重建库必需) ═══
+-- v7.5 检索优化 P0a: wiki 关键词索引表 (jieba 分词, 双通道 BM25)
+CREATE TABLE IF NOT EXISTS public.wiki_keywords (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    page_id bigint NOT NULL REFERENCES public.wiki_pages(id) ON DELETE CASCADE,
+    token text NOT NULL,
+    freq integer DEFAULT 1,
+    created_at timestamp without time zone DEFAULT now(),
+    UNIQUE (page_id, token)
+);
+
+CREATE TABLE IF NOT EXISTS public.skill_assets (
+    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    skill_name     TEXT NOT NULL,
+    description    TEXT DEFAULT '',
+    category       TEXT DEFAULT '',
+    state          TEXT DEFAULT 'active'
+                   CHECK (state IN ('active','stale','archived')),
+    pinned         BOOLEAN DEFAULT FALSE,
+    source_path    TEXT DEFAULT '',
+    use_count      INTEGER DEFAULT 0,
+    view_count     INTEGER DEFAULT 0,
+    last_used_at   TIMESTAMPTZ,
+    last_viewed_at TIMESTAMPTZ,
+    archived_at    TIMESTAMPTZ,
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW(),
+    embedding      public.vector(1024),
+    metadata       JSONB DEFAULT '{}',
+    tenant_id      TEXT DEFAULT 'default',
+    UNIQUE (tenant_id, skill_name)
+);
+
+CREATE TABLE IF NOT EXISTS public.skill_keywords (
+    id       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    skill_id BIGINT NOT NULL REFERENCES public.skill_assets(id) ON DELETE CASCADE,
+    token    TEXT NOT NULL,
+    freq     INTEGER DEFAULT 1,
+    tenant_id TEXT DEFAULT 'default',
+    UNIQUE (skill_id, token)
+);
+
+-- 主搜索 BM25 分量从 ILIKE(假) 升级为 jieba 分词 TF 加权(复用 wiki v7.5 方案)
+CREATE TABLE IF NOT EXISTS public.memory_keywords (
+    memory_id bigint NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    token      text  NOT NULL,
+    freq       real  NOT NULL DEFAULT 1,
+    PRIMARY KEY (memory_id, token)
+);
+
+CREATE TABLE IF NOT EXISTS public.conversation_messages (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    session_id text NOT NULL,
+    role text NOT NULL,
+    content text,
+    tool_call_id text,
+    tool_calls jsonb,
+    tool_name text,
+    timestamp double precision NOT NULL,
+    token_count integer,
+    finish_reason text,
+    reasoning text,
+    created_at timestamp with time zone DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cm_session_role ON public.conversation_messages (session_id, role);
+CREATE INDEX IF NOT EXISTS idx_cm_session_time ON public.conversation_messages (session_id, "timestamp");
