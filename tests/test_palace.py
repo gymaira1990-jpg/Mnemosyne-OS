@@ -86,11 +86,6 @@ class TestSchemaSQL:
         assert "memory_id BIGINT PRIMARY KEY" in sql
         assert "tags TEXT[]" in sql
 
-    def test_tome_links_sql(self):
-        sql = palace.build_tome_links_sql()
-        assert "tome_links" in sql
-        assert "from_memory" in sql
-
 
 class TestRefinePrompt:
     def test_prompt_has_json_fields(self):

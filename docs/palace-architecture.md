@@ -44,7 +44,7 @@
 
 - `archive_taxonomy`: 分类树 (翼/房间/书架)
 - `tome_cards`: 著录卡片 (memory_id, title, summary, archive_no, wing, room, shelf, tags, retention)
-- `tome_links`: 相关指针 (轻量图谱)
+- `entities` / `memory_entities` / `wiki_entities`: 实体与关联 (v7.8 起替代 tome_links 轻量图谱, AGE 已切除)
 - `memories.archive_no`: 档号列
 
 ## 六、生命周期 (永恒分级)

@@ -127,18 +127,6 @@ CREATE INDEX IF NOT EXISTS idx_tome_tags ON tome_cards USING GIN(tags);
 """
 
 
-def build_tome_links_sql() -> str:
-    return """
-CREATE TABLE IF NOT EXISTS tome_links (
-    id SERIAL PRIMARY KEY,
-    from_memory BIGINT REFERENCES memories(id) ON DELETE CASCADE,
-    to_memory BIGINT REFERENCES memories(id) ON DELETE CASCADE,
-    rel TEXT DEFAULT 'related',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-"""
-
-
 async def init_palace(pool) -> dict:
     """宫殿初始化: 建表 + 存量记忆自动归类建档 (幂等, 可重复跑)
     返回: {tables: [...], classified: N, cards: N}
@@ -151,7 +139,6 @@ async def init_palace(pool) -> dict:
             ("archive_taxonomy", build_taxonomy_table_sql()),
             ("archive_no_col", add_archive_no_column_sql()),
             ("tome_cards", build_tome_cards_sql()),
-            ("tome_links", build_tome_links_sql()),
         ]:
             try:
                 await conn.execute(sql)

@@ -222,7 +222,7 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jo
 │                                                        │
 │  🏰 Palace data model                                   │
 │  archive_taxonomy (7 wings × 20 rooms)                 │
-│  tome_cards (description cards) + tome_links           │
+│  tome_cards (description cards) + entities               │
 │  memories.archive_no (K·NET·PROXY·2026-0007)          │
 │                                                        │
 │  Fact pipeline (dual LLM: DeepSeek / Doubao)           │

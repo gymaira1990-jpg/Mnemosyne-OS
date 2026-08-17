@@ -53,7 +53,7 @@ Vault        → raw conversations, lossless (Hermes state.db)
 
 - `archive_taxonomy`: classification tree (wing/room/shelf)
 - `tome_cards`: description cards (memory_id, title, summary, archive_no, wing, room, shelf, tags, retention)
-- `tome_links`: related-memory pointers (lightweight graph)
+- `entities` / `memory_entities` / `wiki_entities`: entity relations (v7.8+, replaces tome_links)
 - `memories.archive_no`: archive number column
 
 ## Retention Tiers
