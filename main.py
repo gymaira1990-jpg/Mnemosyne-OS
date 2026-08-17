@@ -19,6 +19,23 @@ import os, sys, json, uuid, math, re, time, difflib
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import logging
+
+# v7.8: 真 BM25 — jieba 分词(query 与 memory_keywords 同词典), 懒加载避免启动拖慢
+try:
+    import jieba as _jieba
+    _WIKI_DICT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wiki", "wiki_dict.txt")
+    if os.path.exists(_WIKI_DICT):
+        _jieba.load_userdict(_WIKI_DICT)
+except ImportError:
+    _jieba = None
+
+
+def _query_tokens(text: str) -> list:
+    """查询分词: 走 jieba(与索引一致); 无 jieba 时退化为空白/标点切分"""
+    if _jieba is None:
+        return [w.strip() for w in re.split(r"[\s,，。.!?！？:：]+", text) if len(w.strip()) > 1]
+    return [t.strip() for t in _jieba.cut(text)
+            if len(t.strip()) >= 2 and not t.strip().isdigit() and t.strip() not in (" ", "\t")]
 logger = logging.getLogger("mnemosyne")
 
 # ── v6.0: 受控分类词表 (category 唯一合法值) ──
@@ -209,11 +226,13 @@ async def dialectic_search(req: DialecticRequest):
     async with pool.acquire() as conn:
         r_q = (await get_embedding([query]))[0]
         q_str = "[" + ",".join(str(x) for x in r_q) + "]"
-        keywords = [w.strip() for w in query.replace("?", "").replace("!", "").split() if len(w.strip()) > 1]
-        bm25_sql = "0"
-        for kw in keywords:
-            kw_safe = kw.replace("'", "''")
-            bm25_sql = "CASE WHEN m.content ILIKE '%" + kw_safe + "%' THEN 0.15 ELSE " + bm25_sql + " END"
+        # v7.8 真 BM25 (同主搜索): jieba 分词 → memory_keywords TF 加权
+        q_tokens = _query_tokens(query)
+        if q_tokens:
+            bm25_sql = ("(SELECT LEAST(1.0, COALESCE(SUM(k.freq),0)/4.0) FROM memory_keywords k "
+                        "WHERE k.memory_id = m.id AND k.token = ANY($4::text[]))")
+        else:
+            bm25_sql = "0"
         temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.created_at, m.session_id "
@@ -223,7 +242,7 @@ async def dialectic_search(req: DialecticRequest):
             "  + 0.15 * (" + temporal_sql + ") "
             "  + 0.15 * m.reliability "
             "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
-            "LIMIT $3", user_id, q_str, req.max_memories * 2
+            "LIMIT $3", user_id, q_str, req.max_memories * 2, q_tokens
         )
         if not rows:
             return {"query": query, "memories": [], "context": [], "total_memories": 0}
@@ -906,12 +925,13 @@ async def search_memories(req: MemorySearch):
     r_q = (await get_embedding([req.query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
     
-    # Inline BM25 (no param binding, compatible with vector $idx)
-    keywords = [w.strip() for w in req.query.replace("?", "").replace("!", "")
-                .replace("\uff0c", " ").replace("\u3002", " ").split() if len(w.strip()) > 1]
-    bm25_sql = "0"
-    for kw in keywords:
-        bm25_sql = "CASE WHEN m.content ILIKE '%" + kw.replace("'", "''") + "%' THEN 0.15 ELSE " + bm25_sql + " END"
+    # v7.8 真 BM25: jieba 分词 query → memory_keywords TF 加权 (替换旧 ILIKE 假 BM25)
+    q_tokens = _query_tokens(req.query)
+    if q_tokens:
+        bm25_sql = ("(SELECT LEAST(1.0, COALESCE(SUM(k.freq),0)/4.0) FROM memory_keywords k "
+                    "WHERE k.memory_id = m.id AND k.token = ANY($4::text[]))")
+    else:
+        bm25_sql = "0"
     temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
     
     async with pool.acquire() as conn:
@@ -928,7 +948,7 @@ async def search_memories(req: MemorySearch):
             "  + 0.15 * m.reliability "
             "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
             "LIMIT $3",
-            req.user_id, q_str, req.top_k
+            req.user_id, q_str, req.top_k, q_tokens
         )
         if len(rows) < req.top_k:
             # 兜底: 全库 (含 frozen) — 区域不足时扩展
@@ -941,7 +961,7 @@ async def search_memories(req: MemorySearch):
                 "  + 0.15 * m.reliability "
                 "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
                 "LIMIT $3",
-                req.user_id, q_str, req.top_k
+                req.user_id, q_str, req.top_k, q_tokens
             )
             seen = {r["id"] for r in rows}
             rows = list(rows) + [r for r in fallback if r["id"] not in seen][:req.top_k - len(rows)]
