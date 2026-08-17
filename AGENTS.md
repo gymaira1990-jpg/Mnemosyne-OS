@@ -16,7 +16,7 @@
 - ⏳ 永恒分级：permanent / long / short 生命周期
 - 🧠 认知热度：重要记忆自动升温，噪音自动衰减
 
-当前版本: **v7.7.0** | License: MIT | 生产运行: 7×24 单机
+当前版本: **v7.8.0** | License: MIT | 生产运行: 7×24 单机
 
 ---
 
@@ -103,7 +103,6 @@ hermes config set memory.provider mnemosyne
 | `/api/v1/memories/{id}` | DELETE | 软删除 |
 | `/api/v1/memories/{id}/restore` | POST | 恢复已删 |
 | `/api/v1/memories/search` | POST | 五维修搜索（向量+BM25+时间+信任+热度） |
-| `/api/v1/memories/search-chunks` | POST | Chunk 级搜索（长文更精准） |
 | `/api/v1/memories/{id}/feedback` | POST | 反馈（positive/negative，影响可信度） |
 | `/api/v1/memories/heat-top` | GET | 热度排行 |
 | `/api/v1/memories/stats` | GET | 记忆库统计 |
@@ -139,9 +138,7 @@ hermes config set memory.provider mnemosyne
 
 | 端点 | 方法 | 用途 |
 |------|------|------|
-| `/api/v1/sessions` | GET | 会话列表 |
-| `/api/v1/sessions/{id}/messages` | GET/POST | 会话消息（全保真） |
-| `/api/v1/sessions/archive` | POST | 会话归档 |
+| `/api/v1/sessions/archive` | POST | 会话归档（v7.8: 消息列表/同步端点已切除, 原文走 Hermes state.db） |
 | `/api/v1/reflect` | POST | TMT 反思（`?mode=light` 热度衰减 / `?mode=deep` LLM 凝练） |
 | `/api/v1/extract-entities` | POST | 批量实体提取到图谱 |
 | `/api/v1/health/{user_id}` | GET | 用户健康报告 |
@@ -173,7 +170,7 @@ hermes config set memory.provider mnemosyne
 | `PGHOST` | 否 | `127.0.0.1` | 数据库地址 |
 | `PGPORT` | 否 | `5432` | 数据库端口 |
 | `MNEMOSYNE_HOST` | 否 | `127.0.0.1` | 服务监听地址 |
-| `MNEMOSYNE_PORT` | 否 | `8010` | ⚠️ v7.7.0 暂未生效（硬编码 8010） |
+| `MNEMOSYNE_PORT` | 否 | `8010` | ⚠️ v7.8.0 暂未生效（硬编码 8010） |
 
 > 模型可插拔原则：换模型/换后端只改环境变量，不碰代码。
 
@@ -243,7 +240,7 @@ mcp_servers:
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 cd Mnemosyne-OS && pip install -r requirements.txt
 
-# 测试（167 用例）
+# 测试（195 用例）
 pytest tests/
 
 # 提交规范
