@@ -1571,15 +1571,22 @@ async def health_report(user_id: str):
     return {"tiers": {r["tier"]: r["cnt"] for r in tiers}}
 
 # ── 自描述化 API ──
+def _read_version() -> str:
+    try:
+        return open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")).read().strip()
+    except Exception:
+        return "unknown"
+
 @app.get("/")
 async def root():
-    return {"service": "Mnemosyne OS v7.7.0", "docs": "/api/v1/capabilities"}
+    return {"service": f"Mnemosyne OS v{_read_version()}", "docs": "/api/v1/capabilities"}
 
 @app.get("/api/v1/capabilities")
 async def capabilities():
+    _ver = _read_version()
     return {
-        "service": "Mnemosyne OS v7.7.0",
-        "version": "7.7.0",
+        "service": f"Mnemosyne OS v{_ver}",
+        "version": _ver,
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
