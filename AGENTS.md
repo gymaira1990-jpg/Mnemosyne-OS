@@ -240,7 +240,7 @@ mcp_servers:
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 cd Mnemosyne-OS && pip install -r requirements.txt
 
-# 测试（195 用例）
+# 测试（194 用例）
 pytest tests/
 
 # 提交规范

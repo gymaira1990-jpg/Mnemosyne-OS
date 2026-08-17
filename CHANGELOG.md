@@ -1,5 +1,7 @@
 ## release · v7.8.0 (2026-08-18) — 精准排雷 + 架构瘦身
 
+> 🔧 **发布后补丁 (同日)**: ① tome_links 残留补切 — palace.py 仍会重建该表(本地+GZ), 生产库残留空表, 已删代码+测试(195→194)+生产 DROP, 21 表=schema.sql 对齐 ② 版本号 9 处一致性修复(README_CN/PROGRESS/ROADMAP/INSTALL/provider VERSION/requirements) ③ 数据快照刷新(12,427 记忆 / 8,299 facts / 12,646 卡片) ④ optimize-plan-v8.md 过时标注
+
 ### 🧹 病灶切除 (三方专家审计 + 实修)
 - **drawer_pipeline dedup 每日崩溃修复**: PostgreSQL `::` 优先级高于 `||` 致残缺 JSON 类型转换报错; 改 jsonb_build_object, merged_from 追加保留合并链; 合并后重算 embedding(list→str 传 vector)
 - **entities 噪音清洗**: 43,256→21,113 条(纯词规则+wiki 豁免), 570MB→278MB
