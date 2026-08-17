@@ -1,5 +1,7 @@
 ## release · v7.8.0 (2026-08-18) — 精准排雷 + 架构瘦身
 
+> 🔧 **发布后装修 (同日)**: ⑤ 删除已禁用的 Web 记忆浏览器(browser.html, API Key 明文风险弃用) ⑥ 新增 GitHub Actions CI(pytest 双 Python 版本) + README CI badge ⑦ 海报换代 v7.8.0(数据快照 12,427/8,299/12,646, v7.7 技能资产翼 + v7.8 真 BM25/排雷瘦身, 15 工具)
+
 > 🔧 **发布后补丁 (同日)**: ① tome_links 残留补切 — palace.py 仍会重建该表(本地+GZ), 生产库残留空表, 已删代码+测试(195→194)+生产 DROP, 21 表=schema.sql 对齐 ② 版本号 9 处一致性修复(README_CN/PROGRESS/ROADMAP/INSTALL/provider VERSION/requirements) ③ 数据快照刷新(12,427 记忆 / 8,299 facts / 12,646 卡片) ④ optimize-plan-v8.md 过时标注
 
 ### 🧹 病灶切除 (三方专家审计 + 实修)
