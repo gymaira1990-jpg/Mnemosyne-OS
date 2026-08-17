@@ -1850,6 +1850,13 @@ async def restore_memory(memory_id: int, user_id: str):
     return {"status": "restored", "memory": dict(row)}
 
 
+class SessionArchiveRequest(BaseModel):
+    user_id: str = "default"
+    session_id: str = ""
+    title: str = ""
+    content: str  # 完整对话文本
+
+
 @app.post("/api/v1/sessions/archive")
 async def archive_session(req: SessionArchiveRequest):
     """归档完整对话到记忆宫殿 — 自动向量化+入TMT蒸馏"""
