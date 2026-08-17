@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
-  <img src="https://img.shields.io/badge/graph-Apache%20AGE-forestgreen?style=flat-square" alt="graph">
+  
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2?style=flat-square" alt="hermes">
 </p>
 
@@ -38,7 +38,7 @@
 | **Memories** | 9,952+ archived · 6,231 structured facts · 100% archive coverage |
 | **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
 | **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
-| **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
+| **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
 | **Agent** | Hermes Memory Provider (14 tools incl. palace_summon) · auto-extract |
 | **Uptime** | 7×24 on modest cloud · edge-cloud sync (SQLite ↔ PG) |
 
@@ -91,7 +91,7 @@ Every step is **LLM-driven** — not templated. The same pipeline handles agent 
 | Vector search (1024d HNSW) | ✅ | ✅ | ✅ |
 | Full-text (BM25 + ILIKE) | ✅ | ❌ | ❌ |
 | Retention tiers (permanent/long/short) | ✅ | ❌ | ❌ |
-| Knowledge graph (Cypher) | ✅ Apache AGE | ❌ | ❌ |
+| Entity graph (table-based) | ✅ entities + memory_entities | ❌ | ❌ |
 | Conversation history (lossless) | ✅ state.db → PG | ❌ | ❌ |
 | Edge-cloud sync | ✅ SQLite ↔ PG | ❌ | ❌ |
 | Agent-native hooks | ✅ 14 tools | ❌ | Limited |
@@ -217,7 +217,7 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jo
 │  └── /api/v1/echo           Health check              │
 │                                                        │
 │  PostgreSQL 16 · pgvector 1024d (HNSW)                │
-│  Apache AGE (Cypher graph queries)                     │
+│  Entity graph (entities + memory_entities tables)                     │
 │  asyncpg connection pool                               │
 │                                                        │
 │  🏰 Palace data model                                   │
@@ -249,7 +249,7 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jo
 
 ### Prerequisites
 
-- Python 3.12+ · PostgreSQL 16 + pgvector · Apache AGE
+- Python 3.12+ · PostgreSQL 16 + pgvector
 - 8GB+ RAM · Any OpenAI-compatible embedding/LLM backend
 
 ### Hermes Agent (one command)
@@ -272,7 +272,7 @@ git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 cd Mnemosyne-OS
 pip install -r requirements.txt
 
-# 1. PostgreSQL 16 + pgvector + Apache AGE (Ubuntu example):
+# 1. PostgreSQL 16 + pgvector (Ubuntu example):
 #    sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
 # 2. Import schema (superuser required for CREATE EXTENSION):
 #    sudo -u postgres psql -d mnemosyne -f docs/schema.sql

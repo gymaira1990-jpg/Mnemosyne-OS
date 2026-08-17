@@ -52,29 +52,10 @@ async def graph_expand(conn, query: str, user_id: str = "default", top_k: int = 
     anchor_ids = [e["id"] for e in anchor_entities]
     entities_found = [e["name"] for e in anchor_entities]
 
-    # 2. AGE 1跳 RELATED_TO (按 entity_id, AGE 节点只有 entity_id 属性)
-    related_ids = set()
-    try:
-        for aid in anchor_ids[:5]:
-            rows = await conn.fetch(
-                "SELECT * FROM cypher('mnemosyne_graph', $$ "
-                "MATCH (a:Entity {entity_id: '%s'})-[r:RELATED_TO]->(b:Entity) "
-                "RETURN b.entity_id $$) AS (v agtype)"
-                % aid
-            )
-            for r in rows:
-                v = str(r["v"])
-                # 解析 agtype: {"id":..., "properties":{"entity_id":"123"}}
-                import re
-                m = re.search(r'"entity_id"\s*:\s*"(\d+)"', v)
-                if m:
-                    related_ids.add(int(m.group(1)))
-    except Exception as e:
-        # AGE 不可用时降级: 只用实体表匹配
-        pass
+    # 2. (v7.8: AGE RELATED_TO 1跳已随 AGE 切除 — 仅用锚定实体)
 
     # 3. 关联实体 → wiki_entities 找页面
-    all_ids = list(related_ids) + anchor_ids
+    all_ids = list(anchor_ids)
     page_scores = {}
     if all_ids:
         rows = await conn.fetch(

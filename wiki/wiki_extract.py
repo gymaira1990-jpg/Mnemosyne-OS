@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""wiki_extract — WIKI 页面 LLM 实体+关系抽取 (v7.4)
+"""wiki_extract — WIKI 页面 LLM 实体抽取 (v7.4, v7.8 去 AGE)
 
 对 wiki_pages 中未抽取的页面:
-1. LLM 抽取 {实体名, 类型, 描述, 关系[{target, relation}]}
+1. LLM 抽取 {实体名, 类型, 描述}
 2. upsert entities 表 (带 embedding + type)
-3. 写 wiki_entities 关联 (page→entity, relation)
-4. AGE 图: 页面 MENTIONS 实体
+3. 写 wiki_entities 关联 (page→entity)
+(v7.8: AGE 图已切除, relations 关系抽取一并移除 — 无消费端不花 LLM token)
 
 用法 (GZ):
     cd /opt/mnemosyne && venv/bin/python3 wiki_extract.py --batch 5
@@ -33,14 +33,12 @@ async def get_embedding(texts):
 
 USER_ID = "default"
 
-PROMPT = """你是知识图谱抽取引擎。从下面的文章/论文中抽取核心实体与关系，输出严格 JSON。
+PROMPT = """你是知识图谱抽取引擎。从下面的文章/论文中抽取核心实体，输出严格 JSON。
 
 要求:
 - 只抽有实质意义的实体: 概念/理论/系统/人名/技术/架构/材料/地点 (不抽虚词)
 - 每篇 8-20 个实体, 每个实体给: name(规范名), type(concept|theory|system|person|tech|architecture|material|place|other), description(一句话, ≤40字)
-- 实体间的关系 5-15 条: [from](实体名), [relation](动词短语, ≤10字), [to](实体名)
-- 关系两端的实体必须在实体列表内
-- 输出格式: {"entities": [{"name":"","type":"","description":""}], "relations": [{"from":"","relation":"","to":""}]}
+- 输出格式: {"entities": [{"name":"","type":"","description":""}]}
 - 不要输出 JSON 以外的任何内容
 
 文章内容:
@@ -63,7 +61,6 @@ async def extract_page(conn, page):
         else:
             return {"page_id": pid, "status": "empty", "title": title}
         entities = data.get("entities", []) or []
-        relations = data.get("relations", []) or []
         if not entities:
             return {"page_id": pid, "status": "no-entities", "title": title}
 
@@ -94,75 +91,22 @@ async def extract_page(conn, page):
                     print(f"  [warn] entity {name} insert failed: {e}")
                     continue
             name2id[name] = eid
-            # 页面关联
+            # 页面关联 (v7.8: 只写 wiki_entities 表; AGE RELATED_TO 边已随 AGE 切除)
             await conn.execute(
                 "INSERT INTO wiki_entities (wiki_page_id, entity_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
                 pid, eid
             )
 
-        # 关系: 实体对之间建 AGE 边 (RELATED_TO) — 先查重再 MERGE (AGE 无边索引时 MERGE 可能重复)
-        edge_count = 0
-        for rel in relations:
-            frm = (rel.get("from") or "").strip()
-            to = (rel.get("to") or "").strip()
-            rel_name = (rel.get("relation") or "related_to").strip()[:60]
-            if frm in name2id and to in name2id and frm != to:
-                try:
-                    # 查重: 同三元组已存在则跳过 (2026-08-10: 清理 2257 重复边后固化)
-                    exists = await conn.fetch(
-                        "SELECT * FROM cypher('mnemosyne_graph', $$ "
-                        "MATCH (a:Entity {entity_id: '%s'})-[r:RELATED_TO {relation: '%s'}]->(b:Entity {entity_id: '%s'}) "
-                        "RETURN count(*) $$) AS (v agtype)"
-                        % (name2id[frm], rel_name.replace("'", ""), name2id[to])
-                    )
-                    if exists and str(exists[0]["v"]).strip('"') != "0":
-                        continue  # 已存在, 跳过
-                    await conn.execute(
-                        "SELECT * FROM cypher('mnemosyne_graph', $$ "
-                        "MERGE (a:Entity {entity_id: '%s'}) "
-                        "MERGE (b:Entity {entity_id: '%s'}) "
-                        "MERGE (a)-[r:RELATED_TO {relation: '%s'}]->(b) $$) AS (v agtype)"
-                        % (name2id[frm], name2id[to], rel_name.replace("'", ""))
-                    )
-                    edge_count += 1
-                except Exception as e:
-                    print(f"  [warn] edge {frm}-{rel_name}->{to} failed: {e}")
-
-        # 页面→实体 MENTIONS 边 (MERGE 确保节点)
-        try:
-            await conn.execute(
-                "SELECT * FROM cypher('mnemosyne_graph', $$ "
-                "MERGE (m:WikiPage {page_id: '%s'}) $$) AS (v agtype)" % pid
-            )
-            for eid in name2id.values():
-                await conn.execute(
-                    "SELECT * FROM cypher('mnemosyne_graph', $$ "
-                    "MATCH (m:WikiPage {page_id: '%s'}) WITH m "
-                    "MERGE (e:Entity {entity_id: '%s'}) "
-                    "MERGE (m)-[:MENTIONS]->(e) $$) AS (v agtype)"
-                    % (pid, eid)
-                )
-        except Exception as e:
-            print(f"  [warn] wiki mentions failed: {e}")
-
         # 标记已抽取
         await conn.execute("UPDATE wiki_pages SET extracted_at=now() WHERE id=$1", pid)
         return {"page_id": pid, "status": "ok", "title": title,
-                "entities": len(name2id), "relations": edge_count}
+                "entities": len(name2id), "relations": 0}
     except Exception as e:
         return {"page_id": pid, "status": "error", "title": title, "error": str(e)[:200]}
 
 
-async def init_age_connection(conn):
-    try:
-        await conn.execute("LOAD 'age'")
-        await conn.execute("SET search_path = ag_catalog, public")
-    except Exception:
-        pass
-
-
 async def main(batch: int, dry_run: bool):
-    pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=3, init=init_age_connection)
+    pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=3)
     try:
         async with pool.acquire() as conn:
             rows = await conn.fetch(

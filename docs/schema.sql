@@ -17,34 +17,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: ag_catalog; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA ag_catalog;
-
-
---
--- Name: mnemosyne_graph; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA mnemosyne_graph;
-
-
---
--- Name: age; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS age WITH SCHEMA ag_catalog;
-
-
---
--- Name: EXTENSION age; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION age IS 'AGE database extension';
-
-
---
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -77,10 +49,10 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: beliefs; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: beliefs; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.beliefs (
+CREATE TABLE public.beliefs (
     id bigint NOT NULL,
     user_id text NOT NULL,
     content text NOT NULL,
@@ -97,10 +69,10 @@ CREATE TABLE ag_catalog.beliefs (
 
 
 --
--- Name: beliefs_id_seq; Type: SEQUENCE; Schema: ag_catalog; Owner: -
+-- Name: beliefs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE ag_catalog.beliefs_id_seq
+CREATE SEQUENCE public.beliefs_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -109,17 +81,17 @@ CREATE SEQUENCE ag_catalog.beliefs_id_seq
 
 
 --
--- Name: beliefs_id_seq; Type: SEQUENCE OWNED BY; Schema: ag_catalog; Owner: -
+-- Name: beliefs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE ag_catalog.beliefs_id_seq OWNED BY ag_catalog.beliefs.id;
+ALTER SEQUENCE public.beliefs_id_seq OWNED BY public.beliefs.id;
 
 
 --
--- Name: memory_chunks; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.memory_chunks (
+CREATE TABLE public.memory_chunks (
     id integer NOT NULL,
     memory_id integer NOT NULL,
     chunk_index integer NOT NULL,
@@ -130,10 +102,10 @@ CREATE TABLE ag_catalog.memory_chunks (
 
 
 --
--- Name: memory_chunks_id_seq; Type: SEQUENCE; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE ag_catalog.memory_chunks_id_seq
+CREATE SEQUENCE public.memory_chunks_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -143,17 +115,17 @@ CREATE SEQUENCE ag_catalog.memory_chunks_id_seq
 
 
 --
--- Name: memory_chunks_id_seq; Type: SEQUENCE OWNED BY; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE ag_catalog.memory_chunks_id_seq OWNED BY ag_catalog.memory_chunks.id;
+ALTER SEQUENCE public.memory_chunks_id_seq OWNED BY public.memory_chunks.id;
 
 
 --
--- Name: tmt_daily; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: tmt_daily; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.tmt_daily (
+CREATE TABLE public.tmt_daily (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id character varying(255) NOT NULL,
     date date NOT NULL,
@@ -169,10 +141,10 @@ CREATE TABLE ag_catalog.tmt_daily (
 
 
 --
--- Name: tmt_profiles; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: tmt_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.tmt_profiles (
+CREATE TABLE public.tmt_profiles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id character varying(255) NOT NULL,
     period_start date NOT NULL,
@@ -191,10 +163,10 @@ CREATE TABLE ag_catalog.tmt_profiles (
 
 
 --
--- Name: tmt_sessions; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: tmt_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.tmt_sessions (
+CREATE TABLE public.tmt_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id character varying(255) NOT NULL,
     session_label character varying(255),
@@ -211,10 +183,10 @@ CREATE TABLE ag_catalog.tmt_sessions (
 
 
 --
--- Name: tmt_tree_edges; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: tmt_tree_edges; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.tmt_tree_edges (
+CREATE TABLE public.tmt_tree_edges (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id character varying(255) NOT NULL,
     parent_level smallint NOT NULL,
@@ -228,10 +200,10 @@ CREATE TABLE ag_catalog.tmt_tree_edges (
 
 
 --
--- Name: tmt_weekly; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: tmt_weekly; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.tmt_weekly (
+CREATE TABLE public.tmt_weekly (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id character varying(255) NOT NULL,
     week_start date NOT NULL,
@@ -247,10 +219,10 @@ CREATE TABLE ag_catalog.tmt_weekly (
 
 
 --
--- Name: users; Type: TABLE; Schema: ag_catalog; Owner: -
+-- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE ag_catalog.users (
+CREATE TABLE public.users (
     id integer NOT NULL,
     user_id character varying(255) NOT NULL,
     name character varying(255) DEFAULT ''::character varying,
@@ -262,10 +234,10 @@ CREATE TABLE ag_catalog.users (
 
 
 --
--- Name: users_id_seq; Type: SEQUENCE; Schema: ag_catalog; Owner: -
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE ag_catalog.users_id_seq
+CREATE SEQUENCE public.users_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -275,171 +247,12 @@ CREATE SEQUENCE ag_catalog.users_id_seq
 
 
 --
--- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: ag_catalog; Owner: -
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE ag_catalog.users_id_seq OWNED BY ag_catalog.users.id;
+ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
---
--- Name: _ag_label_vertex; Type: TABLE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE TABLE mnemosyne_graph._ag_label_vertex (
-    id ag_catalog.graphid NOT NULL,
-    properties ag_catalog.agtype DEFAULT ag_catalog.agtype_build_map() NOT NULL
-);
-
-
---
--- Name: Entity; Type: TABLE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE TABLE mnemosyne_graph."Entity" (
-)
-INHERITS (mnemosyne_graph._ag_label_vertex);
-
-
---
--- Name: Entity_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE SEQUENCE mnemosyne_graph."Entity_id_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 281474976710655
-    CACHE 1;
-
-
---
--- Name: Entity_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER SEQUENCE mnemosyne_graph."Entity_id_seq" OWNED BY mnemosyne_graph."Entity".id;
-
-
---
--- Name: _ag_label_edge; Type: TABLE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE TABLE mnemosyne_graph._ag_label_edge (
-    id ag_catalog.graphid NOT NULL,
-    start_id ag_catalog.graphid NOT NULL,
-    end_id ag_catalog.graphid NOT NULL,
-    properties ag_catalog.agtype DEFAULT ag_catalog.agtype_build_map() NOT NULL
-);
-
-
---
--- Name: MENTIONS; Type: TABLE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE TABLE mnemosyne_graph."MENTIONS" (
-)
-INHERITS (mnemosyne_graph._ag_label_edge);
-
-
---
--- Name: MENTIONS_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE SEQUENCE mnemosyne_graph."MENTIONS_id_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 281474976710655
-    CACHE 1;
-
-
---
--- Name: MENTIONS_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER SEQUENCE mnemosyne_graph."MENTIONS_id_seq" OWNED BY mnemosyne_graph."MENTIONS".id;
-
-
---
--- Name: Memory; Type: TABLE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE TABLE mnemosyne_graph."Memory" (
-)
-INHERITS (mnemosyne_graph._ag_label_vertex);
-
-
---
--- Name: Memory_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE SEQUENCE mnemosyne_graph."Memory_id_seq"
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 281474976710655
-    CACHE 1;
-
-
---
--- Name: Memory_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER SEQUENCE mnemosyne_graph."Memory_id_seq" OWNED BY mnemosyne_graph."Memory".id;
-
-
---
--- Name: _ag_label_edge_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE SEQUENCE mnemosyne_graph._ag_label_edge_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 281474976710655
-    CACHE 1;
-
-
---
--- Name: _ag_label_edge_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER SEQUENCE mnemosyne_graph._ag_label_edge_id_seq OWNED BY mnemosyne_graph._ag_label_edge.id;
-
-
---
--- Name: _ag_label_vertex_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE SEQUENCE mnemosyne_graph._ag_label_vertex_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 281474976710655
-    CACHE 1;
-
-
---
--- Name: _ag_label_vertex_id_seq; Type: SEQUENCE OWNED BY; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER SEQUENCE mnemosyne_graph._ag_label_vertex_id_seq OWNED BY mnemosyne_graph._ag_label_vertex.id;
-
-
---
--- Name: _label_id_seq; Type: SEQUENCE; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE SEQUENCE mnemosyne_graph._label_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 65535
-    CACHE 1
-    CYCLE;
-
-
---
 -- Name: entities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -734,10 +547,6 @@ CREATE SEQUENCE public.projects_id_seq
 ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 
-
-
-
-
 --
 -- Name: tool_archives; Type: TABLE; Schema: public; Owner: -
 --
@@ -874,80 +683,56 @@ ALTER SEQUENCE public.wiki_versions_page_id_seq OWNED BY public.wiki_versions.pa
 
 
 --
--- Name: beliefs id; Type: DEFAULT; Schema: ag_catalog; Owner: -
+-- Name: beliefs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.beliefs ALTER COLUMN id SET DEFAULT nextval('ag_catalog.beliefs_id_seq'::regclass);
-
-
---
--- Name: memory_chunks id; Type: DEFAULT; Schema: ag_catalog; Owner: -
---
-
-ALTER TABLE ONLY ag_catalog.memory_chunks ALTER COLUMN id SET DEFAULT nextval('ag_catalog.memory_chunks_id_seq'::regclass);
+ALTER TABLE ONLY public.beliefs ALTER COLUMN id SET DEFAULT nextval('public.beliefs_id_seq'::regclass);
 
 
 --
--- Name: users id; Type: DEFAULT; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.users ALTER COLUMN id SET DEFAULT nextval('ag_catalog.users_id_seq'::regclass);
-
-
---
--- Name: Entity id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER TABLE ONLY mnemosyne_graph."Entity" ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, 'Entity'::name))::integer, nextval('mnemosyne_graph."Entity_id_seq"'::regclass));
+ALTER TABLE ONLY public.memory_chunks ALTER COLUMN id SET DEFAULT nextval('public.memory_chunks_id_seq'::regclass);
 
 
 --
--- Name: Entity properties; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY mnemosyne_graph."Entity" ALTER COLUMN properties SET DEFAULT ag_catalog.agtype_build_map();
-
-
---
--- Name: MENTIONS id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER TABLE ONLY mnemosyne_graph."MENTIONS" ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, 'MENTIONS'::name))::integer, nextval('mnemosyne_graph."MENTIONS_id_seq"'::regclass));
+ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
 
 
 --
--- Name: MENTIONS properties; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
 --
-
-ALTER TABLE ONLY mnemosyne_graph."MENTIONS" ALTER COLUMN properties SET DEFAULT ag_catalog.agtype_build_map();
 
 
 --
--- Name: Memory id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
 --
-
-ALTER TABLE ONLY mnemosyne_graph."Memory" ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, 'Memory'::name))::integer, nextval('mnemosyne_graph."Memory_id_seq"'::regclass));
 
 
 --
--- Name: Memory properties; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
 --
-
-ALTER TABLE ONLY mnemosyne_graph."Memory" ALTER COLUMN properties SET DEFAULT ag_catalog.agtype_build_map();
 
 
 --
--- Name: _ag_label_edge id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
 --
-
-ALTER TABLE ONLY mnemosyne_graph._ag_label_edge ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, '_ag_label_edge'::name))::integer, nextval('mnemosyne_graph._ag_label_edge_id_seq'::regclass));
 
 
 --
--- Name: _ag_label_vertex id; Type: DEFAULT; Schema: mnemosyne_graph; Owner: -
 --
 
-ALTER TABLE ONLY mnemosyne_graph._ag_label_vertex ALTER COLUMN id SET DEFAULT ag_catalog._graphid((ag_catalog._label_id('mnemosyne_graph'::name, '_ag_label_vertex'::name))::integer, nextval('mnemosyne_graph._ag_label_vertex_id_seq'::regclass));
+
+--
+--
+
+
+--
+--
+
+
+--
+--
 
 
 --
@@ -1028,139 +813,107 @@ ALTER TABLE ONLY public.wiki_versions ALTER COLUMN page_id SET DEFAULT nextval('
 
 
 --
--- Name: beliefs beliefs_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: beliefs beliefs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.beliefs
+ALTER TABLE ONLY public.beliefs
     ADD CONSTRAINT beliefs_pkey PRIMARY KEY (id);
 
 
 --
--- Name: memory_chunks memory_chunks_memory_id_chunk_index_key; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks memory_chunks_memory_id_chunk_index_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.memory_chunks
+ALTER TABLE ONLY public.memory_chunks
     ADD CONSTRAINT memory_chunks_memory_id_chunk_index_key UNIQUE (memory_id, chunk_index);
 
 
 --
--- Name: memory_chunks memory_chunks_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks memory_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.memory_chunks
+ALTER TABLE ONLY public.memory_chunks
     ADD CONSTRAINT memory_chunks_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tmt_daily tmt_daily_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_daily tmt_daily_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_daily
+ALTER TABLE ONLY public.tmt_daily
     ADD CONSTRAINT tmt_daily_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tmt_daily tmt_daily_user_id_date_key; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_daily tmt_daily_user_id_date_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_daily
+ALTER TABLE ONLY public.tmt_daily
     ADD CONSTRAINT tmt_daily_user_id_date_key UNIQUE (user_id, date);
 
 
 --
--- Name: tmt_profiles tmt_profiles_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_profiles tmt_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_profiles
+ALTER TABLE ONLY public.tmt_profiles
     ADD CONSTRAINT tmt_profiles_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tmt_sessions tmt_sessions_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_sessions tmt_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_sessions
+ALTER TABLE ONLY public.tmt_sessions
     ADD CONSTRAINT tmt_sessions_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tmt_tree_edges tmt_tree_edges_parent_level_parent_id_child_level_child_id_key; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_tree_edges tmt_tree_edges_parent_level_parent_id_child_level_child_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_tree_edges
+ALTER TABLE ONLY public.tmt_tree_edges
     ADD CONSTRAINT tmt_tree_edges_parent_level_parent_id_child_level_child_id_key UNIQUE (parent_level, parent_id, child_level, child_id);
 
 
 --
--- Name: tmt_tree_edges tmt_tree_edges_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_tree_edges tmt_tree_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_tree_edges
+ALTER TABLE ONLY public.tmt_tree_edges
     ADD CONSTRAINT tmt_tree_edges_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tmt_weekly tmt_weekly_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_weekly tmt_weekly_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_weekly
+ALTER TABLE ONLY public.tmt_weekly
     ADD CONSTRAINT tmt_weekly_pkey PRIMARY KEY (id);
 
 
 --
--- Name: tmt_weekly tmt_weekly_user_id_week_start_key; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_weekly tmt_weekly_user_id_week_start_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_weekly
+ALTER TABLE ONLY public.tmt_weekly
     ADD CONSTRAINT tmt_weekly_user_id_week_start_key UNIQUE (user_id, week_start);
 
 
 --
--- Name: users users_pkey; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.users
+ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
 
 --
--- Name: users users_user_id_key; Type: CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: users users_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.users
+ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_user_id_key UNIQUE (user_id);
-
-
---
--- Name: Entity Entity_pkey; Type: CONSTRAINT; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER TABLE ONLY mnemosyne_graph."Entity"
-    ADD CONSTRAINT "Entity_pkey" PRIMARY KEY (id);
-
-
---
--- Name: Memory Memory_pkey; Type: CONSTRAINT; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER TABLE ONLY mnemosyne_graph."Memory"
-    ADD CONSTRAINT "Memory_pkey" PRIMARY KEY (id);
-
-
---
--- Name: _ag_label_edge _ag_label_edge_pkey; Type: CONSTRAINT; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER TABLE ONLY mnemosyne_graph._ag_label_edge
-    ADD CONSTRAINT _ag_label_edge_pkey PRIMARY KEY (id);
-
-
---
--- Name: _ag_label_vertex _ag_label_vertex_pkey; Type: CONSTRAINT; Schema: mnemosyne_graph; Owner: -
---
-
-ALTER TABLE ONLY mnemosyne_graph._ag_label_vertex
-    ADD CONSTRAINT _ag_label_vertex_pkey PRIMARY KEY (id);
 
 
 --
@@ -1227,11 +980,6 @@ ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_project_id_key UNIQUE (project_id);
 
 
-
-
-
-
-
 --
 -- Name: tool_archives tool_archives_archive_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
@@ -1265,115 +1013,103 @@ ALTER TABLE ONLY public.wiki_versions
 
 
 --
--- Name: idx_beliefs_embedding; Type: INDEX; Schema: ag_catalog; Owner: -
+-- Name: idx_beliefs_embedding; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_beliefs_embedding ON ag_catalog.beliefs USING hnsw (embedding public.vector_cosine_ops);
-
-
---
--- Name: idx_beliefs_status; Type: INDEX; Schema: ag_catalog; Owner: -
---
-
-CREATE INDEX idx_beliefs_status ON ag_catalog.beliefs USING btree (status);
+CREATE INDEX idx_beliefs_embedding ON public.beliefs USING hnsw (embedding public.vector_cosine_ops);
 
 
 --
--- Name: idx_beliefs_user; Type: INDEX; Schema: ag_catalog; Owner: -
+-- Name: idx_beliefs_status; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_beliefs_user ON ag_catalog.beliefs USING btree (user_id);
-
-
---
--- Name: idx_memory_chunks_embedding; Type: INDEX; Schema: ag_catalog; Owner: -
---
-
-CREATE INDEX idx_memory_chunks_embedding ON ag_catalog.memory_chunks USING ivfflat (embedding public.vector_cosine_ops) WITH (lists='100');
+CREATE INDEX idx_beliefs_status ON public.beliefs USING btree (status);
 
 
 --
--- Name: idx_tmt_daily_heat; Type: INDEX; Schema: ag_catalog; Owner: -
+-- Name: idx_beliefs_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_daily_heat ON ag_catalog.tmt_daily USING btree (user_id, date DESC);
-
-
---
--- Name: idx_tmt_daily_hnsw; Type: INDEX; Schema: ag_catalog; Owner: -
---
-
-CREATE INDEX idx_tmt_daily_hnsw ON ag_catalog.tmt_daily USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+CREATE INDEX idx_beliefs_user ON public.beliefs USING btree (user_id);
 
 
 --
--- Name: idx_tmt_profiles_active; Type: INDEX; Schema: ag_catalog; Owner: -
+-- Name: idx_memory_chunks_embedding; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_profiles_active ON ag_catalog.tmt_profiles USING btree (user_id, is_active);
-
-
---
--- Name: idx_tmt_profiles_hnsw; Type: INDEX; Schema: ag_catalog; Owner: -
---
-
-CREATE INDEX idx_tmt_profiles_hnsw ON ag_catalog.tmt_profiles USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+CREATE INDEX idx_memory_chunks_embedding ON public.memory_chunks USING ivfflat (embedding public.vector_cosine_ops) WITH (lists='100');
 
 
 --
--- Name: idx_tmt_sessions_heat; Type: INDEX; Schema: ag_catalog; Owner: -
+-- Name: idx_tmt_daily_heat; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_sessions_heat ON ag_catalog.tmt_sessions USING btree (user_id, heat_score DESC);
-
-
---
--- Name: idx_tmt_sessions_hnsw; Type: INDEX; Schema: ag_catalog; Owner: -
---
-
-CREATE INDEX idx_tmt_sessions_hnsw ON ag_catalog.tmt_sessions USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+CREATE INDEX idx_tmt_daily_heat ON public.tmt_daily USING btree (user_id, date DESC);
 
 
 --
--- Name: idx_tmt_weekly_heat; Type: INDEX; Schema: ag_catalog; Owner: -
+-- Name: idx_tmt_daily_hnsw; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tmt_weekly_heat ON ag_catalog.tmt_weekly USING btree (user_id, week_start DESC);
-
-
---
--- Name: idx_tmt_weekly_hnsw; Type: INDEX; Schema: ag_catalog; Owner: -
---
-
-CREATE INDEX idx_tmt_weekly_hnsw ON ag_catalog.tmt_weekly USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+CREATE INDEX idx_tmt_daily_hnsw ON public.tmt_daily USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
 
 
 --
--- Name: MENTIONS_end_id_idx; Type: INDEX; Schema: mnemosyne_graph; Owner: -
+-- Name: idx_tmt_profiles_active; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX "MENTIONS_end_id_idx" ON mnemosyne_graph."MENTIONS" USING btree (end_id);
-
-
---
--- Name: MENTIONS_start_id_idx; Type: INDEX; Schema: mnemosyne_graph; Owner: -
---
-
-CREATE INDEX "MENTIONS_start_id_idx" ON mnemosyne_graph."MENTIONS" USING btree (start_id);
+CREATE INDEX idx_tmt_profiles_active ON public.tmt_profiles USING btree (user_id, is_active);
 
 
 --
--- Name: _ag_label_edge_end_id_idx; Type: INDEX; Schema: mnemosyne_graph; Owner: -
+-- Name: idx_tmt_profiles_hnsw; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX _ag_label_edge_end_id_idx ON mnemosyne_graph._ag_label_edge USING btree (end_id);
+CREATE INDEX idx_tmt_profiles_hnsw ON public.tmt_profiles USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
 
 
 --
--- Name: _ag_label_edge_start_id_idx; Type: INDEX; Schema: mnemosyne_graph; Owner: -
+-- Name: idx_tmt_sessions_heat; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX _ag_label_edge_start_id_idx ON mnemosyne_graph._ag_label_edge USING btree (start_id);
+CREATE INDEX idx_tmt_sessions_heat ON public.tmt_sessions USING btree (user_id, heat_score DESC);
+
+
+--
+-- Name: idx_tmt_sessions_hnsw; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tmt_sessions_hnsw ON public.tmt_sessions USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+
+
+--
+-- Name: idx_tmt_weekly_heat; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tmt_weekly_heat ON public.tmt_weekly USING btree (user_id, week_start DESC);
+
+
+--
+-- Name: idx_tmt_weekly_hnsw; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tmt_weekly_hnsw ON public.tmt_weekly USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='200');
+
+
+--
+--
+
+
+--
+--
+
+
+--
+--
+
+
+--
+--
 
 
 --
@@ -1533,19 +1269,19 @@ CREATE INDEX idx_wv_page ON public.wiki_versions USING btree (page_id);
 
 
 --
--- Name: memory_chunks memory_chunks_memory_id_fkey; Type: FK CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: memory_chunks memory_chunks_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.memory_chunks
+ALTER TABLE ONLY public.memory_chunks
     ADD CONSTRAINT memory_chunks_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id) ON DELETE CASCADE;
 
 
 --
--- Name: tmt_profiles tmt_profiles_previous_id_fkey; Type: FK CONSTRAINT; Schema: ag_catalog; Owner: -
+-- Name: tmt_profiles tmt_profiles_previous_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY ag_catalog.tmt_profiles
-    ADD CONSTRAINT tmt_profiles_previous_id_fkey FOREIGN KEY (previous_id) REFERENCES ag_catalog.tmt_profiles(id);
+ALTER TABLE ONLY public.tmt_profiles
+    ADD CONSTRAINT tmt_profiles_previous_id_fkey FOREIGN KEY (previous_id) REFERENCES public.tmt_profiles(id);
 
 
 --
@@ -1580,7 +1316,6 @@ ALTER TABLE ONLY public.memory_traces
     ADD CONSTRAINT memory_traces_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id);
 
 
-
 --
 -- Name: tool_archives tool_archives_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
@@ -1608,7 +1343,6 @@ ALTER TABLE ONLY public.wiki_versions
 --
 -- PostgreSQL database dump complete
 --
-
 
 
 --

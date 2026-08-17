@@ -146,16 +146,12 @@ injection_module.pool = None
 
 # 数据库连接池
 
-# ── AGE 图同步 ──
-async def sync_entities_to_age(conn, memory_id: int, entities: list, user_id: str):
+# ── 实体同步 (v7.8: 移除 AGE 图同步, 只保留 entities 表 + memory_entities 关联) ──
+async def sync_entities(conn, memory_id: int, entities: list, user_id: str):
     for name in entities:
         name = name.strip()
         if not name:
             continue
-        # 安全: 转义单引号 + 截断
-        safe_name = name.replace("'", "\\'")[:200]
-        safe_user = user_id.replace("'", "\\'")
-        
         row = await conn.fetchrow("SELECT id FROM entities WHERE user_id=$1 AND name=$2", user_id, name)
         if row:
             eid = row["id"]
@@ -167,19 +163,9 @@ async def sync_entities_to_age(conn, memory_id: int, entities: list, user_id: st
                 user_id, name, "auto", "", e_str
             )
         eid = row["id"]
-
-        await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ CREATE (:Entity {entity_id: '%s', name: '%s', user_id: '%s'}) $$) AS (v agtype)" % (eid, safe_name, safe_user))
-        
         await conn.execute("INSERT INTO memory_entities (memory_id, entity_id) VALUES ($1,$2) ON CONFLICT DO NOTHING", memory_id, eid)
-        try:
-            await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ MERGE (m:Memory {memory_id: '%s'}) WITH m MATCH (e:Entity {entity_id: '%s'}) MERGE (m)-[:MENTIONS]->(e) $$) AS (v agtype)" % (memory_id, eid))
-        except Exception as e:
-            logger.debug(f"AGE MENTIONS edge creation skipped: {e}")
-async def clean_age_relations(conn, memory_id: int):
-    try:
-        await conn.execute("SELECT * FROM cypher('mnemosyne_graph', $$ MATCH (m:Memory {memory_id: '" + str(memory_id) + "'})-[r]-() DELETE r $$) AS (v agtype)")
-    except Exception as e:
-        pass
+
+async def clean_entity_relations(conn, memory_id: int):
     await conn.execute("DELETE FROM memory_entities WHERE memory_id=$1", memory_id)
 
 # ── 矛盾检测 ──
@@ -261,7 +247,7 @@ async def dialectic_search(req: DialecticRequest):
             phs = ",".join("${}".format(2 + i) for i in range(len(session_list)))
             s_rows = await conn.fetch(
                 "SELECT s.id::text, s.session_label, s.summary, s.heat_score, s.fragment_ids, s.start_time, s.created_at "
-                "FROM ag_catalog.tmt_sessions s WHERE s.user_id=$1 AND s.id::text = ANY(ARRAY[" + phs + "])",
+                "FROM public.tmt_sessions s WHERE s.user_id=$1 AND s.id::text = ANY(ARRAY[" + phs + "])",
                 user_id, *session_list
             )
             for s in s_rows:
@@ -308,7 +294,7 @@ async def tiered_read(memory_id: int, level: str = "L3", user_id: str = "default
             base["content_truncated"] = True
             if row["session_id"]:
                 s = await conn.fetchrow(
-                    "SELECT session_label FROM ag_catalog.tmt_sessions WHERE id=$1",
+                    "SELECT session_label FROM public.tmt_sessions WHERE id=$1",
                     row["session_id"]
                 )
                 if s and s["session_label"]:
@@ -323,7 +309,7 @@ async def tiered_read(memory_id: int, level: str = "L3", user_id: str = "default
             base["content_truncated"] = len(content_full) > 800
             if row["session_id"]:
                 s = await conn.fetchrow(
-                    "SELECT session_label, summary FROM ag_catalog.tmt_sessions "
+                    "SELECT session_label, summary FROM public.tmt_sessions "
                     "WHERE id=$1", row["session_id"]
                 )
                 if s:
@@ -344,7 +330,7 @@ async def tiered_read(memory_id: int, level: str = "L3", user_id: str = "default
                 s = await conn.fetchrow(
                     "SELECT session_label, summary, heat_score, fragment_ids, "
                     "start_time, end_time, token_count "
-                    "FROM ag_catalog.tmt_sessions WHERE id=$1", sid
+                    "FROM public.tmt_sessions WHERE id=$1", sid
                 )
                 if s:
                     base["session"] = {
@@ -379,7 +365,7 @@ async def tiered_read(memory_id: int, level: str = "L3", user_id: str = "default
             # 每日摘要（如果属于某天）
             try:
                 d = await conn.fetchrow(
-                    "SELECT d.date, d.summary FROM ag_catalog.tmt_daily d "
+                    "SELECT d.date, d.summary FROM public.tmt_daily d "
                     "WHERE d.user_id=$1 AND $2::date >= d.date "
                     "ORDER BY d.date DESC LIMIT 1",
                     user_id, str(row["created_at"])[:10]
@@ -656,13 +642,6 @@ async def delete_media(media_id: int, user_id: str = "default"):
         deleted = result.split()[-1] if result else "0"
         return {"status": "deleted", "id": media_id, "affected": int(deleted)}
 
-async def init_age_connection(conn):
-    """每个新连接加载 AGE 扩展; 环境无 AGE 时优雅降级 (生产必装, 本地开发可缺)"""
-    try:
-        await conn.execute("LOAD 'age'")
-    except Exception:
-        pass
-
 @app.on_event("startup")
 async def startup():
     global pool
@@ -674,8 +653,7 @@ async def startup():
         port=PG_PORT,
         min_size=2,
         max_size=10,
-        server_settings={'search_path': 'ag_catalog, public'},
-        init=init_age_connection
+        server_settings={'search_path': 'public'}
     )
     # 注入 TMT 模块
     tmt_module.pool = pool
@@ -842,7 +820,7 @@ async def create_memory(mem: MemoryCreate):
         )
         mid = row["id"]
         if mem.entities:
-            await sync_entities_to_age(conn, mid, mem.entities, uid)
+            await sync_entities(conn, mid, mem.entities, uid)
     return {"status": "stored", "id": row["id"], "category": cat}
 
 class MemorySearch(BaseModel):
@@ -1130,7 +1108,7 @@ async def delete_memory(memory_id: int, user_id: str):
         )
         # v7.3 评审修复: 删除时同步清理指针 (防 stale)
         await conn.execute("DELETE FROM memory_pointer WHERE memory_id = $1", memory_id)
-        await clean_age_relations(conn, memory_id)
+        await clean_entity_relations(conn, memory_id)
     return {"status": "soft-deleted"}
 
 # ── 更新 API (v7.1 抽屉化: 补齐记忆修改权 — 内容纠错/替换, 不删重存) ──
@@ -1969,7 +1947,7 @@ async def reflect(user_id: str, mode: str = "light"):
                     try:
                         ex = await conn.fetchrow("SELECT id FROM entities WHERE user_id=$1 AND name=$2", user_id, name)
                         if not ex:
-                            await sync_entities_to_age(conn, row["id"], [name], user_id)
+                            await sync_entities(conn, row["id"], [name], user_id)
                             extracted += 1
                     except Exception:
                         pass
@@ -2109,6 +2087,7 @@ async def palace_pin(memory_id: int, retention: str = "permanent"):
 
 @app.post("/api/v1/graph/search")
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
+    """实体关联记忆检索 (v7.8: 移除 AGE 多跳 — 图已切除, max_hops 参数保留兼容)"""
     r_q = (await get_embedding([query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
     async with pool.acquire() as conn:
@@ -2116,19 +2095,6 @@ async def graph_search(query: str, user_id: str, max_hops: int = 2):
         entity_ids = [r["id"] for r in rows]
         if not entity_ids:
             return {"nodes": [], "memories": []}
-        if max_hops > 1:
-            try:
-                id_list = ", ".join(chr(39) + str(e) + chr(39) for e in entity_ids)
-                cql = "SELECT * FROM cypher('mnemosyne_graph', $cyq$ MATCH (e:Entity) WHERE e.entity_id IN [" + id_list + "] MATCH (e)-[*1.." + str(max_hops) + "]-(related:Entity) RETURN DISTINCT related.entity_id $cyq$) AS (entity_id agtype)"
-                age_rows = await conn.fetch(cql)
-                for r in age_rows:
-                    raw = str(r[0]).replace(chr(34), "").strip()
-                    if raw and raw.isdigit():
-                        extra = int(raw)
-                        if extra not in entity_ids:
-                            entity_ids.append(extra)
-            except Exception:
-                pass
         mems = await conn.fetch(
             "SELECT m.content FROM memories m "
             "JOIN memory_entities me ON m.id = me.memory_id "
@@ -2256,7 +2222,7 @@ async def extract_entities(user_id: str, max_memories: int = 50):
                 try:
                     ex = await conn.fetchrow("SELECT id FROM entities WHERE user_id=$1 AND name=$2", user_id, name)
                     if not ex:
-                        await sync_entities_to_age(conn, row["id"], [name], user_id)
+                        await sync_entities(conn, row["id"], [name], user_id)
                         extracted += 1
                 except Exception:
                     pass
@@ -2392,7 +2358,7 @@ async def archive_session(req: SessionArchiveRequest):
             entities_data = json.loads(entities_result.get("content", "{}"))
             entities = entities_data.get("entities", [])
             if entities:
-                await sync_entities_to_age(conn, memory_id, entities, req.user_id)
+                await sync_entities(conn, memory_id, entities, req.user_id)
         except Exception:
             pass
         

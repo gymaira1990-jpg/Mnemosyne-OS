@@ -36,7 +36,7 @@ Mnemosyne OS (FastAPI, 50+ 端点)
   ├── sync/              端云同步 (SQLite ↔ PostgreSQL)
   └── docs/              白皮书 + 宫殿设计 + schema
 
-数据层: PostgreSQL 16 + pgvector 1024d (HNSW) + Apache AGE (Cypher 图谱)
+数据层: PostgreSQL 16 + pgvector 1024d (HNSW)(v7.8: Apache AGE 图已切除 — 实体关联走 entities/memory_entities/wiki_entities 表)
 模型层: 可插拔 —— 豆包 ARK / DeepSeek / 任意 OpenAI 兼容端点
 ```
 
@@ -127,7 +127,7 @@ hermes config set memory.provider mnemosyne
 
 | 端点 | 方法 | 用途 |
 |------|------|------|
-| `/api/v1/graph/search` | POST | AGE 知识图谱多跳搜索 |
+| `/api/v1/graph/search` | POST | 实体关联记忆检索(entities 向量→memory_entities 关联) |
 | `/api/v1/wiki` | GET/POST | 知识库页面读写 |
 | `/api/v1/wiki/search` | POST | 语义搜索（向量+BM25 RRF 融合） |
 | `/api/v1/wiki/by-source` | GET | 按来源路径/URL 精确查证 |

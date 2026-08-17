@@ -32,7 +32,7 @@
 | **记忆** | 9,952+ 条归档 · 6,231 条结构化事实 · 归档率 100% |
 | **搜索** | 🏰 三通道召唤（点名/引导/共鸣）· ~100-400ms |
 | **宫殿** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
-| **技术** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
+| **技术** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
 | **Agent** | Hermes Memory Provider（11工具含 palace_summon）· 自动提取 |
 | **运行** | 7×24 云端 · 端云双活（SQLite ↔ PG） |
 
