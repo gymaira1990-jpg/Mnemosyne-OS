@@ -763,7 +763,9 @@ class MnemosyneMemoryProvider(MemoryProvider):
         self._sync_thread.start()
 
     def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
-        """会话结束时：①同步原始消息到 Mnemosyne ②触发 TMT L2 蒸馏。"""
+        """会话结束时：触发 TMT L2 蒸馏。
+        (v7.8: 移除 conversation_messages 全保真同步 — Hermes state.db 已是权威会话存储,
+         Mnemosyne 不再存双份; 需要会话原文走 session_search)"""
         if not self._client:
             return
 
@@ -772,33 +774,6 @@ class MnemosyneMemoryProvider(MemoryProvider):
 
         if self._turn_count == 0:
             return
-
-        # ① 同步原始消息到 conversation_messages（永久存储，UI 读取）
-        sid = self._session_id
-        if sid and messages:
-            try:
-                clean_msgs = []
-                for m in messages:
-                    clean_msgs.append({
-                        "role": m.get("role", ""),
-                        "content": (m.get("content") or "")[:10000],  # 截断超长
-                        "tool_call_id": m.get("tool_call_id"),
-                        "tool_calls": m.get("tool_calls"),
-                        "tool_name": m.get("tool_name"),
-                        "timestamp": m.get("timestamp", 0.0),
-                        "token_count": m.get("token_count"),
-                        "finish_reason": m.get("finish_reason"),
-                        "reasoning": m.get("reasoning"),
-                    })
-                r = self._client._http.post(
-                    f"{self._client._api_base}/sessions/{sid}/messages",
-                    json={"messages": clean_msgs},
-                    timeout=30.0
-                )
-                logger.info("Mnemosyne session sync: %d msgs → %s (%s)",
-                           len(clean_msgs), sid[:20], r.status_code)
-            except Exception as e:
-                logger.warning("Mnemosyne session sync failed: %s", e)
 
         # ② TMT L2 蒸馏
         try:

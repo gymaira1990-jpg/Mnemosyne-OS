@@ -88,40 +88,6 @@ ALTER SEQUENCE public.beliefs_id_seq OWNED BY public.beliefs.id;
 
 
 --
--- Name: memory_chunks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.memory_chunks (
-    id integer NOT NULL,
-    memory_id integer NOT NULL,
-    chunk_index integer NOT NULL,
-    content text NOT NULL,
-    embedding public.vector(1024),
-    created_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: memory_chunks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.memory_chunks_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: memory_chunks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.memory_chunks_id_seq OWNED BY public.memory_chunks.id;
-
-
---
 -- Name: tmt_daily; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -289,58 +255,9 @@ ALTER SEQUENCE public.entities_id_seq OWNED BY public.entities.id;
 
 
 --
--- Name: gates; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.gates (
-    id bigint NOT NULL,
-    memory_id bigint NOT NULL,
-    gate_type character varying(16) NOT NULL,
-    passed boolean DEFAULT false NOT NULL,
-    checks jsonb DEFAULT '{}'::jsonb,
-    auditor_model character varying(64),
-    created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT gates_gate_type_check CHECK (((gate_type)::text = ANY ((ARRAY['entry'::character varying, 'solution'::character varying, 'archive'::character varying])::text[])))
-);
-
-
---
--- Name: gates_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.gates_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: gates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
-
-
---
 -- Name: media_memories; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.memory_pointer (
-    memory_id bigint NOT NULL PRIMARY KEY,
-    rank_score numeric DEFAULT 0,
-    palace_path text,
-    archive_no text,
-    mention_count integer DEFAULT 0,
-    last_mention timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-CREATE INDEX idx_pointer_rank ON public.memory_pointer (rank_score DESC);
-CREATE INDEX idx_pointer_palace ON public.memory_pointer (palace_path);
-CREATE INDEX idx_pointer_archive ON public.memory_pointer (archive_no);
 
 CREATE TABLE public.media_memories (
     id bigint NOT NULL,
@@ -511,85 +428,6 @@ ALTER SEQUENCE public.memory_traces_id_seq OWNED BY public.memory_traces.id;
 
 
 --
--- Name: projects; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.projects (
-    id bigint NOT NULL,
-    project_id character varying(64) NOT NULL,
-    tenant_id character varying(64) DEFAULT 'default'::character varying,
-    name character varying(255) NOT NULL,
-    description text,
-    sandbox_config jsonb DEFAULT '{}'::jsonb,
-    status character varying(16) DEFAULT 'active'::character varying,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT projects_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'archived'::character varying, 'destroyed'::character varying])::text[])))
-);
-
-
---
--- Name: projects_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.projects_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: projects_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
-
-
---
--- Name: tool_archives; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tool_archives (
-    id bigint NOT NULL,
-    archive_id character varying(64) NOT NULL,
-    memory_id bigint,
-    tool_name character varying(128) NOT NULL,
-    params jsonb DEFAULT '{}'::jsonb,
-    result text,
-    success boolean,
-    error_type character varying(64),
-    knowledge_type character varying(16) DEFAULT 'skill'::character varying,
-    session_id character varying(64),
-    project_id bigint,
-    duration_ms integer,
-    tenant_id character varying(64) DEFAULT 'default'::character varying,
-    created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT tool_archives_knowledge_type_check CHECK (((knowledge_type)::text = ANY ((ARRAY['skill'::character varying, 'pitfall'::character varying, 'observation'::character varying])::text[])))
-);
-
-
---
--- Name: tool_archives_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.tool_archives_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: tool_archives_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.tool_archives_id_seq OWNED BY public.tool_archives.id;
-
-
---
 -- Name: wiki_pages; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -690,13 +528,6 @@ ALTER TABLE ONLY public.beliefs ALTER COLUMN id SET DEFAULT nextval('public.beli
 
 
 --
--- Name: memory_chunks id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.memory_chunks ALTER COLUMN id SET DEFAULT nextval('public.memory_chunks_id_seq'::regclass);
-
-
---
 -- Name: users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -743,13 +574,6 @@ ALTER TABLE ONLY public.entities ALTER COLUMN id SET DEFAULT nextval('public.ent
 
 
 --
--- Name: gates id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.gates ALTER COLUMN id SET DEFAULT nextval('public.gates_id_seq'::regclass);
-
-
---
 -- Name: media_memories id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -775,20 +599,6 @@ ALTER TABLE ONLY public.memory_entities ALTER COLUMN id SET DEFAULT nextval('pub
 --
 
 ALTER TABLE ONLY public.memory_traces ALTER COLUMN id SET DEFAULT nextval('public.memory_traces_id_seq'::regclass);
-
-
---
--- Name: projects id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects ALTER COLUMN id SET DEFAULT nextval('public.projects_id_seq'::regclass);
-
-
---
--- Name: tool_archives id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_archives ALTER COLUMN id SET DEFAULT nextval('public.tool_archives_id_seq'::regclass);
 
 
 --
@@ -818,22 +628,6 @@ ALTER TABLE ONLY public.wiki_versions ALTER COLUMN page_id SET DEFAULT nextval('
 
 ALTER TABLE ONLY public.beliefs
     ADD CONSTRAINT beliefs_pkey PRIMARY KEY (id);
-
-
---
--- Name: memory_chunks memory_chunks_memory_id_chunk_index_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.memory_chunks
-    ADD CONSTRAINT memory_chunks_memory_id_chunk_index_key UNIQUE (memory_id, chunk_index);
-
-
---
--- Name: memory_chunks memory_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.memory_chunks
-    ADD CONSTRAINT memory_chunks_pkey PRIMARY KEY (id);
 
 
 --
@@ -925,14 +719,6 @@ ALTER TABLE ONLY public.entities
 
 
 --
--- Name: gates gates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.gates
-    ADD CONSTRAINT gates_pkey PRIMARY KEY (id);
-
-
---
 -- Name: media_memories media_memories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -962,38 +748,6 @@ ALTER TABLE ONLY public.memory_entities
 
 ALTER TABLE ONLY public.memory_traces
     ADD CONSTRAINT memory_traces_pkey PRIMARY KEY (id);
-
-
---
--- Name: projects projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
-
-
---
--- Name: projects projects_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_project_id_key UNIQUE (project_id);
-
-
---
--- Name: tool_archives tool_archives_archive_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_archives
-    ADD CONSTRAINT tool_archives_archive_id_key UNIQUE (archive_id);
-
-
---
--- Name: tool_archives tool_archives_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_archives
-    ADD CONSTRAINT tool_archives_pkey PRIMARY KEY (id);
 
 
 --
@@ -1036,8 +790,6 @@ CREATE INDEX idx_beliefs_user ON public.beliefs USING btree (user_id);
 --
 -- Name: idx_memory_chunks_embedding; Type: INDEX; Schema: public; Owner: -
 --
-
-CREATE INDEX idx_memory_chunks_embedding ON public.memory_chunks USING ivfflat (embedding public.vector_cosine_ops) WITH (lists='100');
 
 
 --
@@ -1136,8 +888,6 @@ CREATE INDEX idx_entities_user ON public.entities USING btree (user_id);
 --
 -- Name: idx_gates_memory; Type: INDEX; Schema: public; Owner: -
 --
-
-CREATE INDEX idx_gates_memory ON public.gates USING btree (memory_id);
 
 
 --
@@ -1244,8 +994,6 @@ CREATE INDEX idx_memory_traces_memory ON public.memory_traces USING btree (memor
 -- Name: idx_tool_archives_tool; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_tool_archives_tool ON public.tool_archives USING btree (tool_name, success);
-
 
 --
 -- Name: idx_wiki_embedding; Type: INDEX; Schema: public; Owner: -
@@ -1269,27 +1017,11 @@ CREATE INDEX idx_wv_page ON public.wiki_versions USING btree (page_id);
 
 
 --
--- Name: memory_chunks memory_chunks_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.memory_chunks
-    ADD CONSTRAINT memory_chunks_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id) ON DELETE CASCADE;
-
-
---
 -- Name: tmt_profiles tmt_profiles_previous_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tmt_profiles
     ADD CONSTRAINT tmt_profiles_previous_id_fkey FOREIGN KEY (previous_id) REFERENCES public.tmt_profiles(id);
-
-
---
--- Name: gates gates_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.gates
-    ADD CONSTRAINT gates_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id);
 
 
 --
@@ -1314,22 +1046,6 @@ ALTER TABLE ONLY public.memory_entities
 
 ALTER TABLE ONLY public.memory_traces
     ADD CONSTRAINT memory_traces_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id);
-
-
---
--- Name: tool_archives tool_archives_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_archives
-    ADD CONSTRAINT tool_archives_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.memories(id);
-
-
---
--- Name: tool_archives tool_archives_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_archives
-    ADD CONSTRAINT tool_archives_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
 
 
 --
@@ -1374,14 +1090,6 @@ CREATE TABLE IF NOT EXISTS tome_cards (
 CREATE INDEX IF NOT EXISTS idx_tome_wing_room ON tome_cards(wing, room);
 CREATE INDEX IF NOT EXISTS idx_tome_tags ON tome_cards USING GIN(tags);
 
-CREATE TABLE IF NOT EXISTS tome_links (
-    id SERIAL PRIMARY KEY,
-    from_memory BIGINT REFERENCES memories(id) ON DELETE CASCADE,
-    to_memory BIGINT REFERENCES memories(id) ON DELETE CASCADE,
-    rel TEXT DEFAULT 'related',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 
 -- Name: wiki_entities; Type: TABLE; Schema: public
 CREATE TABLE public.wiki_entities (
@@ -1392,10 +1100,6 @@ CREATE TABLE public.wiki_entities (
     created_at timestamp without time zone DEFAULT now()
 );
 ALTER TABLE public.wiki_entities ADD CONSTRAINT wiki_entities_pkey PRIMARY KEY (id);
-
--- ── 外键补充（pg_dump 顺序修复: memory_pointer 依赖 memories, 须在 memories 建表后添加）──
-ALTER TABLE public.memory_pointer ADD CONSTRAINT memory_pointer_memory_id_fkey
-    FOREIGN KEY (memory_id) REFERENCES public.memories(id) ON DELETE CASCADE;
 
 
 -- ═══ v7.5-v7.8 增量表(2026-08-18 审计补齐: 新部署重建库必需) ═══
@@ -1448,19 +1152,3 @@ CREATE TABLE IF NOT EXISTS public.memory_keywords (
     PRIMARY KEY (memory_id, token)
 );
 
-CREATE TABLE IF NOT EXISTS public.conversation_messages (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    session_id text NOT NULL,
-    role text NOT NULL,
-    content text,
-    tool_call_id text,
-    tool_calls jsonb,
-    tool_name text,
-    timestamp double precision NOT NULL,
-    token_count integer,
-    finish_reason text,
-    reasoning text,
-    created_at timestamp with time zone DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_cm_session_role ON public.conversation_messages (session_id, role);
-CREATE INDEX IF NOT EXISTS idx_cm_session_time ON public.conversation_messages (session_id, "timestamp");

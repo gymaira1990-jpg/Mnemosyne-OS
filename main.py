@@ -95,7 +95,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import PG_USER, PG_PASSWORD, PG_DB, PG_HOST, PG_PORT, HOST, PORT
 from core.embedding import get_embedding_async
 from core.llm import call_llm as llm_call
-from core.chunker import chunk_memory as chunk_memory_fn, chunk_all_unprocessed
 # TMT (兼容现有 v2.1 路由)
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
@@ -106,22 +105,6 @@ app = FastAPI(title="Mnemosyne OS v7.7.0 — 认知型记忆操作系统")
 app.include_router(tmt_router)
 
 # 三馆闭环 (Phase 2)
-import api.halls as halls_module
-from api.halls import router as halls_router
-app.include_router(halls_router)
-halls_module.pool = None  # startup 时注入
-
-# 工具归档 (Phase 2)
-import api.tools as tools_module
-from api.tools import router as tools_router
-app.include_router(tools_router)
-tools_module.pool = None
-
-# 项目管理 (Phase 2)
-import api.projects as projects_module
-from api.projects import router as projects_router
-app.include_router(projects_router)
-projects_module.pool = None
 
 # 安全模块 (Phase 3)
 import security.audit as audit_module
@@ -658,9 +641,6 @@ async def startup():
     # 注入 TMT 模块
     tmt_module.pool = pool
     # 注入 v5.0 模块
-    halls_module.pool = pool
-    tools_module.pool = pool
-    projects_module.pool = pool
     security_module.pool = pool
     skills_module.pool = pool
     injection_module.pool = pool
@@ -1107,7 +1087,6 @@ async def delete_memory(memory_id: int, user_id: str):
             memory_id, user_id
         )
         # v7.3 评审修复: 删除时同步清理指针 (防 stale)
-        await conn.execute("DELETE FROM memory_pointer WHERE memory_id = $1", memory_id)
         await clean_entity_relations(conn, memory_id)
     return {"status": "soft-deleted"}
 
@@ -1207,7 +1186,6 @@ async def update_memory(memory_id: int, user_id: str, update: MemoryUpdate):
         # v7.3 评审修复: 更新后同步指针 (rank/mention/archive_no 变化)
         try:
             await conn.execute("""
-                INSERT INTO memory_pointer (memory_id, rank_score, archive_no, mention_count, last_mention)
                 SELECT m.id, m.rank_score, m.archive_no, m.mention_count, COALESCE(m.last_mention, m.last_accessed, m.created_at)
                 FROM memories m WHERE m.id = $1
                 ON CONFLICT (memory_id) DO UPDATE SET
@@ -1228,365 +1206,6 @@ async def patch_memory(memory_id: int, user_id: str, update: MemoryUpdate):
     return await update_memory(memory_id, user_id, update)
 
 # ── 指针 API (v7.3 综合算法: 快速全盘指针 + 提及触发) ──
-@app.get("/api/v1/pointers/top")
-async def pointers_top(user_id: str, top_n: int = 50, palace_path: str | None = None):
-    """快速全盘指针: 按 Rank 取 topN (区域化检索第一层)。
-    palace_path 可选: 限定宫殿分区 (如 'K/proxy')。"""
-    async with pool.acquire() as conn:
-        if palace_path:
-            rows = await conn.fetch("""
-                SELECT p.memory_id, p.rank_score, p.archive_no, p.mention_count,
-                       LEFT(m.content, 80) AS preview, m.category, m.temp_drawer
-                FROM memory_pointer p JOIN memories m ON m.id = p.memory_id
-                WHERE m.user_id = $1 AND m.is_deleted = FALSE
-                  AND p.palace_path LIKE $2 || '%'
-                ORDER BY p.rank_score DESC LIMIT $3
-            """, user_id, palace_path, top_n)
-        else:
-            rows = await conn.fetch("""
-                SELECT p.memory_id, p.rank_score, p.archive_no, p.mention_count,
-                       LEFT(m.content, 80) AS preview, m.category, m.temp_drawer
-                FROM memory_pointer p JOIN memories m ON m.id = p.memory_id
-                WHERE m.user_id = $1 AND m.is_deleted = FALSE
-                ORDER BY p.rank_score DESC LIMIT $2
-            """, user_id, top_n)
-    return {"pointers": [dict(r) for r in rows], "count": len(rows)}
-
-@app.get("/api/v1/pointers/search")
-async def pointers_search(user_id: str, q: str, limit: int = 20):
-    """指针级检索: 只扫指针表(1/10体积), 先出候选再拉全文。
-    区域化检索第二层 — 不触发全库向量扫描。"""
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT p.memory_id, p.rank_score, p.archive_no, p.mention_count,
-                   m.content, m.category, m.temp_drawer, m.storage_strength, m.retrieval_strength
-            FROM memory_pointer p JOIN memories m ON m.id = p.memory_id
-            WHERE m.user_id = $1 AND m.is_deleted = FALSE
-              AND (m.content ILIKE '%' || $2 || '%' OR p.archive_no ILIKE '%' || $2 || '%')
-            ORDER BY p.rank_score DESC LIMIT $3
-        """, user_id, q, limit)
-    return {"pointers": [dict(r) for r in rows], "count": len(rows)}
-
-class MentionTrigger(BaseModel):
-    memory_ids: list[int]
-
-@app.post("/api/v1/pointers/trigger-mention")
-async def trigger_mention(user_id: str, body: MentionTrigger | None = None, memory_ids: list[int] | None = None):
-    """触发提及: 对话中提到某记忆 → mention+1 + R回弹 + 累计5次S+1。
-    供 Hermes 对话流钩子调用 (显式提及)。"""
-    ids = body.memory_ids if body is not None else memory_ids
-    if not ids:
-        return {"status": "nothing", "processed": 0}
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            UPDATE memories SET
-              mention_count = mention_count + 1,
-              last_mention = NOW(),
-              last_accessed = NOW(),
-              access_count = access_count + 1,
-              retrieval_strength = GREATEST(retrieval_strength, storage_strength),
-              storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)),
-              heat_score = LEAST(1.0, heat_score + 0.03),
-              updated_at = NOW()
-            WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE
-        """, user_id, ids)
-        await conn.execute("""
-            INSERT INTO memory_pointer (memory_id, rank_score, mention_count, last_mention)
-            SELECT m.id, m.rank_score, m.mention_count, m.last_mention
-            FROM memories m WHERE m.user_id=$1 AND m.id = ANY($2::bigint[]) AND m.is_deleted=FALSE
-            ON CONFLICT (memory_id) DO UPDATE SET
-              mention_count = EXCLUDED.mention_count,
-              last_mention = EXCLUDED.last_mention,
-              updated_at = NOW()
-        """, user_id, ids)
-    return {"status": "mentioned", "processed": len(ids)}
-
-class MentionScan(BaseModel):
-    text: str                      # 对话文本 (用户消息 + AI回复)
-    top_k: int = 10                # 最多匹配几条
-
-@app.post("/api/v1/pointers/scan-mentions")
-async def scan_mentions(user_id: str, body: MentionScan):
-    """隐式提及扫描: 从对话文本中识别被提到的记忆 (相似度>0.85 或关键词命中)。
-    返回匹配的记忆列表 + 自动触发提及计数。Hermes 会话结束时调用。
-    """
-    text = body.text.strip()
-    if not text or len(text) < 8:
-        return {"mentions": [], "count": 0}
-    matched_ids = []
-    async with pool.acquire() as conn:
-        # 1. 关键词/实体命中: 高 Rank 记忆内容含对话关键片段
-        keywords = [w.strip() for w in text.replace("？", " ").replace("?", " ")
-                    .replace("，", " ").replace(",", " ").replace("。", " ").split()
-                    if 2 <= len(w.strip()) <= 20]
-        if keywords:
-            kw_rows = await conn.fetch("""
-                SELECT m.id FROM memories m
-                WHERE m.user_id = $1 AND m.is_deleted = FALSE
-                  AND m.temp_drawer IN ('hot','normal','cool')
-                  AND m.mention_count > 0
-                ORDER BY m.rank_score DESC NULLS LAST
-                LIMIT 200
-            """, user_id)
-            # 用关键词匹配内容 (避免大表扫描, 先取高Rank候选)
-            for r in kw_rows:
-                row = await conn.fetchrow("SELECT content FROM memories WHERE id=$1", r["id"])
-                if row and any(kw in row["content"] for kw in keywords):
-                    matched_ids.append(r["id"])
-                    if len(matched_ids) >= body.top_k:
-                        break
-        # 2. 触发提及 — v7.3 评审修复: 熔断 (单日单记忆自动提及≤2, 防误触发Rank虚高)
-        if matched_ids:
-            allowed = await conn.fetch("""
-                SELECT id FROM memories
-                WHERE user_id = $1 AND id = ANY($2::bigint[])
-                  AND COALESCE(metadata->>'auto_mention_today','0')::int < 2
-            """, user_id, matched_ids)
-            allowed_ids = [r["id"] for r in allowed]
-            if allowed_ids:
-                await conn.execute("""
-                    UPDATE memories SET
-                      mention_count = mention_count + 1,
-                      last_mention = NOW(),
-                      retrieval_strength = GREATEST(retrieval_strength, storage_strength),
-                      storage_strength = LEAST(10.0, storage_strength + FLOOR((mention_count + 1) / 5.0) - FLOOR(mention_count / 5.0)),
-                      heat_score = LEAST(1.0, heat_score + 0.03),
-                      metadata = COALESCE(metadata,'{}'::jsonb) ||
-                        jsonb_build_object('auto_mention_today', COALESCE((metadata->>'auto_mention_today')::int, 0) + 1),
-                      updated_at = NOW()
-                    WHERE user_id = $1 AND id = ANY($2::bigint[]) AND is_deleted = FALSE
-                """, user_id, allowed_ids)
-    return {"mentions": matched_ids, "count": len(matched_ids)}
-
-# ── 抽屉 API (v7.1 抽屉化: 分布/遗忘候选/手动遗忘) ──
-# v7.1 空间感知: 水位检查 (预警/授权 用)
-async def _storage_usage() -> dict:
-    """计算记忆系统存储水位: 基于 memories 内容总字节 vs 磁盘/库容量。"""
-    try:
-        async with pool.acquire() as conn:
-            content_bytes = await conn.fetchval(
-                "SELECT COALESCE(SUM(LENGTH(content)), 0)::bigint FROM memories WHERE is_deleted = FALSE"
-            )
-            deleted_bytes = await conn.fetchval(
-                "SELECT COALESCE(SUM(LENGTH(content)), 0)::bigint FROM memories WHERE is_deleted = TRUE"
-            )
-            db_size = await conn.fetchval("SELECT pg_database_size(current_database())")
-            db_cap = await conn.fetchval("SHOW data_directory") and None  # 占位, 用磁盘
-    except Exception:
-        content_bytes, deleted_bytes, db_size = 0, 0, 0
-    # 磁盘总容量/已用 (只读 / 文件系统)
-    disk_total = disk_used = 0
-    try:
-        import shutil
-        du = shutil.disk_usage("/")
-        disk_total, disk_used = du.total, du.used
-    except Exception:
-        pass
-    ratio = (disk_used / disk_total * 100) if disk_total else 0
-    level = "low"
-    if ratio >= 90:
-        level = "critical"
-    elif ratio >= 70:
-        level = "warning"
-    return {
-        "disk_used_gb": round(disk_used / 1024**3, 1),
-        "disk_total_gb": round(disk_total / 1024**3, 1),
-        "disk_usage_pct": round(ratio, 1),
-        "memory_content_mb": round((content_bytes or 0) / 1024**2, 2),
-        "deleted_content_mb": round((deleted_bytes or 0) / 1024**2, 2),
-        "db_size_mb": round((db_size or 0) / 1024**2, 1),
-        "level": level,
-        "message": "空间充足" if level == "low" else ("⚠️ 警戒水位" if level == "warning" else "🚨 高水位"),
-    }
-
-
-@app.get("/api/v1/drawers/status")
-async def drawers_status(user_id: str):
-    """双抽屉分布 + 遗忘候选概览 + 存储水位 (周报/盘点用)。"""
-    async with pool.acquire() as conn:
-        temp = await conn.fetch("""
-            SELECT temp_drawer, COUNT(*) AS cnt FROM memories
-            WHERE user_id = $1 AND is_deleted = FALSE GROUP BY 1 ORDER BY 1
-        """, user_id)
-        time_d = await conn.fetch("""
-            SELECT time_drawer, COUNT(*) AS cnt FROM memories
-            WHERE user_id = $1 AND is_deleted = FALSE GROUP BY 1 ORDER BY 1
-        """, user_id)
-        forget = await conn.fetchrow("""
-            SELECT COUNT(*) AS cnt FROM memories
-            WHERE user_id = $1 AND is_deleted = FALSE
-              AND COALESCE(metadata->>'forget_candidate','false') = 'true'
-        """, user_id)
-        garbage = await conn.fetchrow("""
-            SELECT COUNT(*) AS cnt FROM memories
-            WHERE user_id = $1 AND is_deleted = FALSE
-              AND COALESCE(metadata->>'is_garbage','false') = 'true'
-        """, user_id)
-        pinned = await conn.fetchrow("""
-            SELECT COUNT(*) AS cnt FROM memories
-            WHERE user_id = $1 AND is_deleted = FALSE
-              AND COALESCE(metadata->>'pinned','false') = 'true'
-        """, user_id)
-    storage = await _storage_usage()
-    return {
-        "temp_drawers": {r["temp_drawer"]: r["cnt"] for r in temp},
-        "time_drawers": {r["time_drawer"]: r["cnt"] for r in time_d},
-        "forget_candidates": forget["cnt"],
-        "garbage_marked": garbage["cnt"],
-        "pinned": pinned["cnt"],
-        "storage": storage,
-    }
-
-@app.get("/api/v1/drawers/forget-candidates")
-async def forget_candidates(user_id: str, limit: int = 20):
-    """列出遗忘候选 (frozen+long+非pin)。"""
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT id, content, category, heat_score, last_accessed, created_at
-            FROM memories
-            WHERE user_id = $1 AND is_deleted = FALSE
-              AND COALESCE(metadata->>'forget_candidate','false') = 'true'
-            ORDER BY heat_score ASC, last_accessed ASC
-            LIMIT $2
-        """, user_id, limit)
-    return {"candidates": [dict(r) for r in rows]}
-
-@app.post("/api/v1/drawers/forget")
-async def forget_memories(user_id: str, ids: list[int] | None = None, all_candidates: bool = False):
-    """[兼容] 手动遗忘: 软删指定记忆 (或全部遗忘候选)。留统计指纹。= authorize soft_delete"""
-    return await authorize_action(user_id, "soft_delete", ids, all_candidates)
-
-
-# v7.1 空间感知: 授权动作 — 关键遗忘/空间不足 不自动执行, 必须人工授权
-class AuthorizeAction(BaseModel):
-    action: str                                   # delete / recommend / expand / soft_delete / compress
-    ids: list[int] | None = None                  # 指定记忆 (recommend 可省略, 返回候选)
-    all_candidates: bool = False                  # 是否覆盖全部遗忘候选
-
-
-@app.post("/api/v1/drawers/authorize")
-async def authorize_action(user_id: str, body: AuthorizeAction | None = None,
-                           action: str | None = None):
-    """授权动作: 用户在空间预警/关键遗忘时手动拍板。
-    - delete      彻底删除 (软删 + 指纹, 物理清理交给 cleanup)
-    - soft_delete 伪删除 (is_deleted=true, 可恢复)
-    - compress    压缩备份 (全文入 full_content_archived, 只留摘要)
-    - expand      记录扩容提示 (不删任何记忆)
-    - recommend   返回推荐候选列表 (综合分排序, 不执行)
-    """
-    # 兼容: body JSON 或 query action 两种传法
-    ids = None
-    all_candidates = False
-    if body is not None:
-        action = action or body.action
-        ids = body.ids
-        all_candidates = body.all_candidates
-    if action == "expand":
-        return {"status": "expand_hint",
-                "message": "请扩容存储 (当前水位见 /drawers/status); 未删除任何记忆",
-                "action": "expand"}
-
-    if action == "recommend":
-        async with pool.acquire() as conn:
-            rows = await conn.fetch("""
-                SELECT id, LEFT(content, 120) AS preview, category, heat_score, access_count,
-                       LENGTH(content) AS content_len,
-                       COALESCE(metadata->>'forget_candidate','false') AS is_candidate,
-                       COALESCE(metadata->>'is_garbage','false') AS is_garbage
-                FROM memories
-                WHERE user_id = $1 AND is_deleted = FALSE
-                  AND (COALESCE(metadata->>'forget_candidate','false') = 'true'
-                       OR COALESCE(metadata->>'is_garbage','false') = 'true')
-                ORDER BY heat_score ASC, COALESCE(access_count,0) ASC
-                LIMIT $2
-            """, user_id, 50)
-        # 综合分 = 0.6×不常用度 + 0.4×(1-影响分近似: 短内容低影响)
-        def score(r):
-            uncommon = 1.0 / (1 + (r["access_count"] or 0))
-            impact = min(1.0, (r["content_len"] or 0) / 5000)
-            return round(0.6 * uncommon + 0.4 * (1 - impact), 3)
-        cands = [dict(r, score=score(r)) for r in rows]
-        cands.sort(key=lambda x: -x["score"])
-        return {"status": "recommendations", "action": "recommend",
-                "count": len(cands), "candidates": cands[:20],
-                "hint": "确认后调用 POST /drawers/authorize action=delete|soft_delete|compress + ids"}
-
-    # 执行类动作 — 安全护栏: 拦截对重要记忆的操作 (pin/高热度/preference)
-    async with pool.acquire() as conn:
-        if all_candidates:
-            rows = await conn.fetch("""
-                SELECT id FROM memories
-                WHERE user_id = $1 AND is_deleted = FALSE
-                  AND COALESCE(metadata->>'forget_candidate','false') = 'true'
-            """, user_id)
-            ids = [r["id"] for r in rows]
-        if not ids:
-            return {"status": "nothing", "action": action, "processed": 0}
-
-        if action in ("delete", "soft_delete", "compress"):
-            # 校验: 受保护记忆 (pin/preference/高热度) 不允许被授权动作处理
-            protected = await conn.fetch("""
-                SELECT id FROM memories
-                WHERE user_id = $1 AND id = ANY($2::bigint[])
-                  AND (COALESCE(metadata->>'pinned','false') = 'true'
-                       OR category = 'preference'
-                       OR heat_score >= 0.7)
-            """, user_id, ids)
-            if protected:
-                pids = [r["id"] for r in protected]
-                return {"status": "blocked_protected",
-                        "message": "以下记忆受保护(pin/偏好/高热度), 不允许此操作",
-                        "protected_ids": pids,
-                        "hint": "如需处理请先取消保护 (PUT /memories/{id} pin=false 或降低热度)"}
-
-        if action == "compress":
-            # 压缩备份: 原文入 full_content_archived, 内容截为摘要前缀
-            # ⚠️ 截断后必须重算 embedding, 否则向量=全文, 检索返回不匹配摘要
-            await conn.execute("""
-                UPDATE memories SET
-                  full_content_archived = content,
-                  content = LEFT(content, 200),
-                  metadata = COALESCE(metadata,'{}'::jsonb) || '{"compressed":true}'::jsonb,
-                  updated_at = NOW()
-                WHERE user_id = $1 AND id = ANY($2::bigint[])
-            """, user_id, ids)
-            # 重算被压缩记忆的 embedding (摘要版)
-            comp_rows = await conn.fetch(
-                "SELECT id, content FROM memories WHERE user_id=$1 AND id = ANY($2::bigint[]) AND is_deleted=FALSE",
-                user_id, ids)
-            for cr in comp_rows:
-                try:
-                    emb = await get_embedding([cr["content"]])
-                    await conn.execute(
-                        "UPDATE memories SET embedding = $1::vector WHERE id = $2",
-                        emb[0], cr["id"])
-                except Exception:
-                    pass  # 向量失败不阻塞压缩
-            return {"status": "compressed", "action": "compress", "processed": len(ids)}
-
-        if action in ("delete", "soft_delete"):
-            # 留指纹 (fingerprints 表存在时), 再软删
-            try:
-                for mid in ids:
-                    row = await conn.fetchrow("SELECT content, category FROM memories WHERE id=$1", mid)
-                    if row:
-                        await conn.execute("""
-                            INSERT INTO memory_fingerprints (original_id, category, summary_hash, destroyed_at)
-                            VALUES ($1, $2, $3, NOW())
-                            ON CONFLICT DO NOTHING
-                        """, mid, row["category"], hash(row["content"]) % (10**8))
-            except Exception:
-                pass
-            await conn.execute("""
-                UPDATE memories SET is_deleted = TRUE, forgotten_at = NOW()
-                WHERE user_id = $1 AND id = ANY($2::bigint[])
-            """, user_id, ids)
-            return {"status": "soft_deleted", "action": action, "processed": len(ids),
-                    "note": "软删可恢复; 彻底清理走 POST /api/v1/cleanup"}
-
-    return {"status": "unknown_action", "action": action, "supported": ["delete", "recommend", "expand", "soft_delete", "compress"]}
-
-# ── 反馈 API ──
 @app.post("/api/v1/memories/{memory_id}/feedback")
 async def feedback_memory(memory_id: int, user_id: str, feedback: str):
     async with pool.acquire() as conn:
@@ -1912,23 +1531,7 @@ async def reflect(user_id: str, mode: str = "light"):
                   metadata = COALESCE(metadata,'{}'::jsonb) - 'auto_mention_today'
                 FROM percentile p WHERE m.id = p.id
             """, user_id)
-        # 更新快速指针表 (upsert) — 优化: 只在 rank/mention 变化时写, 减少全量写
-        await conn.execute("""
-            INSERT INTO memory_pointer (memory_id, rank_score, palace_path, archive_no, mention_count, last_mention)
-            SELECT m.id, m.rank_score, NULL, m.archive_no, m.mention_count, COALESCE(m.last_mention, m.last_accessed, m.created_at)
-            FROM memories m
-            LEFT JOIN memory_pointer p ON p.memory_id = m.id
-            WHERE m.user_id=$1 AND m.is_deleted=FALSE
-              AND (p.memory_id IS NULL
-                   OR p.rank_score IS DISTINCT FROM m.rank_score
-                   OR p.mention_count IS DISTINCT FROM m.mention_count)
-            ON CONFLICT (memory_id) DO UPDATE SET
-              rank_score = EXCLUDED.rank_score,
-              archive_no = EXCLUDED.archive_no,
-              mention_count = EXCLUDED.mention_count,
-              last_mention = EXCLUDED.last_mention,
-              updated_at = NOW()
-        """, user_id)
+        # (v7.8: memory_pointer 表已切除 — 建了不用, 维护成本高)
         # 3. 深度模式: 实体提取
         if mode == "deep":
             unproc = await conn.fetch("SELECT m.id, m.content FROM memories m LEFT JOIN memory_entities me ON m.id = me.memory_id WHERE m.user_id = $1 AND me.memory_id IS NULL AND m.is_deleted = FALSE LIMIT 100", user_id)
@@ -2247,81 +1850,6 @@ async def restore_memory(memory_id: int, user_id: str):
     return {"status": "restored", "memory": dict(row)}
 
 
-# RAG Chunking
-@app.post("/api/v1/memories/{memory_id}/chunk")
-async def chunk_memory_endpoint(memory_id: int):
-    result = await chunk_memory_fn(pool, memory_id, get_embedding)
-    return result
-
-@app.post("/api/v1/memories/chunk-all")
-async def chunk_all_endpoint(user_id: str = "default", batch_size: int = 50):
-    result = await chunk_all_unprocessed(pool, user_id, get_embedding, batch_size)
-    return result
-
-@app.get("/api/v1/memories/chunks/stats")
-async def chunk_stats_endpoint(user_id: str = "default"):
-    async with pool.acquire() as conn:
-        total = await conn.fetchval("SELECT count(*) FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW())", user_id)
-        chunked = await conn.fetchval("SELECT count(DISTINCT m.id) FROM memories m JOIN memory_chunks mc ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL", user_id)
-        total_chunks = await conn.fetchval("SELECT count(*) FROM memory_chunks mc JOIN memories m ON m.id=mc.memory_id WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL", user_id)
-    return {"total_memories": total, "chunked": chunked or 0, "total_chunks": total_chunks or 0}
-
-class ChunkSearchRequest(BaseModel):
-    q: str
-    user_id: str = "default"
-    top_k: int = 10
-
-@app.post("/api/v1/memories/search-chunks")
-async def search_chunks(req: ChunkSearchRequest):
-    """Chunk级语义搜索 — 比全记忆搜索更精准"""
-    r_q = (await get_embedding([req.q]))[0]
-    q_str = "[" + ",".join(str(x) for x in r_q) + "]"
-    async with pool.acquire() as conn:
-        chunk_rows = await conn.fetch(
-            "SELECT mc.id, mc.content, mc.memory_id, m.content as full_content, "
-            "mc.embedding <=> $2::vector AS dist "
-            "FROM memory_chunks mc "
-            "JOIN memories m ON m.id = mc.memory_id "
-            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
-            "ORDER BY dist LIMIT $3",
-            req.user_id, q_str, req.top_k
-        )
-        mem_rows = await conn.fetch(
-            "SELECT id, content, embedding <=> $2::vector AS dist "
-            "FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) "
-            "ORDER BY dist LIMIT $3",
-            req.user_id, q_str, req.top_k
-        )
-    results = []
-    seen = set()
-    for r in chunk_rows:
-        mid = r["memory_id"]
-        if mid not in seen:
-            seen.add(mid)
-            results.append({
-                "type": "chunk", "memory_id": mid, "chunk_id": r["id"],
-                "chunk_content": r["content"][:300],
-                "full_content": r["full_content"][:500],
-                "dist": round(float(r["dist"]), 4)
-            })
-    for r in mem_rows:
-        if r["id"] not in seen and len(results) < req.top_k:
-            results.append({
-                "type": "memory", "memory_id": r["id"],
-                "content": r["content"][:500],
-                "dist": round(float(r["dist"]), 4)
-            })
-    return {"query": req.q, "total": len(results), "results": results}
-
-
-
-
-class SessionArchiveRequest(BaseModel):
-    user_id: str = "default"
-    session_id: str = ""
-    title: str = ""
-    content: str  # 完整对话文本
-
 @app.post("/api/v1/sessions/archive")
 async def archive_session(req: SessionArchiveRequest):
     """归档完整对话到记忆宫殿 — 自动向量化+入TMT蒸馏"""
@@ -2381,61 +1909,6 @@ async def archive_session(req: SessionArchiveRequest):
 
 class SessionMessagesUpload(BaseModel):
     messages: list  # [{role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning}, ...]
-
-@app.post("/api/v1/sessions/{session_id}/messages")
-async def upload_session_messages(session_id: str, req: SessionMessagesUpload):
-    """批量写入会话消息 — Hermes on_session_end 调用"""
-    async with pool.acquire() as conn:
-        count = 0
-        for msg in req.messages:
-            await conn.execute(
-                "INSERT INTO conversation_messages (session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning) "
-                "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING",
-                session_id,
-                msg.get("role", ""),
-                msg.get("content", ""),
-                msg.get("tool_call_id"),
-                json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
-                msg.get("tool_name"),
-                msg.get("timestamp", 0.0),
-                msg.get("token_count"),
-                msg.get("finish_reason"),
-                msg.get("reasoning")
-            )
-            count += 1
-    return {"status": "stored", "session_id": session_id, "messages": count}
-
-
-@app.get("/api/v1/sessions/{session_id}/messages")
-async def get_session_messages(session_id: str, limit: int = 200, before_id: int = None):
-    """读取会话消息 — UI 前端加载历史"""
-    async with pool.acquire() as conn:
-        if before_id:
-            rows = await conn.fetch(
-                "SELECT id, session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning, created_at "
-                "FROM conversation_messages WHERE session_id=$1 AND id < $2 ORDER BY timestamp ASC LIMIT $3",
-                session_id, before_id, limit
-            )
-        else:
-            rows = await conn.fetch(
-                "SELECT id, session_id, role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning, created_at "
-                "FROM conversation_messages WHERE session_id=$1 ORDER BY timestamp ASC LIMIT $2",
-                session_id, limit
-            )
-    return {"session_id": session_id, "messages": [dict(r) for r in rows], "count": len(rows)}
-
-
-@app.get("/api/v1/sessions")
-async def list_sessions(user_id: str = "default", limit: int = 20):
-    """列出最近会话 — UI 会话列表"""
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT session_id, MIN(timestamp) as start_time, MAX(timestamp) as end_time, "
-            "COUNT(*) as msg_count, SUM(COALESCE(token_count,0)) as total_tokens "
-            "FROM conversation_messages GROUP BY session_id "
-            "ORDER BY MIN(timestamp) DESC LIMIT $1", limit
-        )
-    return {"sessions": [dict(r) for r in rows], "count": len(rows)}
 
 
 if __name__ == "__main__":

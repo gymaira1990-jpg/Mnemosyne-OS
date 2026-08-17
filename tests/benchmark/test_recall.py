@@ -47,7 +47,7 @@ def test_architecture_has_memory_hierarchy():
     
     # TMT 层级
     assert "L1" in content or "tier" in content, "应有记忆层级"
-    # 三馆
-    assert "hall" in content, "应有三馆字段"
+    # 宫殿(三馆 v5.0 已切除, v7.8 起为宫殿体系)
+    assert "palace" in content or "summon" in content, "应有宫殿检索体系"
     # 时间衰减
     assert "INTERVAL" in content, "应有时间衰减机制"
