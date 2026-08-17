@@ -47,20 +47,34 @@ def main():
         n = int(conns.strip())
         if n > THRESHOLDS["pg_conns"]:
             alerts.append(f"[PG_CONN] {n} connections")
-    # 慢查询 (pg_stat_statements)
-    slow = sh("sudo -u postgres psql -d mnemosyne -t -c \"SELECT count(*) FROM pg_stat_statements WHERE mean_exec_time > %d;\" 2>/dev/null" % THRESHOLDS["slow_ms"])
+    # 慢查询 (pg_stat_statements) — 只看最近30分钟有执行的, 避免历史均值残留误报
+    #   (2026-08-18 修复: mean_exec_time 是累计均值, reflect 优化前的历史慢调用永远拉高均值 → 恒报31条狼来了)
+    slow = sh("sudo -u postgres psql -d mnemosyne -t -c \"SELECT count(*) FROM pg_stat_statements WHERE mean_exec_time > %d AND last_exec_time > NOW() - INTERVAL '30 minutes';\" 2>/dev/null" % THRESHOLDS["slow_ms"])
     if slow.strip().isdigit() and int(slow.strip()) > 0:
-        alerts.append(f"[SLOW] {slow.strip()} queries > {THRESHOLDS['slow_ms']}ms")
+        alerts.append(f"[SLOW] {slow.strip()} queries > {THRESHOLDS['slow_ms']}ms (recent 30min)")
 
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if alerts:
         msg = f"[{ts}] ⚠️ 水位告警: {'; '.join(alerts)}"
-        with open(ALERT_LOG, "a") as f:
-            f.write(msg + "\n")
-        print(msg)
+        # 告警去重: 内容与上次相同则不重复刷屏 (仅状态文件记录), 变化/恢复后再报
+        STATE = "/tmp/perf_alert.state"
+        core = msg.split("]", 1)[1] if "]" in msg else msg
+        try:
+            last_core = open(STATE).read().strip()
+        except FileNotFoundError:
+            last_core = ""
+        if core != last_core:
+            with open(ALERT_LOG, "a") as f:
+                f.write(msg + "\n")
+            with open(STATE, "w") as f:
+                f.write(core)
+            print(msg)
     else:
-        # 静默 (健康, 不刷日志 — 每30分钟无告警不打扰)
-        pass
+        # 健康: 清空状态, 下次告警可再报
+        try:
+            os.remove("/tmp/perf_alert.state")
+        except FileNotFoundError:
+            pass
 
 
 if __name__ == "__main__":
