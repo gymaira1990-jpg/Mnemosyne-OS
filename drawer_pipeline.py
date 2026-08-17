@@ -21,7 +21,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, "/opt/mnemosyne")
-from tmt.distill import load_env, get_pool  # 复用 .env 加载 + 连接池
+from tmt.distill import load_env, get_pool, get_embedding  # 复用 .env 加载 + 连接池 + 向量
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("drawer_pipeline")
@@ -99,20 +99,33 @@ async def stage_dedup(pool):
             merged_content = r["content"] if len(r["content"]) > len(sim_row["content"]) else sim_row["content"]
             new_heat = max(r["heat_score"], sim_row["heat_score"])
             new_acc = (r["access_count"] or 0) + (sim_row["access_count"] or 0)
+            # ⚠️ 修 v7.1 坑: `|| '...'::jsonb` 中 :: 优先级高于 || → 单独把残缺串转 jsonb 必崩
+            #    (InvalidTextRepresentationError: invalid input syntax for type json, 每日 dedup 静默失败)
+            #    改用 jsonb_build_object 构造, 彻底避开字符串拼 JSON; merged_from 追加保留合并链
             await pool.execute("""
                 UPDATE memories SET
                   content = $1,
                   heat_score = $2,
                   access_count = $3,
                   parent_memory_id = COALESCE(parent_memory_id, $4),
-                  metadata = COALESCE(metadata,'{}'::jsonb) || '{"merged_from":[' || $5::text || ']}'::jsonb,
+                  metadata = COALESCE(metadata,'{}'::jsonb) || jsonb_build_object(
+                    'merged_from', COALESCE(metadata->'merged_from','[]'::jsonb) || $5::jsonb),
                   updated_at = NOW()
                 WHERE id = $6
             """, merged_content, new_heat, new_acc, r["id"], json.dumps([r["id"]]), sim_row["id"])
+            # 合并后 content 变了 → 必须重算 embedding, 否则向量检索失真 (v7.1 教训: 改 content 不改 embedding)
+            try:
+                new_emb = await get_embedding(merged_content)
+                emb_str = "[" + ",".join(str(x) for x in new_emb) + "]"  # asyncpg 传 vector 必须字符串
+                await pool.execute(
+                    "UPDATE memories SET embedding = $1::vector WHERE id = $2",
+                    emb_str, sim_row["id"])
+            except Exception as e:
+                log.warning("  embedding 重算失败 #%s: %s", sim_row["id"], e)
             # 软删新记忆 (留指纹)
             await pool.execute("""
                 UPDATE memories SET is_deleted = TRUE, forgotten_at = NOW(),
-                  metadata = COALESCE(metadata,'{}'::jsonb) || '{"merged_into":' || $2::text || '}'::jsonb
+                  metadata = COALESCE(metadata,'{}'::jsonb) || jsonb_build_object('merged_into', $2::int)
                 WHERE id = $1
             """, r["id"], sim_row["id"])
             merged += 1
