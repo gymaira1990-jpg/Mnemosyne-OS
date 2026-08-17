@@ -143,13 +143,14 @@ Hermes `state.db`（SQLite）每次会话结束同步到 PostgreSQL。完整对�
 
 ### 🔌 Agent 原生集成
 
-**Memory Provider**（11 工具）——全自动，无需手动 `remember()`：
+**Memory Provider**（14 工具）——全自动，无需手动 `remember()`：
 
 ```
 mnemosyne_palace_summon  → 三通道召唤（魔法前台）
 mnemosyne_search         · mnemosyne_recall      · mnemosyne_hot_memories
 mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
 mnemosyne_media          · session_search        · mnemosyne_tree
+mnemosyne_skill_search   · mnemosyne_skill_wakeup · mnemosyne_injection_plan（v7.7.0）
 ```
 
 **WIKI 知识库检索**（v7.4+，论文/方案全文快照档案馆）：
@@ -160,6 +161,18 @@ mnemosyne_wiki by_source   → 按来源路径/URL 精确查证（防源损毁�
 mnemosyne_wiki get/list    → 按 ID 读全文 / 列表
 可选参数: rerank=true（豆包重排，高精度场景）、graph=true（图谱 1 跳扩展，默认关）
 效果: 20 查询评测 precision@3 100% / recall@3 98.3% / MRR 1.0（v7.5）
+```
+
+**🚀 注入调度大厅**（v7.7.0）——程序性记忆翼 + 场景感知注入：
+
+```
+POST /api/v1/skills/sync     → 技能资产幂等同步（状态机对齐 Hermes curator）
+POST /api/v1/skills/search   → 语义召唤技能（含沉寂/归档，可唤醒）
+PATCH /api/v1/skills/{name}  → 状态流转（唤醒/降级）——永不删除，只流转
+POST /api/v1/injection/plan  → 按场景返回注入流 {技能 + 记忆 + 钩子}
+```
+技能=程序性记忆：与陈述性记忆同哲学（永不 DELETE，状态流转 active→stale→archived→唤醒）。
+embedding 层深度优化：并发调用 + 标准 LRU 缓存 + 指数退避重试（冷批量 7.7 倍提速，缓存命中≈0ms）。
 ```
 
 ```
@@ -211,7 +224,7 @@ python main.py  # → :8010
 | 搜索 | 三通道召唤（点名/引导/共鸣） |
 | 事实提取 | DeepSeek V4 / 豆包 ARK 双底座 |
 | 同步 | SQLite ↔ PostgreSQL |
-| Agent | Memory Provider 11 工具（含 palace_summon） |
+| Agent | Memory Provider 14 工具（含 palace_summon） |
 
 ---
 
@@ -235,7 +248,8 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
-| [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-15 | 🛡 project_id 类型契约修复 + 知识类永不冻结(cool 保底) |
+| [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-18 | 🚀 调度大厅: 程序性记忆翼(技能资产) + /injection/plan 注入调度 + embedding 优化(7.7倍提速) |
+| [v7.6.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.2) | 2026-08-15 | 🛡 project_id 类型契约修复 + 知识类永不冻结(cool 保底) |
 | [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork 双强度S/R + 生产调优(pg_stat_statements/workers/水位告警) |
 | [v7.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.1.0) | 2026-08-09 | 🗄️ 抽屉化记忆: 温度×时间双轨制 + 遗忘候选 + 更新端点 + 抽屉API |
 | [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 魔法记忆宫殿: 分类树+档号+著录卡片+三通道召唤+资料室事实提取+永恒分级 |

@@ -39,7 +39,7 @@
 | **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
 | **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · Apache AGE · FastAPI |
-| **Agent** | Hermes Memory Provider (11 tools incl. palace_summon) · auto-extract |
+| **Agent** | Hermes Memory Provider (14 tools incl. palace_summon) · auto-extract |
 | **Uptime** | 7×24 on modest cloud · edge-cloud sync (SQLite ↔ PG) |
 
 ---
@@ -94,7 +94,7 @@ Every step is **LLM-driven** — not templated. The same pipeline handles agent 
 | Knowledge graph (Cypher) | ✅ Apache AGE | ❌ | ❌ |
 | Conversation history (lossless) | ✅ state.db → PG | ❌ | ❌ |
 | Edge-cloud sync | ✅ SQLite ↔ PG | ❌ | ❌ |
-| Agent-native hooks | ✅ 11 tools | ❌ | Limited |
+| Agent-native hooks | ✅ 14 tools | ❌ | Limited |
 
 ### 🏰 Magic Memory Palace
 
@@ -153,13 +153,14 @@ Hermes `state.db` (SQLite) syncs to PostgreSQL on every session end. Full exchan
 
 ### 🔌 Agent-Native Integration
 
-**Memory Provider** (11 tools) — automatic, no manual `remember()` calls:
+**Memory Provider** (14 tools) — automatic, no manual `remember()` calls:
 
 ```
 mnemosyne_palace_summon  → 3-channel summon (the magic front desk)
 mnemosyne_search         · mnemosyne_recall      · mnemosyne_hot_memories
 mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
 mnemosyne_media          · session_search        · mnemosyne_tree
+mnemosyne_skill_search   · mnemosyne_skill_wakeup · mnemosyne_injection_plan  (v7.7.0)
 ```
 
 **WIKI knowledge base** (v7.4+, full-text snapshot archive for papers/plans):
@@ -171,6 +172,18 @@ mnemosyne_wiki get/list    → read full text by ID / list pages
 Optional: rerank=true (doubao rerank, high-precision), graph=true (1-hop KG expansion, default off)
 Eval (20 queries, v7.5): precision@3 100% / recall@3 98.3% / MRR 1.0
 ```
+
+**🚀 Injection Scheduler** (v7.7.0) — procedural skill wing + context-aware injection:
+
+```
+POST /api/v1/skills/sync     → idempotent skill asset sync (state machine aligned with Hermes curator)
+POST /api/v1/skills/search   → semantic skill summon (incl. dormant/archived, wakeable)
+PATCH /api/v1/skills/{name}  → state transition (wake up / demote) — never deleted, only flowed
+POST /api/v1/injection/plan  → scene-aware injection flow {skills + memories + hooks}
+```
+Skills are *procedural memory*: same palace philosophy as declarative memory (never DELETE, only
+state-flow active → stale → archived → wake). Embedding layer optimized: concurrent calls +
+standard LRU cache + exponential-backoff retry (7.7x faster cold batches, ~0ms cache hits).
 
 ```text
 on_session_end   → sync + fact extraction     on_turn_start    → prefetch
@@ -216,7 +229,7 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jo
 │  dialogue → facts → classify → archive-no → tome card  │
 │                                                        │
 │  Integrations                                          │
-│  ├── Hermes Memory Provider (11 tools)                 │
+│  ├── Hermes Memory Provider (14 tools)                 │
 │  ├── Hermes auto-extract (on_session_end)              │
 │  └── Python SDK                                        │
 └──────────────────────────────────────────────────────┘
@@ -321,7 +334,8 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
-| [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-15 | 🛡 project_id type contract fix + knowledge never frozen (cool floor) |
+| [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-18 | 🚀 Injection Scheduler: procedural skill wing (skill_assets) + /injection/plan + embedding optimization (7.7x faster) |
+| [v7.6.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.2) | 2026-08-15 | 🛡 project_id type contract fix + knowledge never frozen (cool floor) |
 | [v7.2.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.2.0) | 2026-08-09 | 🧠 Bjork S/R dual strength + prod tuning (pg_stat_statements/workers/perf alerts) |
 | [v7.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.1.0) | 2026-08-09 | 🗄️ Drawerized memory: temp×time dual-track + forget candidates + update endpoint + drawers API |
 | [v7.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.0.0) | 2026-08-06 | 🏰 Magic Memory Palace: taxonomy + archive-no + tome cards + 3-channel summon + fact extraction + retention tiers |
