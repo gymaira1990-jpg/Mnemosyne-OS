@@ -16,7 +16,7 @@
 - ⏳ 永恒分级：permanent / long / short 生命周期
 - 🧠 认知热度：重要记忆自动升温，噪音自动衰减
 
-当前版本: **v7.6.2** | License: MIT | 生产运行: 7×24 单机
+当前版本: **v7.7.0** | License: MIT | 生产运行: 7×24 单机
 
 ---
 
@@ -173,7 +173,7 @@ hermes config set memory.provider mnemosyne
 | `PGHOST` | 否 | `127.0.0.1` | 数据库地址 |
 | `PGPORT` | 否 | `5432` | 数据库端口 |
 | `MNEMOSYNE_HOST` | 否 | `127.0.0.1` | 服务监听地址 |
-| `MNEMOSYNE_PORT` | 否 | `8010` | ⚠️ v7.6.2 暂未生效（硬编码 8010） |
+| `MNEMOSYNE_PORT` | 否 | `8010` | ⚠️ v7.7.0 暂未生效（硬编码 8010） |
 
 > 模型可插拔原则：换模型/换后端只改环境变量，不碰代码。
 

@@ -28,3 +28,7 @@ lib/
 
 # Hermes local plans
 .hermes/
+
+# v7.7.0 本地生成物(不入库)
+core/embedding_cache.json
+skill_manifest.json

@@ -1,3 +1,32 @@
+## release · v7.7.0 (2026-08-18) — 调度大厅: 注入智能内核
+
+### 🆕 程序性记忆翼 (技能资产)
+- 新表 `skill_assets`(技能名/描述/分类/状态/使用统计/embedding) + `skill_keywords`(BM25 索引, 租户隔离)
+- 技能=可执行记忆: 与陈述性记忆并列, 状态机对齐 Hermes curator(active/stale/archived, 永不 DELETE 只流转)
+- `POST /api/v1/skills/sync` 幂等批量同步(空描述用 name+category 兜底 embedding, 单条失败容错保留已有)
+- `POST /api/v1/skills/search` 语义召唤(向量+BM25+RRF+状态权重 active 优先, 沉寂可唤醒)
+- `PATCH /skills/{name}` 状态流转(唤醒) / `POST /skills/{name}/touch` 使用计数
+- 配套 `skill_sync.py`(WSL 技能→GZ) + `skill_tokenize.py`(jieba 分词→skill_keywords)
+
+### 🆕 注入调度大厅
+- `POST /api/v1/injection/plan`: 按场景(查询)返回注入流 {相关技能+相关记忆+热点钩子}
+- 注入=认知调度: 场景×价值 动态编译, 不再是固定热度 topN
+- 服务端硬校验 limits(skills≤8/memories≤10/hooks≤10), 空 context 直接返回, 单通道失败静默降级
+
+### 🆕 Embedding 深度优化
+- 实测 ARK doubao-embedding-vision **不支持批量 input**(多 input 只返第一条) → 并发逐条替代(MAX_CONCURRENT=8, 环境变量可配)
+- LRU 缓存(OrderedDict 标准实现: 命中 move_to_end + 超限淘汰最久未用) + 磁盘持久化(600 权限, 损坏自愈)
+- 指数退避重试(429/5xx, 3 次) + 冷缓存 50 条 1.9s(旧串行 14.7s, **提速 7.7 倍**)
+
+### 🔴 修复: RRF 融合 pid 空间不一致 (真 bug)
+- BM25 通道 pid 是 DB skill_id, 向量通道误用列表 index → 融合后越界 IndexError 被静默吞掉 → 注入 plan 返回空
+- 修复: 两通道统一用 skill_id, 新增 test_injection_plan_v77.py 固化防回归
+
+### ✅ 验收
+- pytest **190 passed**(167 原有 + 11 skill_sync + 7 embedding + 5 injection_plan)
+- hermes verify ok=true, readiness 200
+- 豆包 4 角色专家验收(架构/向量/运维/产品): 2 P0 + 8 P1 全部修复后通过
+
 ## release · v7.6.2 (2026-08-15)
 
 ### 🔴 修复: project_id 类型契约 (str→int)

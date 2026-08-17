@@ -38,7 +38,7 @@ CATEGORY_WHITELIST = {
     "temp":        ["temp", "临时", "提醒"],
 }
 
-# v7.6.2: 三分类记忆打标 (对齐业界 episodic/semantic/procedural)
+# v7.7.0: 三分类记忆打标 (对齐业界 episodic/semantic/procedural)
 # 规则映射: category → memory_type (存 metadata['memory_type'])
 CAT_MEMORY_TYPE = {
     "session": "episodic",     # 会话/事件
@@ -83,7 +83,7 @@ from core.chunker import chunk_memory as chunk_memory_fn, chunk_all_unprocessed
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.6.2 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.7.0 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -114,6 +114,18 @@ import api.security as security_module
 from api.security import router as security_router
 app.include_router(security_router)
 security_module.pool = None
+
+# v7.7.0 程序性记忆翼 (技能资产)
+import api.skills as skills_module
+from api.skills import router as skills_router
+app.include_router(skills_router)
+skills_module.pool = None
+
+# v7.7.0 注入调度大厅
+import api.injection as injection_module
+from api.injection import router as injection_router
+app.include_router(injection_router)
+injection_module.pool = None
 
 # 数据库连接池
 
@@ -653,6 +665,8 @@ async def startup():
     tools_module.pool = pool
     projects_module.pool = pool
     security_module.pool = pool
+    skills_module.pool = pool
+    injection_module.pool = pool
     tmt_module.embed_fn = get_embedding
     tmt_module.llm_url = "http://127.0.0.1:11435/v1/chat/completions"
     # v7.0 魔法记忆宫殿: 初始化 (建表+存量归档, 幂等)
@@ -722,7 +736,7 @@ class BeliefSearch(BaseModel):
 # ── 基础记忆 API ──
 class MemoryCreate(BaseModel):
     user_id: str = "default"
-    project_id: Optional[int] = None  # v7.6.2: str→int 类型契约修复(传 proj_xxx 档号字符串→友好422,不再500)
+    project_id: Optional[int] = None  # v7.7.0: str→int 类型契约修复(传 proj_xxx 档号字符串→友好422,不再500)
     content: str
     category: str = "knowledge"
     metadata: dict = {}
@@ -800,7 +814,7 @@ async def create_memory(mem: MemoryCreate):
         meta_extra.setdefault("repetition", 0)     # 访问次数 (与 access_count 联动)
         if mem.source:                             # v7.6: source 进 metadata, 支撑按来源批次召回
             meta_extra["source"] = mem.source
-        meta_extra["memory_type"] = CAT_MEMORY_TYPE.get(cat, "semantic")  # v7.6.2: 三分类打标
+        meta_extra["memory_type"] = CAT_MEMORY_TYPE.get(cat, "semantic")  # v7.7.0: 三分类打标
         row = await conn.fetchrow(
             'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score, storage_strength, retrieval_strength) '
             'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8,$9,$10) RETURNING id',
@@ -814,7 +828,7 @@ async def create_memory(mem: MemoryCreate):
 
 class MemorySearch(BaseModel):
     user_id: str
-    project_id: Optional[int] = None  # v7.6.2: str→int 类型契约修复(传 proj_xxx 档号字符串→友好422,不再500)
+    project_id: Optional[int] = None  # v7.7.0: str→int 类型契约修复(传 proj_xxx 档号字符串→友好422,不再500)
     query: str
     top_k: int = 5
     category_filter: Optional[str] = None
@@ -1958,13 +1972,13 @@ async def health_report(user_id: str):
 # ── 自描述化 API ──
 @app.get("/")
 async def root():
-    return {"service": "Mnemosyne OS v7.6.2", "docs": "/api/v1/capabilities"}
+    return {"service": "Mnemosyne OS v7.7.0", "docs": "/api/v1/capabilities"}
 
 @app.get("/api/v1/capabilities")
 async def capabilities():
     return {
-        "service": "Mnemosyne OS v7.6.2",
-        "version": "7.6.2",
+        "service": "Mnemosyne OS v7.7.0",
+        "version": "7.7.0",
         "description": "个人AI记忆库 — 存入、搜索、追溯、演化",
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
@@ -1988,6 +2002,11 @@ async def capabilities():
             {"path": "POST /api/v1/wiki/search", "purpose": "语义搜索Wiki", "tags": ["wiki"]},
             {"path": "POST /api/v1/extract-entities", "purpose": "从未处理记忆中批量提取实体到AGE图", "tags": ["system"]},
             {"path": "POST /api/v1/media-memories", "purpose": "存入多模态记忆", "tags": ["media"]},
+            {"path": "POST /api/v1/skills/sync", "purpose": "技能资产批量同步(幂等, v7.7.0)", "tags": ["skills"]},
+            {"path": "POST /api/v1/skills/search", "purpose": "语义召唤技能(含沉寂可唤醒, v7.7.0)", "tags": ["skills"]},
+            {"path": "PATCH /api/v1/skills/{skill_name}", "purpose": "技能状态流转(唤醒/降级, v7.7.0)", "tags": ["skills"]},
+            {"path": "POST /api/v1/skills/{skill_name}/touch", "purpose": "技能使用计数(v7.7.0)", "tags": ["skills"]},
+            {"path": "POST /api/v1/injection/plan", "purpose": "注入调度: 按场景返回注入流(v7.7.0)", "tags": ["injection"]},
             {"path": "GET /api/v1/echo", "purpose": "连通性测试", "tags": ["system"]},
             {"path": "GET /api/v1/capabilities", "purpose": "本能力清单", "tags": ["meta"]},
             {"path": "GET /api/v1/health/{user_id}", "purpose": "健康检查(层级统计)", "tags": ["system"]}
@@ -2001,7 +2020,7 @@ async def capabilities():
 
 @app.get("/api/v1/echo")
 async def echo():
-    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.6.2"}
+    return {"status": "ok", "service": "Mnemosyne OS", "version": "7.7.0"}
 
 # ── v7.0 魔法记忆宫殿 API ──
 @app.get("/api/v1/palace/status")
