@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.8.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.8.1-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
@@ -249,6 +249,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v7.8.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.1) | 2026-08-24 | 🩹 修复: 写入即分词(消除当日失明窗口) + MCP 2.0 适配 + 生产仓库对齐 |
 | [v7.8.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.0) | 2026-08-18 | 🧹 瘦身+AGE切除: 切除 8 项无消费端资产(memory_chunks/pointer/conversation_messages/halls/tools/projects/response/tome_links) + 真BM25 + dedup修复 |
 | [v7.7.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.7.0) | 2026-08-18 | 🚀 调度大厅: 程序性记忆翼(技能资产) + /injection/plan 注入调度 + embedding 优化(7.7倍提速) |
 | [v7.6.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.6.2) | 2026-08-15 | 🛡 project_id 类型契约修复 + 知识类永不冻结(cool 保底) |

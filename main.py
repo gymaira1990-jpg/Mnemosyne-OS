@@ -38,6 +38,37 @@ def _query_tokens(text: str) -> list:
             if len(t.strip()) >= 2 and not t.strip().isdigit() and t.strip() not in (" ", "\t")]
 logger = logging.getLogger("mnemosyne")
 
+
+# v7.8.1: 写入即分词 — 消除新记忆 BM25 当日失明窗口 (逻辑与 memory_tokenize.tokenize_memory 一致, 内联避免 tmt.distill 副作用)
+async def _tokenize_on_write(conn, memory_id: int, content: str) -> None:
+    """写入钩子: 立即为该记忆建 memory_keywords (幂等; 失败只告警, 不阻塞写入)"""
+    try:
+        if _jieba is None or len(content or "") < 30:
+            return
+        from collections import Counter
+        head = [t.strip() for t in _jieba.cut(content[:60])
+                if 2 <= len(t.strip()) <= 20 and not t.strip().isdigit() and not t.strip().isspace()]
+        body = [t.strip() for t in _jieba.cut(content[:20000])
+                if 2 <= len(t.strip()) <= 20 and not t.strip().isdigit() and not t.strip().isspace()]
+        cnt = Counter()
+        for t in head:
+            cnt[t] += 2
+        for t in body:
+            cnt[t] += 1
+        toks = [(t, f) for t, f in cnt.items() if any(c.isalnum() for c in t)]
+        if not toks:
+            return
+        await conn.execute("DELETE FROM memory_keywords WHERE memory_id=$1", memory_id)
+        await conn.executemany(
+            "INSERT INTO memory_keywords (memory_id, token, freq) VALUES ($1,$2,$3) "
+            "ON CONFLICT (memory_id, token) DO UPDATE SET freq=EXCLUDED.freq",
+            [(memory_id, t, f) for t, f in toks])
+        await conn.execute(
+            "UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{\"kw_tokenized\":true}'::jsonb "
+            "WHERE id=$1", memory_id)
+    except Exception as e:
+        logger.warning(f"即时分词失败 memory_id={memory_id}: {e}")
+
 # ── v6.0: 受控分类词表 (category 唯一合法值) ──
 # 单用户 (user_id=default) 语义收敛：10 类中文主键，英文为 API 兼容别名。
 # 记忆生命周期: 写入(tmt_level=1 原始碎片) → TMT蒸馏(L2会话/L3日报/L4周报/L5画像)
@@ -99,7 +130,7 @@ from core.llm import call_llm as llm_call
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.8.0 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.8.1 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -198,7 +229,7 @@ async def dialectic_search(req: DialecticRequest):
         # v7.8 真 BM25 (同主搜索): jieba 分词 → memory_keywords TF 加权
         q_tokens = _query_tokens(query)
         if q_tokens:
-            bm25_sql = ("(SELECT LEAST(1.0, COALESCE(SUM(k.freq),0)/4.0) FROM memory_keywords k "
+            bm25_sql = ("(SELECT LEAST(1.0, 0.5 + COALESCE(SUM(k.freq),0)/8.0) FROM memory_keywords k "
                         "WHERE k.memory_id = m.id AND k.token = ANY($4::text[]))")
         else:
             bm25_sql = "0"
@@ -206,11 +237,11 @@ async def dialectic_search(req: DialecticRequest):
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.created_at, m.session_id "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
-            "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
+            "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
-            "  + 0.15 * m.reliability "
-            "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
+            "  + 0.10 * m.reliability "
+            "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
             "LIMIT $3", user_id, q_str, req.max_memories * 2, q_tokens
         )
         if not rows:
@@ -801,6 +832,8 @@ async def create_memory(mem: MemoryCreate):
         mid = row["id"]
         if mem.entities:
             await sync_entities(conn, mid, mem.entities, uid)
+        # v7.8.1: 写入即分词 — 新记忆立即可被 BM25 检索 (消除当日失明窗口)
+        await _tokenize_on_write(conn, mid, mem.content)
     return {"status": "stored", "id": row["id"], "category": cat}
 
 class MemorySearch(BaseModel):
@@ -886,7 +919,7 @@ async def search_memories(req: MemorySearch):
     # v7.8 真 BM25: jieba 分词 query → memory_keywords TF 加权 (替换旧 ILIKE 假 BM25)
     q_tokens = _query_tokens(req.query)
     if q_tokens:
-        bm25_sql = ("(SELECT LEAST(1.0, COALESCE(SUM(k.freq),0)/4.0) FROM memory_keywords k "
+        bm25_sql = ("(SELECT LEAST(1.0, 0.5 + COALESCE(SUM(k.freq),0)/8.0) FROM memory_keywords k "
                     "WHERE k.memory_id = m.id AND k.token = ANY($4::text[]))")
     else:
         bm25_sql = "0"
@@ -900,11 +933,11 @@ async def search_memories(req: MemorySearch):
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
             + region_filter +
-            "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
+            "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
-            "  + 0.15 * m.reliability "
-            "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
+            "  + 0.10 * m.reliability "
+            "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
             "LIMIT $3",
             req.user_id, q_str, req.top_k, q_tokens
         )
@@ -913,11 +946,11 @@ async def search_memories(req: MemorySearch):
             fallback = await conn.fetch(
                 "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
                 "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
-                "ORDER BY (0.40 * (1.0 - (m.embedding <=> $2::vector)) "
+                "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
                 "  + 0.15 * (" + bm25_sql + ") "
                 "  + 0.15 * (" + temporal_sql + ") "
-                "  + 0.15 * m.reliability "
-                "  + 0.15 * GREATEST(0.0, m.heat_score)) DESC "
+                "  + 0.10 * m.reliability "
+                "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
                 "LIMIT $3",
                 req.user_id, q_str, req.top_k, q_tokens
             )
@@ -1896,6 +1929,9 @@ async def archive_session(req: SessionArchiveRequest):
             1  # tmt_level=1，纳入蒸馏
         )
         memory_id = row["id"]
+        
+        # v7.8.1: 会话归档同样即时分词
+        await _tokenize_on_write(conn, memory_id, content)
         
         # 实体提取 (异步，不阻塞)
         try:

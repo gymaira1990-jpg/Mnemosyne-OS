@@ -1,6 +1,6 @@
 # Mnemosyne Memory Provider
 
-版本: 7.8.0 | 状态: 已发布 | 日期: 2026-08-18
+版本: 7.8.1 | 状态: 已发布 | 日期: 2026-08-18
 架构: Hermes ABC MemoryProvider 插件 (v1.1.0 演进)
 
 ## 版本历史

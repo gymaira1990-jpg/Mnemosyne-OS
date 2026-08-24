@@ -1,3 +1,20 @@
+## release · v7.8.1 (2026-08-24) — 当日失明修复回库 + MCP 2.0 适配
+
+> 生产领先于仓库的漂移闭环: GZ 已跑两周的 v7.8.1 修复(新记忆当日失明 P0)正式入库发布, 并同步 MCP 桥 mcp 2.0 适配与测试断言修正。
+
+### 🩹 修复回库 (GZ 生产已验证)
+- **新记忆当日失明 P0 (v7.8.1 核心)**: 写入即分词 `_tokenize_on_write`(主写入+会话归档两处), 消除 BM25 最长 24h 失明窗口; BM25 平滑 `LEAST(1.0, 0.5+SUM/8)` 无关键词中性 0.5 分; 向量权重 0.40→0.50, rel/heat 0.15→0.10 (三处公式统一: dialectic/主搜索/fallback)
+- **测试断言同步**: test_weighting.py reliability 权重 0.15→0.10 (v7.8.1 权重变更后测试过时, 194/194 全绿)
+
+### 🔌 MCP 桥 mcp 2.0 适配 (Hermes 侧, 2026-08-24 实测)
+- `integrations/hermes-mcp/mnemosyne_mcp.py`: mcp SDK 2.0 移除 `list_tools/call_tool` 装饰器 → 改构造回调注册 `Server(name, on_list_tools=..., on_call_tool=...)`; 15 工具完整保留; stdio 冒烟 + 端到端检索实测通过 (Hermes 0.20.5 上游固定 mcp==2.0.0)
+
+### 🧹 生产仓库对齐
+- tmt/router.py 注释脱敏 (GZ 服务器→生产服务器)
+- integrations/hermes-provider 版本号同步 v7.8.1
+
+---
+
 ## release · v7.8.0 (2026-08-18) — 精准排雷 + 架构瘦身
 
 > 🔧 **发布后装修 (同日)**: ⑤ 删除已禁用的 Web 记忆浏览器(browser.html, API Key 明文风险弃用) ⑥ 新增 GitHub Actions CI(pytest 双 Python 版本) + README CI badge ⑦ 海报换代 v7.8.0(数据快照 12,427/8,299/12,646, v7.7 技能资产翼 + v7.8 真 BM25/排雷瘦身, 15 工具)

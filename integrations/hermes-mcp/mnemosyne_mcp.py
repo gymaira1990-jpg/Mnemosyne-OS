@@ -9,7 +9,7 @@ Mnemosyne MCP Server — 桥接 Hermes 与记忆宫殿
   mcp_servers:
     mnemosyne:
       command: "python3"
-      args: ["/path/to/hermes-agent/tools/mnemosyne_mcp.py"]
+      args: ["/path/to/hermes/tools/mnemosyne_mcp.py"]
 """
 
 import json
@@ -74,13 +74,12 @@ def _call(method: str, path: str, **kwargs) -> dict:
 
 
 # ── MCP Server 定义 ────────────────────────────────────
-app = Server("mnemosyne")
+# (app 在 handler 定义后通过构造回调注册, mcp>=2.0 API)
 
 
 # ── 工具列表 ────────────────────────────────────────────
-@app.list_tools()
-async def list_tools() -> list[types.Tool]:
-    return [
+async def list_tools(ctx, params) -> types.ListToolsResult:
+    return types.ListToolsResult(tools=[
         # ── 记忆核心 ──
         types.Tool(
             name="store_memory",
@@ -89,8 +88,8 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "记忆内容"},
-                    "category": {"type": "string", "description": "分类(受控词表): knowledge|pitfall|reference|project|ops|deploy|preference|session|worklog|temp", "default": "knowledge"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "default"},
+                    "category": {"type": "string", "description": "分类: fact|experience|belief|chat|work|note|test", "default": "fact"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "importance": {"type": "number", "description": "重要性 0-1", "default": 0.5},
                 },
                 "required": ["content"],
@@ -103,7 +102,7 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "top_k": {"type": "integer", "description": "返回条数", "default": 5},
                     "category": {"type": "string", "description": "可选：按分类过滤"},
                     "mode": {"type": "string", "description": "hybrid|semantic|fulltext", "default": "hybrid"},
@@ -118,7 +117,7 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "max_results": {"type": "integer", "description": "返回条数", "default": 3},
                 },
                 "required": ["query"],
@@ -130,7 +129,7 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "limit": {"type": "integer", "description": "返回条数", "default": 10},
                     "min_heat": {"type": "number", "description": "最低热度阈值", "default": 0.0},
                 },
@@ -143,7 +142,7 @@ async def list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                 },
             },
         ),
@@ -200,7 +199,7 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "limit": {"type": "integer", "description": "返回条数", "default": 10},
                 },
                 "required": ["query"],
@@ -213,7 +212,7 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "待提取的文本"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                 },
                 "required": ["text"],
             },
@@ -227,7 +226,7 @@ async def list_tools() -> list[types.Tool]:
                 "properties": {
                     "title": {"type": "string", "description": "Wiki 标题"},
                     "content": {"type": "string", "description": "Wiki 内容"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                 },
                 "required": ["title", "content"],
             },
@@ -239,7 +238,7 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "limit": {"type": "integer", "description": "返回条数", "default": 5},
                 },
                 "required": ["query"],
@@ -253,7 +252,7 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "信念内容"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                 },
                 "required": ["content"],
             },
@@ -265,19 +264,18 @@ async def list_tools() -> list[types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词"},
-                    "user_id": {"type": "string", "description": "用户 ID", "default": "g-cat"},
+                    "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "top_k": {"type": "integer", "description": "返回条数", "default": 5},
                 },
                 "required": ["query"],
             },
         ),
-    ]
+    ])
 
 
 # ── 工具调用处理 ──────────────────────────────────────
-@app.call_tool()
-async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-    user_id = arguments.pop("user_id", "g-cat")
+async def _dispatch(name: str, arguments: dict) -> list[types.TextContent]:
+    user_id = arguments.pop("user_id", "default")
 
     try:
         if name == "store_memory":
@@ -389,7 +387,14 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         return [types.TextContent(type="text", text=json.dumps({"error": str(e)}, ensure_ascii=False))]
 
 
-# ── 启动 ────────────────────────────────────────────────
+# ── MCP 2.0 回调适配 + 启动 ────────────────────────────
+async def call_tool(ctx, params) -> types.CallToolResult:
+    return types.CallToolResult(content=await _dispatch(params.name, dict(params.arguments or {})))
+
+
+app = Server("mnemosyne", on_list_tools=list_tools, on_call_tool=call_tool)
+
+
 async def main():
     async with stdio_server() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())

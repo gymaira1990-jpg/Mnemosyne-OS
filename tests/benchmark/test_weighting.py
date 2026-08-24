@@ -56,4 +56,4 @@ def test_reliability_heat_synergy():
     # 验证五维搜索使用 reliability 和 heat
     assert "m.reliability" in content, "搜索应包含 reliability"
     assert "m.heat_score" in content, "搜索应包含 heat_score"
-    assert "0.15 * m.reliability" in content, "reliability 权重 0.15"
+    assert "0.10 * m.reliability" in content, "reliability 权重 0.10"
