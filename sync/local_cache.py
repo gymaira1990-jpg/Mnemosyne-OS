@@ -1,7 +1,7 @@
 """
 端云增量同步 — WSL 本地 SQLite 缓存
-GZ 在线 → 直写 GZ
-GZ 离线 → 写入本地 SQLite，等恢复后推送
+生产在线 → 直写生产
+生产离线 → 写入本地 SQLite，等恢复后推送
 """
 import sqlite3
 import json

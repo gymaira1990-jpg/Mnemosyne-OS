@@ -5,7 +5,7 @@
 - 与 wiki_tokenize 同构; 记忆无标题, 正文即内容; 短记忆(<50)跳过
 - 增量: 未分词的记忆 (metadata->>'kw_tokenized' IS NULL)
 
-用法 (GZ):
+用法 (生产服务器):
     cd /opt/mnemosyne && venv/bin/python memory_tokenize.py --batch 500
     venv/bin/python memory_tokenize.py --all
 """

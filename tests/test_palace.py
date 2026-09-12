@@ -10,11 +10,11 @@ import palace
 
 class TestClassify:
     def test_proxy_keyword(self):
-        r = palace.classify("在GZ部署xray代理 2081端口", "ops")
+        r = palace.classify("在生产服务器部署xray代理 2081端口", "ops")
         assert r["room"] == "proxy"
 
     def test_deploy_keyword(self):
-        r = palace.classify("rsync部署到GZ服务器", "worklog")
+        r = palace.classify("rsync部署到生产服务器", "worklog")
         assert r["room"] == "deploy"
 
     def test_secret_keyword(self):

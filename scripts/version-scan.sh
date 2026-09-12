@@ -81,14 +81,14 @@ else
   echo "  ✅ MEMORY.md"
 fi
 
-# ── 4. GZ 运行版本 ──
+# ── 4. 生产 运行版本 ──
 echo ""
-echo "=== GZ 运行版本 ==="
-gz_ver=$(curl -s --max-time 5 http://127.0.0.1:18010/api/v1/echo 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('version','?'))" 2>/dev/null || echo "unreachable")
-if [ "$gz_ver" = "$NEW" ]; then
-  echo "  ✅ GZ: $gz_ver"
+echo "=== 生产 运行版本 ==="
+prd_ver=$(curl -s --max-time 5 http://127.0.0.1:18010/api/v1/echo 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('version','?'))" 2>/dev/null || echo "unreachable")
+if [ "$prd_ver" = "$NEW" ]; then
+  echo "  ✅ 生产: $prd_ver"
 else
-  echo "  ❌ GZ: $gz_ver (expected $NEW)"
+  echo "  ❌ 生产: $prd_ver (expected $NEW)"
   FAILS=$((FAILS + 1))
 fi
 

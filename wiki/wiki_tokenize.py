@@ -5,7 +5,7 @@
 - 标题权重 ×3, 正文 ×1 (标题词更关键)
 - 过滤: 单字/纯数字/超长/停用词
 
-用法 (GZ):
+用法 (生产服务器):
     cd /opt/mnemosyne && venv/bin/python wiki_tokenize.py --batch 20
     venv/bin/python wiki_tokenize.py --all
 """

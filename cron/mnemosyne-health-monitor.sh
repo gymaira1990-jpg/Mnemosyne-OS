@@ -1,7 +1,7 @@
 #!/bin/bash
 # Mnemosyne 增强健康检查 v5.5.1
 # 覆盖: API连通性 + TMT蒸馏健康 + 系统资源
-# 告警: 通过 GZ security-guard Hermes 分身 → 微信
+# 告警: 通过 生产 security-guard Hermes 分身 → 微信
 API_BASE="http://127.0.0.1:8010"
 LOG="/var/log/mnemosyne-health.log"
 ALERT_FLAG="/tmp/mnemosyne_alert"

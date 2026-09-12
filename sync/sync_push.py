@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 端云同步推送脚本
-从 WSL 本地 SQLite 读取待推送记忆 → 发送到 GZ Mnemosyne API
+从 WSL 本地 SQLite 读取待推送记忆 → 发送到 生产 Mnemosyne API
 用法: python3 sync_push.py [--batch 50]
 """
 import sys
@@ -23,7 +23,7 @@ RETRY = 2
 
 
 def check_gz_online() -> bool:
-    """检查 GZ 是否可达"""
+    """检查 生产是否可达"""
     try:
         r = httpx.get(HEALTH_ENDPOINT, timeout=5)
         return r.status_code == 200
@@ -32,7 +32,7 @@ def check_gz_online() -> bool:
 
 
 def push_one(memory: dict) -> bool:
-    """推送单条记忆到 GZ"""
+    """推送单条记忆到生产"""
     payload = {
         "content": memory["content"],
         "category": memory.get("category", "fact"),
@@ -62,11 +62,11 @@ def push_one(memory: dict) -> bool:
 
 
 def push_batch(batch_size: int = 50, dry_run: bool = False) -> dict:
-    """批量推送到 GZ"""
+    """批量推送到生产"""
     init_db()
     
     if not check_gz_online():
-        log_sync("skip", 0, "GZ offline")
+        log_sync("skip", 0, "production offline")
         return {"status": "offline", "pushed": 0, "pending": get_stats()["pending"]}
     
     memories = get_pending(batch_size)
@@ -92,7 +92,7 @@ def push_batch(batch_size: int = 50, dry_run: bool = False) -> dict:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="WSL→GZ 记忆同步推送")
+    parser = argparse.ArgumentParser(description="本地→生产 记忆同步推送")
     parser.add_argument("--batch", type=int, default=50, help="单批推送数量")
     parser.add_argument("--dry-run", action="store_true", help="仅预览不推送")
     args = parser.parse_args()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-记忆网关 — 智能路由 GZ/本地
+记忆网关 — 智能路由 生产/本地
 用法:
   python3 memory_gateway.py store --content "..." [--category fact] [--user default]
   python3 memory_gateway.py status
@@ -24,7 +24,7 @@ TIMEOUT = 10
 
 def store_to_gz(content: str, category: str = "fact", user_id: str = "default",
                 importance: float = 0.5) -> dict:
-    """尝试写入 GZ Mnemosyne"""
+    """尝试写入 生产 Mnemosyne"""
     payload = {
         "content": content,
         "category": category,
@@ -48,15 +48,15 @@ def store_to_gz(content: str, category: str = "fact", user_id: str = "default",
 
 def smart_store(content: str, category: str = "fact", user_id: str = "default",
                 importance: float = 0.5) -> dict:
-    """智能存储：先 GZ → 失败则本地 SQLite"""
+    """智能存储：先生产 → 失败则本地 SQLite"""
     init_db()
     
-    # 先试 GZ
+    # 先试生产
     result = store_to_gz(content, category, user_id, importance)
     if result["ok"]:
         return result
     
-    # GZ 不可用，存本地
+    # 生产不可用，存本地
     local_id = store_memory(content, category, user_id, importance)
     pending = get_stats()["pending"]
     return {
@@ -70,7 +70,7 @@ def smart_store(content: str, category: str = "fact", user_id: str = "default",
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="记忆网关 — GZ/本地双写")
+    parser = argparse.ArgumentParser(description="记忆网关 — 生产/本地双写")
     sub = parser.add_subparsers(dest="cmd")
     
     store_p = sub.add_parser("store", help="存储记忆")
@@ -81,10 +81,10 @@ if __name__ == "__main__":
     
     sub.add_parser("status", help="查看本地缓存状态")
     
-    push_p = sub.add_parser("push", help="推送本地缓存到GZ")
+    push_p = sub.add_parser("push", help="推送本地缓存到生产")
     push_p.add_argument("--batch", type=int, default=50)
     
-    sub.add_parser("check", help="检查GZ连通性")
+    sub.add_parser("check", help="检查生产连通性")
     
     args = parser.parse_args()
     

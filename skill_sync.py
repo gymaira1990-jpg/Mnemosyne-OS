@@ -2,7 +2,7 @@
 """
 skill_sync.py — Hermes 技能资产 → Mnemosyne skill_assets 同步器 (v7.7.0)
 输入: ~/.hermes/skills/**/SKILL.md + .archive/**/SKILL.md + .usage.json
-输出: GZ Mnemosyne POST /api/v1/skills/sync (批量幂等) 或 本地直写测试库
+输出: 生产 Mnemosyne POST /api/v1/skills/sync (批量幂等) 或 本地直写测试库
 
 用法:
   python3 skill_sync.py --collect            # 收集本地技能 → skill_manifest.json

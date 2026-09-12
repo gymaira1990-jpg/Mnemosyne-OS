@@ -386,7 +386,7 @@ async def apply_lifecycle(pool, user_id: str = "default") -> dict:
 if __name__ == "__main__":
     # 自测
     tests = [
-        ("在GZ部署xray代理，2081端口，systemd服务", "ops"),
+        ("在生产服务器部署xray代理，2081端口，systemd服务", "ops"),
         ("用户喜欢红果短剧风格的AI美女图", "preference"),
         ("密钥在保险柜GITHUB/KEY.txt，line3细粒度PAT", "ops"),
         ("mnemosyne蒸馏链修复，双底座DeepSeek", "worklog"),

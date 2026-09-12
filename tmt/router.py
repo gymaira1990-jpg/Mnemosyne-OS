@@ -144,7 +144,7 @@ async def call_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024
     调用豆包 Seed-2.0 Lite — JSON 结构化蒸馏
     
     v5.0: 不再依赖 WSL 本地 Qwen3.5-4B GPU 模型
-    豆包 API 从 GZ 直连，7×24 可用
+    豆包 API 从生产服务器直连，7×24 可用
     """
     result = call_llm_json(prompt, tier="lite")
     if result.get("error"):

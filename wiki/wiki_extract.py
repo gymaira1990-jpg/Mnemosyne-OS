@@ -7,7 +7,7 @@
 3. 写 wiki_entities 关联 (page→entity)
 (v7.8: AGE 图已切除, relations 关系抽取一并移除 — 无消费端不花 LLM token)
 
-用法 (GZ):
+用法 (生产服务器):
     cd /opt/mnemosyne && venv/bin/python3 wiki_extract.py --batch 5
     venv/bin/python3 wiki_extract.py --batch 5 --dry-run
 """

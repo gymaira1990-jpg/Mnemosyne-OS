@@ -3,7 +3,7 @@
 
 固定 20 条真实查询评测集, 对比三档: 纯向量 / 向量+BM25 / 全通道(+图谱)。
 输出 precision@3 报告 + 变化告警 (防止检索漂移)。
-GZ cron: 每周一 7am 跑一次, 结果写入 /tmp/wiki_eval_report.txt
+生产 cron: 每周一 7am 跑一次, 结果写入 /tmp/wiki_eval_report.txt
 
 用法: venv/bin/python wiki_eval.py
 """

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """wiki_sync_check — 线上快照 vs 本地源 定期自检 (v7.4)
 
-设计: WSL 本地源 = 真相; GZ 线上 wiki = 档案馆快照。
-WSL 会关机, 所以定期自检放 GZ: 对比「线上快照」与「上次同步时的 hash 清单」。
+设计: WSL 本地源 = 真相; 生产线上 wiki = 档案馆快照。
+WSL 会关机, 所以定期自检放生产: 对比「线上快照」与「上次同步时的 hash 清单」。
 - 若线上 hash 与清单一致 → 快照健康
 - 若不一致 → 说明发生了本地更新同步或异常, 记录
 - 同时检查: 线上页有 content 但 hash 为空 (老数据) / content 为空的孤儿页
 
-用法 (GZ crontab):
+用法 (生产 crontab):
     0 5 * * * cd /opt/mnemosyne && venv/bin/python wiki_sync_check.py >> /tmp/wiki_sync_check.log 2>&1
 """
 import asyncio

@@ -4,10 +4,10 @@ Mnemosyne Memory Provider — 替换 OpenViking，使用自研记忆宫殿。
 Provider v1.1.0 (2026-07-29)
   - v1.0.0: 初始版本，全量 sync_turn + 热点记忆 + prefetch
   - v1.1.0: 写过滤(低价值消息跳过) + 首轮冷启动 + 格式优化(cat_emoji)
-  - Mnemosyne 依赖: v5.5.1+ (GZ 服务器)
+  - Mnemosyne 依赖: v5.5.1+ (生产服务器)
   - 兼容: Hermes v0.19.0+
 
-通过 SSH 隧道连接到 GZ 服务器上的 Mnemosyne REST API (localhost:18010)。
+通过 SSH 隧道连接到 生产服务器上的 Mnemosyne REST API (localhost:18010)。
 提供全量记忆存储、语义检索、TMT 层级蒸馏和热度管理。
 
 配置 (profile-scoped .env):
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ENDPOINT = "http://127.0.0.1:18010"
 _DEFAULT_USER_ID = "default"
 _API_TIMEOUT = 15.0
-# recall 含 GZ 端 LLM 蒸馏(实测 13s+)，单独放宽超时，防偶发超时被误判为空结果
+# recall 含 服务端 LLM 蒸馏(实测 13s+)，单独放宽超时，防偶发超时被误判为空结果
 _RECALL_TIMEOUT = 60.0
 # 幂等检索类 POST 路径：连接/超时错误可安全重试（写入类绝不重试，防重复写入）
 _RETRYABLE_POST = {
@@ -398,7 +398,7 @@ class _MnemosyneClient:
         return result if isinstance(result, list) else []
 
     def recall(self, query: str, max_results: int = 5) -> dict:
-        """3 阶段智能召回（含 LLM 蒸馏）。GZ 端蒸馏慢，用独立长超时。"""
+        """3 阶段智能召回（含 LLM 蒸馏）。服务端蒸馏慢，用独立长超时。"""
         payload = {
             "user_id": self._user_id,
             "query": query,

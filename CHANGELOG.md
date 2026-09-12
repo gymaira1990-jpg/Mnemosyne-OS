@@ -19,6 +19,17 @@
 ### 🧰 工具链
 - `scripts/version-scan.sh`: CHANGELOG / AGENTS 的匹配式对齐真实排版(此前恒判 MISSING, 形同虚设)
 
+### 🧹 内部代号清理 (活跃代码/文案, 同批)
+- **17 个活跃文件 / 43 行**: 注释、docstring、usage 与日志串里的内部代号 → 中性表述(`生产服务器 / 服务端 / 生产`), 覆盖 `sync/*`、`wiki/*`、`integrations/hermes-provider/`、`tmt/router.py`、`scripts/version-scan.sh`、`cron/*`、`memory_tokenize.py`、`skill_sync.py`、`palace.py` 示例
+- **运行时语义不变**: 纯文案; `scripts/version-scan.sh` 的局部变量 `gz_ver`→`prd_ver`(脚本内自用); `palace.classify` 示例与 `tests/test_palace.py` **配对修改**, 测试 194 passed + 6 skipped(契约用例需 Hermes 侧 mcp SDK, 最小安装自动 skip)
+- **有意保留**: `CHANGELOG` / `ROADMAP` / `docs/**` 中的历史记录 —— 它们是发布日志, 不改写历史(与「保留 git 历史」同一原则)
+- **判据(本次审计)**: 全历史 + 全树**两层扫描** —— 云厂商访问密钥 / 代码托管平台令牌 / 模型服务类密钥 / 私钥头 / 协作平台令牌 / 云厂商 SecretId / Bearer-JWT / Windows 用户路径 / SSH 密钥名 / 本机家目录 / 邮箱 在当前树**均 0 命中**; 唯一的非回环 IP 是 `pg_dump` 版本注释里的 `16.14`(假阳性); 历史里的 SSH 隧道文档为 `your-server-ip` + `/path/to/your-key.pem` 占位, 端口方案属**侦察级**; 因此 git 历史整体保留, 不做 force-push 清史
+- **历史残留(知情接受)**: 下列非凭据信息在清理前的历史快照中仍有留存, 经评估**保留**(与「保留 git 历史作发布日志」同一原则)。⚠️ **具体值不在本文件复述**(脱敏清单自身不得含真实值), 见内部审计记录 `Mnemosyne #18926`:
+  1. **个人站点域名** — 仅 1 个快照的资产索引文档(`docs/github-assets-index.md` @ `2de398f`, 该文件当时即已删除); 同文档另含个人研究项目名与 DOI(作品集披露); 当前树已清
+  2. `pg_dump` 的 `\restrict <随机串>` 会话标记 — 3 个快照的 schema dump(`442f333`/`515e437`/`63e8869`); **非真实凭据**(仅 pg_dump 的会话安全标记), 但形式像密钥; 当前 `docs/schema.sql` 已无
+  3. 历史运维文档(已随文件删除)含部署路径、服务用户、回环地址与端口 —— 侦察级
+  4. 判断依据: **任何历史快照中均未出现可用凭据**(访问密钥/密码/令牌/私钥/真实公网 IP)。彻底抹除的代价 = `git-filter-repo` + force push + 重建 39 个 tag/Release —— 破坏性动作, 需显式授权
+
 ## release · v7.8.1 (2026-08-24) — 当日失明修复回库 + MCP 2.0 适配
 
 > 生产领先于仓库的漂移闭环: GZ 已跑两周的 v7.8.1 修复(新记忆当日失明 P0)正式入库发布, 并同步 MCP 桥 mcp 2.0 适配与测试断言修正。
