@@ -130,7 +130,7 @@ from core.llm import call_llm as llm_call
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.8.2 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.8.3 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -1966,6 +1966,15 @@ class SessionMessagesUpload(BaseModel):
     messages: list  # [{role, content, tool_call_id, tool_calls, tool_name, timestamp, token_count, finish_reason, reasoning}, ...]
 
 
-if __name__ == "__main__":
+def _run_server() -> None:
+    """启动服务 —— 监听地址/端口取自 config(MNEMOSYNE_HOST / MNEMOSYNE_PORT), 不写死。
+
+    抽成函数是为了可测: 契约测试直接钉住"入口用的是 config 值"(main.py 曾写死 127.0.0.1:8010,
+    导致两个环境变量静默失效)。
+    """
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8010, workers=4, log_level="info")
+    uvicorn.run("main:app", host=HOST, port=PORT, workers=4, log_level="info")
+
+
+if __name__ == "__main__":
+    _run_server()
