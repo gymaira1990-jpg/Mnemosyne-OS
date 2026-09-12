@@ -1,3 +1,24 @@
+## release · v7.8.2 (2026-09-12) — MCP 桥契约修复回库 + 契约自描述对齐
+
+> 触发: 生产实测 MCP 桥三个管理型工具(feedback/delete/restore)必报 422 —— 桥把 feedback 发成 JSON body 且漏传 user_id, 而服务端 REST 要求二者都是 query 参数, 用户侧表现为"工具坏了"。同类风险落在**响应字段**上会静默失效(读 `heat` 而服务端返回 `heat_score` → 永远取默认值且不报错), 故一并锁契约。
+
+### 🔌 修复回库 (生产已验证)
+- `integrations/hermes-mcp/mnemosyne_mcp.py`: feedback / delete / restore 三个 handler 的 `user_id`(与 feedback 值)改走 **query 参数**; 生产三路实测通过 (feedback→feedback recorded / delete→soft-deleted / restore→restored)
+- 脱敏 + 契约铁律段: 桥 docstring 内部代号 → "生产服务器"; 新增「入参位置按服务端要求 / 响应字段名以自描述为准 / 改 handler 必跑契约测试」三行铁律
+
+### 🧪 新增契约测试 (tests/test_mcp_bridge_contract.py, 6 例)
+- 锁死 outbound 请求形态: 3 个 query-参数端点 + 2 个 body 端点回归(防"修过头")
+- **反证过**: 旧代码下 4 例失败(proven red), 修复后 6/6 绿
+- mcp SDK 仅 Hermes 侧安装 → 最小安装自动 skip, 不阻塞服务端测试套件
+
+### 📖 capabilities 自描述对齐 (API 门面)
+- `category` 词表: `fact|experience|belief`(3 类) → 受控词表 **10 类** + 非法值归一化说明(此前门面文档与 DB CHECK 约束不一致, 对外使用者会照错文档写)
+- `DELETE /memories/{id}`、`POST /{id}/restore`、`/{id}/feedback` 标注 `user_id (query 必填)` —— 正是本次踩坑点
+- `GET /memories/heat-top` 补 `returns: memories[].heat_score (字段名是 heat_score, 不是 heat)`
+
+### 🧰 工具链
+- `scripts/version-scan.sh`: CHANGELOG / AGENTS 的匹配式对齐真实排版(此前恒判 MISSING, 形同虚设)
+
 ## release · v7.8.1 (2026-08-24) — 当日失明修复回库 + MCP 2.0 适配
 
 > 生产领先于仓库的漂移闭环: GZ 已跑两周的 v7.8.1 修复(新记忆当日失明 P0)正式入库发布, 并同步 MCP 桥 mcp 2.0 适配与测试断言修正。

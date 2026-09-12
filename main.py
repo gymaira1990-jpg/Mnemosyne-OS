@@ -130,7 +130,7 @@ from core.llm import call_llm as llm_call
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.8.1 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.8.2 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
@@ -1624,15 +1624,15 @@ async def capabilities():
         "auth": "X-API-Token (Nginx层)",
         "base_url": "https://your-server.example.com/mnemosyne",
         "endpoints": [
-            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "fact|experience|belief"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"default\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
+            {"path": "POST /api/v1/memories", "purpose": "存入一条记忆。自动向量化+实体提取+矛盾检测(相似内容合并/冲突标记时间窗口)", "params": {"user_id": "str", "content": "str", "category": "knowledge|pitfall|reference|project|ops|deploy|preference|session|worklog|temp (受控词表 10 类, 非法值自动归一化为 knowledge; 权威见 docs/schema.sql)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"default\",\"content\":\"要记住的内容\"}'", "tags": ["core", "write"]},
             {"path": "POST /api/v1/memories/search", "purpose": "4维检索(语义向量+BM25关键词+时序加权+图遍历) + 交叉编码重排", "params": {"user_id": "str", "query": "str", "top_k": "int(5)"}, "example": "curl -X POST https://your-server.example.com/mnemosyne/api/v1/memories/search -H 'X-API-Token: <token>' -H 'Content-Type: application/json' -d '{\"user_id\":\"default\",\"query\":\"搜索内容\"}'", "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories", "purpose": "按热度/分类列出记忆", "params": {"user_id": "str", "limit": "int(20)", "tier": "str?", "category": "str?"}, "tags": ["core", "read"]},
             {"path": "GET /api/v1/memories/{id}", "purpose": "获取单条记忆详情", "tags": ["core", "read"]},
-            {"path": "DELETE /api/v1/memories/{id}", "purpose": "软删除记忆", "tags": ["core", "write"]},
-            {"path": "POST /api/v1/memories/{id}/feedback", "purpose": "记录反馈(positive/negative), 影响reliability评分", "params": {"user_id": "str", "feedback": "positive|negative"}, "tags": ["core", "write"]},
-            {"path": "POST /api/v1/memories/{id}/restore", "purpose": "恢复已删除的记忆", "tags": ["core", "write"]},
+            {"path": "DELETE /api/v1/memories/{id}", "purpose": "软删除记忆", "params": {"user_id": "str (query 必填)"}, "tags": ["core", "write"]},
+            {"path": "POST /api/v1/memories/{id}/feedback", "purpose": "记录反馈(positive/negative), 影响reliability评分", "params": {"user_id": "str (query 必填)", "feedback": "positive|negative (query 必填)"}, "tags": ["core", "write"]},
+            {"path": "POST /api/v1/memories/{id}/restore", "purpose": "恢复已删除的记忆", "params": {"user_id": "str (query 必填)"}, "tags": ["core", "write"]},
             {"path": "POST /api/v1/memories/evolve", "purpose": "触发记忆进化(合并重复/清理/提升)", "tags": ["system"]},
-            {"path": "GET /api/v1/memories/heat-top", "purpose": "热度排行", "tags": ["core", "read"]},
+            {"path": "GET /api/v1/memories/heat-top", "purpose": "热度排行", "params": {"user_id": "str", "limit": "int", "min_heat": "float(0)"}, "returns": "memories[].heat_score (字段名是 heat_score, 不是 heat)", "tags": ["core", "read"]},
             {"path": "POST /api/v1/reflect", "purpose": "手动触发Reflector: 热度衰减+层级迁移+实体提取", "params": {"user_id": "str", "mode": "light|deep"}, "tags": ["system"]},
             {"path": "POST /api/v1/beliefs", "purpose": "创建信念。自动与已有信念合并置信度", "params": {"user_id": "str", "content": "str", "confidence": "float(0.5)", "status": "tentative|established"}, "tags": ["belief"]},
             {"path": "POST /api/v1/beliefs/search", "purpose": "语义搜索信念", "tags": ["belief"]},

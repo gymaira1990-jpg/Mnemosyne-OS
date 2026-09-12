@@ -2,8 +2,14 @@
 """
 Mnemosyne MCP Server — 桥接 Hermes 与记忆宫殿
 
-通过 SSH 隧道 (localhost:18010) 连接到 GZ 服务器上的 Mnemosyne REST API,
+通过 SSH 隧道 (localhost:18010) 连接到生产服务器上的 Mnemosyne REST API,
 为 Hermes Agent 提供记忆存储/检索/MCP 工具。
+
+契约铁律 (踩过一次坑, 见 tests/test_mcp_bridge_contract.py):
+  · 入参位置按服务端要求 —— feedback/delete/restore 的 user_id、feedback 是 **query 参数**,
+    发成 JSON body 或漏传 → 422 Unprocessable Entity (用户侧表现为"工具坏了")。
+  · 响应字段名以 capabilities/schema 为准, 不要凭印象猜 —— heat-top 返回的是 heat_score。
+  · 改动任何 handler 后必须跑契约测试; 静默失效(不报错=永远取到默认值)比报错更危险。
 
 启动方式 (注册到 Hermes config.yaml):
   mcp_servers:
@@ -317,9 +323,9 @@ async def _dispatch(name: str, arguments: dict) -> list[types.TextContent]:
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "feedback_memory":
-            data = _call("POST", f"/memories/{arguments['memory_id']}/feedback", json={
-                "feedback": arguments["feedback"],
-            })
+            # API 要求 query 参数 (user_id + feedback); 发 JSON body 会 422 (2026-09-12 实测)
+            data = _call("POST", f"/memories/{arguments['memory_id']}/feedback",
+                         params={"user_id": user_id, "feedback": arguments["feedback"]})
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "get_memory_traces":
@@ -327,11 +333,12 @@ async def _dispatch(name: str, arguments: dict) -> list[types.TextContent]:
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "delete_memory":
-            data = _call("DELETE", f"/memories/{arguments['memory_id']}")
+            # user_id 是必填 query 参数, 缺失即 422 (2026-09-12 实测)
+            data = _call("DELETE", f"/memories/{arguments['memory_id']}", params={"user_id": user_id})
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "restore_memory":
-            data = _call("POST", f"/memories/{arguments['memory_id']}/restore")
+            data = _call("POST", f"/memories/{arguments['memory_id']}/restore", params={"user_id": user_id})
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "search_graph":

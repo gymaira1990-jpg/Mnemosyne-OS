@@ -46,12 +46,13 @@ check_key() {
 check_key "VERSION"     "VERSION"           '.*'
 check_key "README badge" "README.md"        '(?<=version-)[\d.]+'
 check_key "README_CN"   "README_CN.md"      '(?<=version-)[\d.]+'
-check_key "AGENTS.md"   "AGENTS.md"         '(?<=当前: \*\*v?)[\d.]+'
-check_key "CHANGELOG最新" "CHANGELOG.md"     '(?<=^## v)[\d.]+'
+check_key "AGENTS.md"   "AGENTS.md"         '(?<=当前版本: \*\*v?)[\d.]+'
+check_key "CHANGELOG最新" "CHANGELOG.md"     '(?<=^## release · v)[\d.]+'
 check_key "README版本表"  "README.md"        '(?<=\| \[v)[\d.]+(?=\]\()'
 check_key "CN版本表"      "README_CN.md"     '(?<=\| \[v)[\d.]+(?=\]\()'
 check_key "ROADMAP"       "ROADMAP.md"       '(?<=^> v)[\d.]+'
-check_key "main.py"       "main.py"          '(?<="version": ")[\d.]+(?=")'
+# main.py: echo/capabilities 已改为运行时读 VERSION 文件 → 唯一硬编码处是 FastAPI title
+check_key "main.py title" "main.py"          '(?<=title="Mnemosyne OS v)[\d.]+(?= )'
 
 # ── 2. 技能文档（只检查非功能标签残留） ──
 echo ""

@@ -99,7 +99,7 @@ Key evolutions in behavior:
 - 12,427+ memories | 99.9% archive coverage | 12,646 tome cards | 30 taxonomy nodes
 - 8,299 structured facts
 - Summon latency ~100-400ms
-- Full test suite: 194 passed (v7.8.1)
+- Full test suite: 194 passed + 6 MCP-bridge contract cases (200 collected) (v7.8.2)
 
 ## Docs Index
 

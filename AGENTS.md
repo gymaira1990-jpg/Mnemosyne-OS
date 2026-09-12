@@ -16,7 +16,7 @@
 - ⏳ 永恒分级：permanent / long / short 生命周期
 - 🧠 认知热度：重要记忆自动升温，噪音自动衰减
 
-当前版本: **v7.8.1** | License: MIT | 生产运行: 7×24 单机
+当前版本: **v7.8.2** | License: MIT | 生产运行: 7×24 单机
 
 ---
 
@@ -233,6 +233,16 @@ mcp_servers:
 
 ---
 
+## 集成契约（改 handler / 集成代码前必读）
+
+> v7.8.2 教训: MCP 桥三个工具在生产必报 422(feedback 发成 JSON body + 漏传 user_id); 同源错误发生在**响应字段**上时连报错都没有。**语义等价 ≠ 可用** —— 措辞、字段名、参数位置的微小偏差对程序就是"直接死"。
+
+1. **入参位置以服务端为准**: 需要 query 的端点(`feedback`/`delete`/`restore` 的 `user_id`)发成 JSON body → 422。自描述 `GET /api/v1/capabilities` 是唯一权威。
+2. **响应字段名不许猜**: 如 `heat-top` 返回 `heat_score`(不是 `heat`)。读错字段**不报错**, 只会静默取默认值 —— 比报错危险得多。
+3. **改 integration 必须跑契约测试**: `tests/test_mcp_bridge_contract.py`(锁 outbound 形态, 反证过 proven-red)。新端点也照此加例。
+4. **投影/缓存以终值为准**: 消费端的注入文件(MEMORY.md 等)是服务端数据的投影 —— 校验必须在**回写之后**复测, 否则报的是失真数字。
+5. **生成拦不住, 就上保险**: 约束(标准形态/幂等/固定锚点)+ 审查(正反比对、契约测试)+ 终值复测。
+
 ## 开发贡献
 
 ```bash
@@ -240,13 +250,14 @@ mcp_servers:
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 cd Mnemosyne-OS && pip install -r requirements.txt
 
-# 测试（194 用例）
+# 测试（200 用例 = 194 服务端 + 6 MCP 桥契约；契约用例需 Hermes 侧 mcp SDK，无则自动 skip）
 pytest tests/
 
 # 提交规范
 feat: / fix: / docs: / chore: / release:
 
 # 红线
+- 集成代码改动必须带契约测试(capabilities 为唯一权威, 不许凭印象写字段名/参数位置)
 - 绝不硬编码 API Key / 真实 IP / 域名 / 密码
 - push 前必须隐私扫描（git-privacy-audit）
 - 版本号三处一致（VERSION / README badge / CHANGELOG）
