@@ -1,0 +1,47 @@
+name: privacy & version gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  privacy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 隐私扫描 · 凭据类（只扫 git 追踪文件，零输出为通过）
+        run: |
+          PAT='sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_|PGPASSWORD=[^y]|BEGIN [A-Z ]*PRIVATE KEY|/mnt/c/Users|tencent-gz'
+          hits=$(git grep -nE "$PAT" 2>/dev/null | grep -v -e '[.]github/workflows/privacy[.]yml' || true)
+          if [ -n "$hits" ]; then printf '%s\n' "$hits"; echo "FAIL: 命中凭据类敏感模式"; exit 1; fi
+          echo "OK: 凭据类零命中"
+      - name: 隐私扫描 · 内部域名（只扫 git 追踪文件）
+        run: |
+          hits=$(git grep -nE 'g-cat[.]cn' 2>/dev/null | grep -v -e '[.]github/workflows/privacy[.]yml' || true)
+          if [ -n "$hits" ]; then printf '%s\n' "$hits"; echo "FAIL: 命中内部域名"; exit 1; fi
+          echo "OK: 内部域名零命中"
+      - name: 内部目录未被追踪（.hermes / plans / 备份文件）
+        run: |
+          t=$(git ls-files | grep -E '[.]hermes/|/plans/|[.]bak$|[.]bak-|pre-deploy|skill_manifest[.]json' || true)
+          if [ -n "$t" ]; then printf '%s\n' "$t"; echo "FAIL: 内部/备份文件被 git 追踪"; exit 1; fi
+          echo "OK: 无内部文件入库"
+
+  version-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: VERSION 与 README badge 一致
+        run: |
+          v=$(cat VERSION)
+          echo "VERSION = $v"
+          ok=1
+          for f in README.md README_CN.md; do
+            [ -f "$f" ] || continue
+            if grep -q "version-$v" "$f"; then echo "OK: $f badge = $v"; else echo "FAIL: $f 缺 badge version-$v"; ok=0; fi
+          done
+          [ "$ok" -eq 1 ] || exit 1
+      - name: CHANGELOG 有对应版本段落
+        run: |
+          v=$(cat VERSION)
+          if grep -qE "^##+.*$v" CHANGELOG.md 2>/dev/null; then echo "OK: CHANGELOG 含 $v"; else echo "WARN: CHANGELOG 未见 $v 段落"; fi
