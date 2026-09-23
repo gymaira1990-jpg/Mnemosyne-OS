@@ -1,3 +1,20 @@
+## [Unreleased] — 项目治理层落地 (2026-09-24)
+
+> 本次不改运行时行为，只补「事实底座」：让任何会话接手 3 分钟知道这是什么、有什么能力、到哪了。
+
+### Added
+- `PROJECT.md` 项目宪章（这是什么/为什么/到哪了/范围边界/关键决策索引）
+- `openspec/` 规格层：`specs/`（能力真相）+ `changes/`（变更提案，含 ADDED/MODIFIED/**REMOVED**）+ `archive/`
+- `docs/adr/` 架构决策记录（首条：ADR-0001 采用项目治理标准）
+- `CONTRIBUTING.md` 贡献指南（提交规范 / 分支 / 改动前必做 / 发版门禁 / 红线）
+- `docs/` 下沉文档：`ARCHITECTURE.md` · `INTEGRATION.md` · `API.md` · `ENV.md` · `AGENT-USAGE.md`
+
+### Changed
+- `AGENTS.md` **瘦身 8,466 → 2,236 字符（-74%）**：根文件只留「构建 / 约定 / 红线 / 导航」，细节下沉 `docs/`
+
+### Fixed
+- `.gitignore` 补 `*.db` / `*.sqlite` / `*.dump` / `*.log` —— 此前 `sync/local_cache.db`（本地记忆缓存）未被忽略，误 `git add -A` 会把真实数据提交进公开库
+
 ## release · v7.8.3 (2026-09-12) — 服务端口 / 监听地址环境变量真正生效
 
 > 触发: `MNEMOSYNE_PORT` / `MNEMOSYNE_HOST` 属于"文档写了、代码不读"的静默失效 —— `config.py` 早已 `os.getenv` 读取, 但服务入口 `main.py` 的 `__main__` 块**写死** `host="127.0.0.1", port=8010`, 环境变量被无声忽略(`INSTALL.md` / `AGENTS.md` 此前如实标注"暂未生效")。文档承诺的开关与实现不一致时, 使用者会照着配置然后困惑 —— 与 (v7.8.2) 的「语义等价 ≠ 可用」同源: **改了措辞/位置而消费端没跟上, 不报错、只失真**。

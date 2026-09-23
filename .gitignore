@@ -32,3 +32,12 @@ lib/
 # v7.7.0 本地生成物(不入库)
 core/embedding_cache.json
 skill_manifest.json
+
+# 本地状态（SQLite 缓存/数据库 —— 含真实记忆数据，绝不入公开库）
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# 日志
+*.log
