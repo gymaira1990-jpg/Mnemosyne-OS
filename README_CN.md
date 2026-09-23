@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.8.3-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-7.8.4-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
@@ -249,6 +249,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v7.8.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.4) | 2026-09-24 | 🩹 修复: 归档质量 —— 收尾汇报与用户消息不再被切(旧版一刀切2000字), 工具调用证据签名入档, 短会话不再静默丢弃; ➕ 汇报卡(category=worklog) + 23 例契约测试 |
 | [v7.8.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.3) | 2026-09-12 | 🔧 修复: MNEMOSYNE_PORT / MNEMOSYNE_HOST 环境变量真正生效(服务入口不再写死 127.0.0.1:8010) + 文档同步 |
 | [v7.8.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.2) | 2026-09-12 | 🩹 修复: MCP 桥契约(feedback/delete/restore 三方工具 422) + capabilities 自描述对齐 + 契约测试 |
 | [v7.8.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.1) | 2026-08-24 | 🩹 修复: 写入即分词(消除当日失明窗口) + MCP 2.0 适配 + 生产仓库对齐 |

@@ -4,7 +4,7 @@
 > **目标**：任何 Agent（Hermes / Claude Code / Cursor / Codex）5 分钟完成对接。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v7.8.3 ｜ 生产运行 7×24 ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v7.8.4（仓库已实现·待发布）｜ 生产运行 v7.8.3 ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 

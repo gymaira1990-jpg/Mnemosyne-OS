@@ -130,7 +130,7 @@ from core.llm import call_llm as llm_call
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.8.3 — 认知型记忆操作系统")
+app = FastAPI(title="Mnemosyne OS v7.8.4 — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
