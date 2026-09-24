@@ -778,6 +778,19 @@ def compute_write_heat(content: str, category: str) -> float:
     return round(min(max(heat, 0.3), 0.8), 2)
 
 
+def should_run_conflict_detection(layer: str) -> bool:
+    """该层是否要跑 `detect_conflict` 的语义合并/覆盖。
+
+    **为什么 L0 不跑**（2026-09-25 P4 正式环境测试抓到的真问题）：
+      修好「分层幂等键」后在生产实测，L0 同来源重试确实 dedup 了，
+      但**不同来源的同文案仍被 merged** —— 因为 `detect_conflict` 在指纹判定之前
+      就把近重复内容并掉了（`text_diff_ratio > 0.85` → merge）。
+      而 L0 契约是「只增不改、允许矛盾」→ 语义合并在 L0 上等于**压缩日志**，违反契约。
+    结论：指纹分层 + 冲突检测分层，**两处都要按层分流**，只改一处是半修。
+    """
+    return layer != "L0"
+
+
 def compute_write_fingerprint(content: str, category: str, user_id: str, *,
                               session_id=None, source=None, layer=None,
                               now_ts: float | None = None) -> str:
@@ -839,8 +852,11 @@ async def create_memory(mem: MemoryCreate):
                     "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW() WHERE id = $1",
                     dup["id"])
                 return {"status": "duplicate", "id": dup["id"], "action": "idempotent"}
-            # 矛盾检测
-            conflict = await detect_conflict(conn, uid, mem.content, vec_str)
+            # 矛盾检测（v8.0.1: 按层分流 —— L0 日志层跳过，见 should_run_conflict_detection）
+            if should_run_conflict_detection(_layer_info["layer"]):
+                conflict = await detect_conflict(conn, uid, mem.content, vec_str)
+            else:
+                conflict = {"action": "fresh"}
             if conflict["action"] == "merge":
                 # 合并：增加访问计数，不创建新记录
                 await conn.execute(

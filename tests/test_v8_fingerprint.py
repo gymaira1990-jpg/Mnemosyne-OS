@@ -7,6 +7,7 @@
 import pytest
 
 from main import compute_write_fingerprint as fp
+from main import should_run_conflict_detection as det
 
 
 def test_l0_same_session_retry_dedupes():
@@ -52,3 +53,21 @@ def test_fingerprint_is_64_hex():
     for layer in ("L0", "L1", "L4"):
         v = fp("x", "knowledge", "default", layer=layer)
         assert len(v) == 64 and all(c in "0123456789abcdef" for c in v)
+
+
+def test_l0_skips_conflict_detection():
+    """**P4 生产实测抓到的半修**：只改指纹不分流冲突检测，L0 仍会被 merge 压缩。
+
+    契约依据：L0 = 只增不改、允许矛盾 → 语义合并在 L0 上等于压缩日志。
+    """
+    assert det("L0") is False, "L0 不该跑语义合并 —— 会违反『只增不改』"
+    for layer in ("L1", "L2", "L3", "L4"):
+        assert det(layer) is True, f"{layer} 应保留语义合并/覆盖"
+
+
+def test_two_fixes_are_both_required():
+    """反证：只做一半会怎样 —— 指纹不同但内容近重复，仍会被 merge 吃掉。"""
+    a = fp("同一句话", "temp", "default", source="A", layer="L0")
+    b = fp("同一句话", "temp", "default", source="B", layer="L0")
+    assert a != b, "指纹已分层"
+    assert det("L0") is False, "但若冲突检测不分流，这两条仍会被 merged —— 所以两处都要改"
