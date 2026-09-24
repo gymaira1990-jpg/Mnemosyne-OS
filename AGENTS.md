@@ -4,7 +4,7 @@
 > **目标**：任何 Agent（Hermes / Claude Code / Cursor / Codex）5 分钟完成对接。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v7.8.4（仓库已实现·待发布）｜ 生产运行 v7.8.3 ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v8.0.0（本地已实现 254 用例绿）｜ 生产运行 v8.0.0（部署后复验自报版号） ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 
@@ -51,7 +51,7 @@ git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 | [docs/API.md](docs/API.md) | 端点速查（权威：`GET /api/v1/capabilities`） |
 | [docs/ENV.md](docs/ENV.md) | 环境变量全表 |
 | [docs/AGENT-USAGE.md](docs/AGENT-USAGE.md) | Agent 使用最佳实践 |
-| [openspec/specs/](openspec/specs/) | **能力真相**（系统现在做什么） |
+| [openspec/specs/](openspec/specs/) | **能力真相**（系统现在做什么）—— 含 [memory-layers.md](openspec/specs/memory-layers.md) 分层模型 |
 | [openspec/changes/](openspec/changes/) | 在途变更 |
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [docs/schema.sql](docs/schema.sql) · [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | 库结构 · 设计理念 |

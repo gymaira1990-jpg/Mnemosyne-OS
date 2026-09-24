@@ -15,7 +15,7 @@ import json
 import asyncpg
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import os, sys, json, uuid, math, re, time, difflib
+import os, sys, json, uuid, math, re, time, difflib, hashlib
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import logging
@@ -156,6 +156,9 @@ skills_module.pool = None
 import api.injection as injection_module
 from api.injection import router as injection_router
 app.include_router(injection_router)
+
+# v8.0 S3-1 记忆分层模型（可执行规格）
+import core.layers as layers_mod
 injection_module.pool = None
 
 # 数据库连接池
@@ -786,55 +789,100 @@ async def create_memory(mem: MemoryCreate):
     uid = "default" if mem.user_id in ("g-cat", "noah", "system", "test", "audit") else (mem.user_id or "default")
     # v6.3: 认知写入信号 — 初始热度按内容重要性加分 (抽屉级联温度设计, 纯正则不调LLM)
     heat_init = compute_write_heat(mem.content, cat)
+    # v8.0 S1-2: 幂等键 = sha256(content|category|user_id) → 落 dedup_fingerprint 唯一索引
+    # 用途: 崩溃重试 / 端云断线重发 / 重复 POST 不再产生新行 (返回原 id)
+    fingerprint = hashlib.sha256(f"{mem.content}|{cat}|{uid}".encode("utf-8")).hexdigest()
     async with pool.acquire() as conn:
-        # 矛盾检测
-        conflict = await detect_conflict(conn, uid, mem.content, vec_str)
-        if conflict["action"] == "merge":
-            # 合并：增加访问计数，不创建新记录
-            await conn.execute(
-                "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW() WHERE id = $1",
-                conflict["id"]
+        # ══════════ v8.0 S1-1: 单事务包裹写入路径 ══════════
+        # 现状问题(实测 main.py 原文): 顺序 execute + asyncpg autocommit → 崩溃可留
+        # 「有 memories 行、无 entities / 无 memory_keywords」的半成品。
+        # 修法: detect_conflict 读 + 主写入 + 实体同步 + 分词 全部进同一事务,
+        #       任一步失败整体回滚, 不留半成品。
+        async with conn.transaction():
+            # ══════════ v8.0 S1-2: 幂等短路 (崩溃重试 / 断线重发不再重复入库) ══════════
+            # 幂等键 = sha256(content|category|user_id), 唯一索引 dedup_fingerprint_key
+            dup = await conn.fetchrow(
+                "SELECT id FROM memories WHERE dedup_fingerprint=$1 LIMIT 1", fingerprint)
+            if dup:
+                await conn.execute(
+                    "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW() WHERE id = $1",
+                    dup["id"])
+                return {"status": "duplicate", "id": dup["id"], "action": "idempotent"}
+            # 矛盾检测
+            conflict = await detect_conflict(conn, uid, mem.content, vec_str)
+            if conflict["action"] == "merge":
+                # 合并：增加访问计数，不创建新记录
+                await conn.execute(
+                    "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW() WHERE id = $1",
+                    conflict["id"]
+                )
+                return {"status": "merged", "id": conflict["id"], "action": "merged_with_existing"}
+            elif conflict["action"] == "conflict":
+                # 冲突：旧记忆标记为过期，新记忆标记冲突来源
+                old_id = conflict["id"]
+                await conn.execute(
+                    "UPDATE memories SET valid_to = NOW(), invalid_at = NOW() WHERE id = $1",
+                    old_id
+                )
+                await conn.execute(
+                    "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
+                    old_id, json.dumps({"new_content": mem.content[:200]})
+                )
+                # 新记忆标记冲突来源
+                meta = dict(mem.metadata) if isinstance(mem.metadata, dict) else {}
+                meta["conflicts_with"] = old_id
+                meta["conflict_type"] = "superseded"
+            # 正常存入（含valid_from）；v6.0: 原始碎片 tmt_level=1，tier 由 reflect 维护
+            # v6.3: 写入 heat_score = 认知写入信号 (初始热度)
+            # v7.2: 初始 S 由写入信号映射 (heat_init≥0.7→7 / ≥0.6→5 / 其他→3), R=S; 4维标记进 metadata
+            s_init = 7 if heat_init >= 0.7 else (5 if heat_init >= 0.6 else 3)
+            meta_extra = dict(locals().get("meta", mem.metadata)) if isinstance(locals().get("meta", mem.metadata), dict) else {}
+            meta_extra.setdefault("novelty", 1)        # 新内容
+            meta_extra.setdefault("valence", 0)        # 中性
+            meta_extra.setdefault("relevance", 0)      # 待任务绑定
+            meta_extra.setdefault("repetition", 0)     # 访问次数 (与 access_count 联动)
+            if mem.source:                             # v7.6: source 进 metadata, 支撑按来源批次召回
+                meta_extra["source"] = mem.source
+            meta_extra["memory_type"] = CAT_MEMORY_TYPE.get(cat, "semantic")  # v7.7.0: 三分类打标
+            # v8.0 S3-1: 分层模型**在写入路径上真跑** —— 每条记忆落层可判定、可审计
+            #   （这是"文档规格 ≠ 空转"的判据: 若分层只是文档, meta 里不会有 layer）
+            _layer = layers_mod.classify_layer(cat, has_artifact=bool(mem.source),
+                                               source=mem.source)
+            meta_extra["layer"] = _layer["layer"]
+            meta_extra["layer_family"] = _layer["family"]
+            if _layer["requires_source"] and not _layer["source_provided"]:
+                meta_extra["layer_note"] = "L1 认知层建议带 source（用于冲突溯源）"
+            row = await conn.fetchrow(
+                'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score, storage_strength, retrieval_strength, dedup_fingerprint) '
+                'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8,$9,$10,$11) '
+                # ⚠️ 必须带 `WHERE dedup_fingerprint IS NOT NULL`：
+                #   dedup_fingerprint_key 是**部分唯一索引**（只对有指纹的行生效，
+                #   这样 1.6 万条历史 NULL 行不参与约束、也无需回填）。
+                #   PostgreSQL 的 ON CONFLICT 推断**要求谓词显式匹配**，否则报
+                #   `InvalidColumnReferenceError: there is no unique or exclusion
+                #    constraint matching the ON CONFLICT specification` → 写入全线 500。
+                #   （实测: 2026-09-25 生产部署后第一发写入即触发，靠第三层功能验证抓到）
+                'ON CONFLICT (dedup_fingerprint) WHERE dedup_fingerprint IS NOT NULL DO NOTHING '
+                'RETURNING id',
+                uid, mem.project_id, mem.content, cat, vec_str,
+                json.dumps(meta_extra), mem.session_id, heat_init, s_init, s_init, fingerprint
             )
-            return {"status": "merged", "id": conflict["id"], "action": "merged_with_existing"}
-        elif conflict["action"] == "conflict":
-            # 冲突：旧记忆标记为过期，新记忆标记冲突来源
-            old_id = conflict["id"]
-            await conn.execute(
-                "UPDATE memories SET valid_to = NOW(), invalid_at = NOW() WHERE id = $1",
-                old_id
-            )
-            await conn.execute(
-                "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
-                old_id, json.dumps({"new_content": mem.content[:200]})
-            )
-            # 新记忆标记冲突来源
-            meta = dict(mem.metadata) if isinstance(mem.metadata, dict) else {}
-            meta["conflicts_with"] = old_id
-            meta["conflict_type"] = "superseded"
-        # 正常存入（含valid_from）；v6.0: 原始碎片 tmt_level=1，tier 由 reflect 维护
-        # v6.3: 写入 heat_score = 认知写入信号 (初始热度)
-        # v7.2: 初始 S 由写入信号映射 (heat_init≥0.7→7 / ≥0.6→5 / 其他→3), R=S; 4维标记进 metadata
-        s_init = 7 if heat_init >= 0.7 else (5 if heat_init >= 0.6 else 3)
-        meta_extra = dict(locals().get("meta", mem.metadata)) if isinstance(locals().get("meta", mem.metadata), dict) else {}
-        meta_extra.setdefault("novelty", 1)        # 新内容
-        meta_extra.setdefault("valence", 0)        # 中性
-        meta_extra.setdefault("relevance", 0)      # 待任务绑定
-        meta_extra.setdefault("repetition", 0)     # 访问次数 (与 access_count 联动)
-        if mem.source:                             # v7.6: source 进 metadata, 支撑按来源批次召回
-            meta_extra["source"] = mem.source
-        meta_extra["memory_type"] = CAT_MEMORY_TYPE.get(cat, "semantic")  # v7.7.0: 三分类打标
-        row = await conn.fetchrow(
-            'INSERT INTO memories (user_id, project_id, content, category, embedding, metadata, valid_from, session_id, tmt_level, heat_score, storage_strength, retrieval_strength) '
-            'VALUES ($1,$2,$3,$4,$5::vector,$6,NOW(),$7,1,$8,$9,$10) RETURNING id',
-            uid, mem.project_id, mem.content, cat, vec_str,
-            json.dumps(meta_extra), mem.session_id, heat_init, s_init, s_init
-        )
-        mid = row["id"]
-        if mem.entities:
-            await sync_entities(conn, mid, mem.entities, uid)
-        # v7.8.1: 写入即分词 — 新记忆立即可被 BM25 检索 (消除当日失明窗口)
-        await _tokenize_on_write(conn, mid, mem.content)
-    return {"status": "stored", "id": row["id"], "category": cat}
+            if row is None:
+                # 并发同内容竞态兜底: 唯一索引已拦住, 回读已存在行并按幂等返回
+                row = await conn.fetchrow(
+                    "SELECT id FROM memories WHERE dedup_fingerprint=$1 LIMIT 1", fingerprint)
+                if row is None:
+                    raise HTTPException(status_code=409, detail="duplicate write race")
+                await conn.execute(
+                    "UPDATE memories SET access_count = access_count + 1, last_accessed = NOW() WHERE id = $1",
+                    row["id"])
+                return {"status": "duplicate", "id": row["id"], "action": "idempotent"}
+            mid = row["id"]
+            if mem.entities:
+                await sync_entities(conn, mid, mem.entities, uid)
+            # v7.8.1: 写入即分词 — 新记忆立即可被 BM25 检索 (消除当日失明窗口)
+            await _tokenize_on_write(conn, mid, mem.content)
+    return {"status": "stored", "id": mid, "category": cat}
 
 class MemorySearch(BaseModel):
     user_id: str
@@ -1603,6 +1651,118 @@ async def health_report(user_id: str):
         tiers = await conn.fetch("SELECT tier, COUNT(*) as cnt FROM memories WHERE user_id = $1 AND is_deleted = FALSE GROUP BY tier", user_id)
     return {"tiers": {r["tier"]: r["cnt"] for r in tiers}}
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v8.0 S1-4 · 可观测：写入/召回延迟埋点 + 可靠性体检
+# ══════════════════════════════════════════════════════════════════════════════
+# 现状（实测）: `perf_alert.py` 里写了 2000ms 阈值，但**全无埋点**
+#   → README 声称的 100–400ms 从未被实测过, 报警阈值也因此形同虚设。
+# 修法: 进程内环形缓冲记录每个端点的耗时, 暴露 p50/p95/p99 + 计数。
+#   成本 ~0（无外部依赖、无 IO）; 上限 _LATENCY_CAP 条/路由, 超了丢弃最旧。
+_LATENCY: dict = {}
+_LATENCY_CAP = 500
+_LATENCY_ROUTES = (
+    "POST /api/v1/memories",
+    "POST /api/v1/memories/search",
+    "GET /api/v1/palace/summon",
+    "POST /api/v1/dialectic",
+)
+
+
+def _latency_key(method: str, path: str) -> str:
+    """只对**在册的关键路由**计分（避免高基数路径把内存吃光）。"""
+    for r in _LATENCY_ROUTES:
+        m, p = r.split(" ", 1)
+        if method == m and (path == p or path.startswith(p + "/") or path.startswith(p + "?")):
+            return r
+    return "other"
+
+
+def _percentile(sorted_vals: list, q: float):
+    if not sorted_vals:
+        return None
+    idx = min(len(sorted_vals) - 1, max(0, int(round(q * (len(sorted_vals) - 1)))))
+    return round(sorted_vals[idx], 1)
+
+
+@app.middleware("http")
+async def latency_middleware(request, call_next):
+    t0 = time.perf_counter()
+    response = await call_next(request)
+    dt_ms = (time.perf_counter() - t0) * 1000.0
+    key = _latency_key(request.method, request.url.path)
+    buf = _LATENCY.get(key)
+    if buf is None:
+        from collections import deque
+        buf = _LATENCY[key] = deque(maxlen=_LATENCY_CAP)
+    buf.append(dt_ms)
+    response.headers["X-Resp-Ms"] = f"{dt_ms:.1f}"
+    return response
+
+
+@app.get("/api/v1/metrics")
+async def metrics():
+    """v8.0 S1-4: 延迟实测 + 可靠性体检（一条请求看全）。
+
+    设计原则: 暴露**实测数字**而不是"运行正常"四个字。
+    延迟统计是进程内的（多 worker 各自一份），因此额外给出 PID 供辨识。
+    """
+    lat = {}
+    for k, buf in _LATENCY.items():
+        vals = sorted(buf)
+        if not vals:
+            continue
+        lat[k] = {"n": len(vals), "p50": _percentile(vals, 0.50),
+                  "p95": _percentile(vals, 0.95), "p99": _percentile(vals, 0.99),
+                  "max": round(vals[-1], 1)}
+    async with pool.acquire() as conn:
+        db = await conn.fetchrow(
+            "SELECT count(*) AS total, count(*) FILTER (WHERE is_deleted) AS tombstone, "
+            "pg_total_relation_size('memories') AS bytes FROM memories")
+        gc = await conn.fetchrow(
+            "SELECT run_at, batch, purged, refused_ref, dry_run FROM gc_log "
+            "ORDER BY id DESC LIMIT 1") if await conn.fetchval(
+            "SELECT to_regclass('public.gc_log') IS NOT NULL") else None
+        dup = await conn.fetchval(
+            "SELECT count(*) FROM (SELECT dedup_fingerprint FROM memories "
+            "WHERE dedup_fingerprint IS NOT NULL GROUP BY dedup_fingerprint "
+            "HAVING count(*) > 1) t")
+    return {
+        "version": _read_version(),
+        "pid": os.getpid(),
+        "latency_ms": lat,
+        "latency_note": "进程内环形缓冲(size≤%d/路由)；多 worker 各自统计" % _LATENCY_CAP,
+        "db": {
+            "total": db["total"],
+            "tombstone": db["tombstone"],
+            "tombstone_ratio": round(db["tombstone"] / max(db["total"], 1), 4),
+            "table_mb": round(db["bytes"] / 1048576, 1),
+            # v8.0 S1-2 自证: 幂等键唯一索引若生效, 这里恒为 0
+            "duplicate_fingerprint_groups": dup,
+            "idempotency_index_effective": dup == 0,
+        },
+        "last_gc": dict(gc) if gc else None,
+    }
+
+
+# ── v8.0 S3-1 · 记忆分层模型（可执行规格的对外入口）────────────────────────
+@app.get("/api/v1/layers")
+async def layers_spec():
+    """分层模型全貌 + **自检结果**（不是文档，是可运行断言）。"""
+    return {"layers": layers_mod.LAYERS,
+            "artifact_index": layers_mod.ARTIFACT_INDEX,
+            "category_to_layer": layers_mod.CATEGORY_TO_LAYER,
+            "self_check": layers_mod.self_check()}
+
+
+@app.get("/api/v1/layers/classify")
+async def layers_classify(category: str = "knowledge", has_artifact: bool = False,
+                          source: str = ""):
+    """判定一条待写记忆落哪层，并给出该层写规则与冲突策略。"""
+    return layers_mod.classify_layer(category, has_artifact=has_artifact,
+                                     source=source or None)
+
+
 # ── 自描述化 API ──
 def _read_version() -> str:
     try:
@@ -1699,9 +1859,17 @@ async def palace_archive(user_id: str = "default", limit: int = 500):
     return {"classified": result["classified"], "cards": result["cards"]}
 
 @app.get("/api/v1/palace/summon")
-async def palace_summon(q: str, user_id: str = "default", top_k: int = 5):
-    """魔法召唤: 三通道 (点名精确/引导范围/共鸣语义)"""
+async def palace_summon(q: str, user_id: str = "default", top_k: int = 5,
+                        fused: bool = False, candidate_k: int = 50):
+    """魔法召唤: 三通道 (点名精确/引导范围/共鸣语义)
+
+    v8.0 S2-1: 新增 `fused=true` → 走四通道 **RRF 融合**（各通道先取 candidate_k 候选，
+    融合后统一截断 top_k）。**默认 false = 与 v7.8.4 行为完全一致** ——
+    在评测数字出来之前不改默认（R3: 先量后改）。
+    """
     import palace
+    if fused:
+        return await palace.summon_fused(pool, q, user_id, top_k, candidate_k=candidate_k)
     result = await palace.summon(pool, q, user_id, top_k)
     return result
 

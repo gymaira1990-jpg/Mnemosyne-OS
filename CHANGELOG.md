@@ -1,3 +1,98 @@
+## release · v8.0.0 (2026-09-25) — 记忆供电 OS 8.0：写得对 · 收得回 · 找得准 · 弄得清
+
+> 立项依据: 提案 [P-20260925-01](openspec/changes/2026-09-25-v8-memory-os/proposal.md) · ADR [0002](docs/adr/0002-文件系统机制取舍与触发器.md)
+> 与前一轮的《记忆文件系统研究报告》(20 维 FS 机制映射) 的关系: **收窄并制度化** ——
+> 只补 PostgreSQL 没给且我们真缺的, 其余 17 维写进 ADR 触发器（未触发不得新增）。
+> 原报告的价值被保留成闸门: 它的边界条件就是我们的触发阈值。
+
+### 🛡 S1 可靠性 — 修真缺陷（有「数据会错」后果）
+
+- **S1-1 写入原子性** (`main.py: create_memory`): 原实现 `pool.acquire()` 下顺序 `execute`
+  三步 autocommit, 崩溃可留「有 memories 行、无 entities / 无 memory_keywords」的半成品。
+  现改为 **单事务包裹**（矛盾检测读 + 主写入 + 实体同步 + 分词），任一步失败整体回滚。
+- **S1-2 幂等键激活**: `dedup_fingerprint = sha256(content|category|user_id)`,
+  建**部分唯一索引** `dedup_fingerprint_key` + `ON CONFLICT DO NOTHING`。
+  语义: 崩溃重试 / 端云断线重发 / 重复 POST **返回原 id, 不再产生新行**。
+  设计取舍: **不回填历史**（历史 0 行为空 → 唯一索引忽略 NULL；回填会暴露 132 组历史重复导致建索引失败）。
+- **S1-3 记忆回收 (GC / compaction)** `jobs/compaction.py`: 原系统全仓无 `DELETE FROM memories`
+  / 无 `VACUUM` → 软删即终点。现补 `tombstone → purged` 环节, **五道安全闸**:
+  窗口(默认 30 天) → 保护位(permanent/pinned) → 引用完整性(beliefs 证据 / 存活子记忆) →
+  **冷归档 `memories_archive`（含 traces 快照）** → **CSV 回滚凭证**。
+  默认**干跑**，`--apply` 才真删；`--restore <batch>` 可整批还原。
+  `memory_traces` 外键改 `ON DELETE CASCADE`（原为 NO ACTION，会挡住回收；改前先验孤儿）。
+- **S1-3 完整性巡检** `jobs/scrub.py`（**只读**）: 6 类孤儿/异常（孤儿 inode / 孤儿引用 /
+  悬空信念证据 / 到期未回收 / 缺指纹 / 活子挂死父）。
+- **S1-4 可观测**: 写入/召回**延迟埋点**（p50/p95/p99，进程内环形缓冲，成本≈0）
+  + `GET /api/v1/metrics` 一条请求看全（延迟 / 库规模 / tombstone 比 / 幂等索引自证 / 上次 GC）。
+  此前 `perf_alert.py` 有 2000ms 阈值却**全无埋点** —— 阈值形同虚设。
+- **S1-4 备份复验** `jobs/backup_verify.py`: 原备份只回答"跑没跑"（曾有**静默失败 36 天**）。
+  现补**可恢复性**四验: 新鲜度 / 体积 / **结构（真读 pg_restore TOC）** / `--deep` 真恢复到临时库比对行数。
+
+### 🔍 S2 检索质量
+
+- **S2-0 先量后改**: 方案明确「改召回排序前必须先有评测基线」（红队原话：'RRF 更好'无评测支撑）。
+- **S2-1 四通道 RRF 融合** `core/rrf.py` + `palace.summon_fused()`: 原 `summon()` 四通道
+  (点名/引导/共鸣/文库) **各自独立返回、不融合、无统一截断**。现各取 candidate_k(50) 候选 →
+  RRF 融合(k=60) → 统一截断 top_k。RRF 只按**排名**融合 → 量纲无关（原单条 SQL 线性加权
+  把余弦距离/BM25/时间三种量纲直接相加）。
+  **命名空间隔离**: `memories.id` 与 `wiki_pages.id` 是两套 id 空间，融合前分别加 `m:`/`w:` 前缀
+  （否则不相关条目会互相加分）。`channels` 字段回答"这条为什么排上来"（可解释性）。
+  **默认关闭**（`GET /api/v1/palace/summon?fused=true` 才启用）—— 评测数字出来之前零行为变化。
+
+### 🗂 S3 治理
+
+- **S3-1 记忆分层模型 → 可执行规格** `core/layers.py` + `openspec/specs/memory-layers.md`:
+  5 层(L0 日志/L1 认知/L2 技能/L3 约束/L4 参考) + 横切产出物索引, 按**「允不允许矛盾」**分三族。
+  **不是文档**: `classify_layer()` 在写入路径上真跑, 每条记忆落 `metadata.layer`;
+  对外入口 `GET /api/v1/layers`(含 `self_check`) / `GET /api/v1/layers/classify`。
+  诚实标注: **L3 约束层载体在 Hermes 侧(SOUL/MEMORY/config)，不在库内** —— 有断言锁住，防止被硬塞 category。
+- **S3-2 发布流程状态机** `gcat-std/scripts/release-gate.py` + 本项目 `release-gate.json`:
+  A 本地 → B 真实环境 → C 部署 → D 公开 → E 归纳, **未过上一段不进下一段**（越段被硬拒）。
+  配套 `scripts/release_checks.py`（版本一致 / 隐私扫描 / 服务自报版号 / 变更日志 / 产出物指针）。
+  本次 v8.0 发布即第一个回填样本。
+- **S3-3 产出物指针策略**: 交付=箱子 / 检索=Wiki / 版本=仓库；**记忆里只放指针 + 指纹，不放实体**。
+
+### ⚠️ 发布途中真实事故（已修，教训保留）
+
+**现象**：部署到生产后，**第一发写入即 500**。
+```
+asyncpg.exceptions.InvalidColumnReferenceError:
+there is no unique or exclusion constraint matching the ON CONFLICT specification
+```
+**根因**：`dedup_fingerprint_key` 是**部分唯一索引**（`WHERE dedup_fingerprint IS NOT NULL`），
+而写入写的是 `ON CONFLICT (dedup_fingerprint)` —— PostgreSQL 的部分索引推断**要求谓词显式匹配**，
+缺谓词直接报错，整条写入路径挂掉。
+**修法**：`ON CONFLICT (dedup_fingerprint) WHERE dedup_fingerprint IS NOT NULL DO NOTHING`
+（保留部分索引：只约束有指纹的行，1.6 万条历史 NULL 行无需回填）
+
+**为什么既有单测没抓到（本版最重要的教训）**
+- 已有测试只验证「索引能拦住重复指纹」（裸 `INSERT`），
+  **从没跑过产品代码里那条真实的 `INSERT ... ON CONFLICT` 语句**。
+- **测了索引 ≠ 测了使用索引的那条 SQL。**
+  凡"代码里拼出来的 SQL"与"库里建的对象"有耦合，就必须把真实 SQL 拉出来跑一遍。
+- 修法：新增 `tests/test_v8_write_path.py` —— **从 `main.py` 源码正则抽出真实 SQL**，
+  绑上占位值投到库上执行。源码与库对象一旦不匹配立刻红。
+  反证已验证：临时删掉谓词 → `test_w2` 立即失败。
+- 本次由**发布的第三层（生产功能实测）**抓到 —— 这就是"三重验证"不是形式主义的证据。
+
+### 🧪 测试
+
+- 新增 **26 例**: `tests/test_v8_rrf.py`(8, 纯函数) · `tests/test_v8_layers.py`(10, 规格断言) ·
+  `tests/test_v8_compaction.py`(8, 集成 — 需 v8.0 迁移库, 不可用则整体 skip)。
+- 全量: **228 → 258 passed / 6 skipped**（含 `test_v8_write_path.py` 写入路径 SQL 契约）。
+- **反证测试**（造违规样本证明真能拦住）: 干跑零改动 · 越段被拒 · 唯一索引拒重复指纹 ·
+  截断/陈旧/空备份被拦 · 分层规格漂移被检出。
+
+### 📌 三环境
+
+| 环境 | 状态 |
+|---|---|
+| 本地 (WSL) | v8.0.0 已实现, 254 用例绿 |
+| 正式 (GZ) | 部署后服务自报版号复验（**先部署验稳, 才公开**） |
+| 仓库 (GitHub) | tag/Release v8.0.0, 隐私两层扫描零输出 |
+
+---
+
 ## release · v7.8.4 (2026-09-24) — 归档质量: 收尾汇报不再被切 + 汇报卡入库 (+治理底座落地)
 
 > 触发: 用户问「生产服务器上那个几百兆的文件是什么」, 全线查不到 —— 原话在 `state.db` 里**一条没少**, 但语义层查不到:
@@ -341,6 +436,29 @@
 - 混合搜索默认限定 hot/normal/cool (frozen 排除), 不足才全库兜底
 - Type A 档号哈希 O(1) / Type B 分区指针 / Type C 全库向量兜底
 
+### ⚠️ 发布途中真实事故（已修，教训保留）
+
+**现象**：部署到生产后，**第一发写入即 500**。
+```
+asyncpg.exceptions.InvalidColumnReferenceError:
+there is no unique or exclusion constraint matching the ON CONFLICT specification
+```
+**根因**：`dedup_fingerprint_key` 是**部分唯一索引**（`WHERE dedup_fingerprint IS NOT NULL`），
+而写入写的是 `ON CONFLICT (dedup_fingerprint)` —— PostgreSQL 的部分索引推断**要求谓词显式匹配**，
+缺谓词直接报错，整条写入路径挂掉。
+**修法**：`ON CONFLICT (dedup_fingerprint) WHERE dedup_fingerprint IS NOT NULL DO NOTHING`
+（保留部分索引：只约束有指纹的行，1.6 万条历史 NULL 行无需回填）
+
+**为什么既有单测没抓到（本版最重要的教训）**
+- 已有测试只验证「索引能拦住重复指纹」（裸 `INSERT`），
+  **从没跑过产品代码里那条真实的 `INSERT ... ON CONFLICT` 语句**。
+- **测了索引 ≠ 测了使用索引的那条 SQL。**
+  凡"代码里拼出来的 SQL"与"库里建的对象"有耦合，就必须把真实 SQL 拉出来跑一遍。
+- 修法：新增 `tests/test_v8_write_path.py` —— **从 `main.py` 源码正则抽出真实 SQL**，
+  绑上占位值投到库上执行。源码与库对象一旦不匹配立刻红。
+  反证已验证：临时删掉谓词 → `test_w2` 立即失败。
+- 本次由**发布的第三层（生产功能实测）**抓到 —— 这就是"三重验证"不是形式主义的证据。
+
 ### 🧪 测试
 - test_rank_v73.py 13 项 (Rank公式/S升级/抽屉分档)
 - 全量 pytest 148 passed
@@ -363,6 +481,29 @@
 - uvicorn workers 2→4 (压测 234 req/s, 100/100 OK)
 - perf_alert.py 每30分钟水位巡检 (内存/磁盘/PG连接/慢查询, 超阈值才告警)
 - PG 参数确认合理 (shared_buffers 4G/effective 10G)
+
+### ⚠️ 发布途中真实事故（已修，教训保留）
+
+**现象**：部署到生产后，**第一发写入即 500**。
+```
+asyncpg.exceptions.InvalidColumnReferenceError:
+there is no unique or exclusion constraint matching the ON CONFLICT specification
+```
+**根因**：`dedup_fingerprint_key` 是**部分唯一索引**（`WHERE dedup_fingerprint IS NOT NULL`），
+而写入写的是 `ON CONFLICT (dedup_fingerprint)` —— PostgreSQL 的部分索引推断**要求谓词显式匹配**，
+缺谓词直接报错，整条写入路径挂掉。
+**修法**：`ON CONFLICT (dedup_fingerprint) WHERE dedup_fingerprint IS NOT NULL DO NOTHING`
+（保留部分索引：只约束有指纹的行，1.6 万条历史 NULL 行无需回填）
+
+**为什么既有单测没抓到（本版最重要的教训）**
+- 已有测试只验证「索引能拦住重复指纹」（裸 `INSERT`），
+  **从没跑过产品代码里那条真实的 `INSERT ... ON CONFLICT` 语句**。
+- **测了索引 ≠ 测了使用索引的那条 SQL。**
+  凡"代码里拼出来的 SQL"与"库里建的对象"有耦合，就必须把真实 SQL 拉出来跑一遍。
+- 修法：新增 `tests/test_v8_write_path.py` —— **从 `main.py` 源码正则抽出真实 SQL**，
+  绑上占位值投到库上执行。源码与库对象一旦不匹配立刻红。
+  反证已验证：临时删掉谓词 → `test_w2` 立即失败。
+- 本次由**发布的第三层（生产功能实测）**抓到 —— 这就是"三重验证"不是形式主义的证据。
 
 ### 🧪 测试
 - 新增 test_bjork_v72.py 14 项 (衰减/重置/抽屉/pin兜底)

@@ -248,6 +248,134 @@ async def summon(pool, query: str, user_id: str = "default", top_k: int = 5) -> 
     return result
 
 
+# ── v8.0 S2-1: 四通道 RRF 融合召回（与 summon 并存，由调用方 A/B 选择） ──
+async def _summon_channels(pool, query: str, user_id: str, limit: int) -> dict:
+    """取四通道候选（各 limit 条），保留每通道自己的排序。
+
+    与 summon() 的 SQL 一致，只把 LIMIT 参数化到 candidate_k —— 好让融合有足够候选。
+    返回结构与 summon() 相同，便于调用方复用。
+    """
+    out = {"summon": [], "guide": [], "resonate": [], "wiki": []}
+
+    async with pool.acquire() as conn:
+        # ① 点名: 档号/题名/标签/内容 ILIKE（按热度降序）
+        rows = await conn.fetch(
+            "SELECT m.id, m.content, c.archive_no, c.title, c.wing, c.room, c.tags, m.heat_score "
+            "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+            "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND "
+            "(c.archive_no ILIKE '%'||$2||'%' OR c.title ILIKE '%'||$2||'%' OR $2 = ANY(c.tags) OR m.content ILIKE '%'||$2||'%') "
+            "ORDER BY m.heat_score DESC NULLS LAST LIMIT $3",
+            user_id, query, limit)
+        out["summon"] = [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                          "title": r["title"], "wing": r["wing"], "room": r["room"],
+                          "tags": r["tags"], "heat": r["heat_score"]} for r in rows]
+
+        # ② 引导: 分类树匹配（按热度降序）
+        cls = classify(query, "")
+        if cls["room"] != "unfiled":
+            rows = await conn.fetch(
+                "SELECT m.id, m.content, c.archive_no, c.title, c.wing, c.room, c.tags "
+                "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+                "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND c.room=$2 "
+                "ORDER BY m.heat_score DESC NULLS LAST LIMIT $3",
+                user_id, cls["room"], limit)
+            out["guide"] = [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                             "title": r["title"], "wing": r["wing"], "room": r["room"],
+                             "tags": r["tags"]} for r in rows]
+
+    # ③ 共鸣: 向量近邻（距离升序）
+    try:
+        from core.embedding import get_embedding_async
+        vec = (await get_embedding_async([query]))[0]
+        q_str = "[" + ",".join(str(x) for x in vec) + "]"
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT m.id, m.content, c.archive_no, c.title, c.room, c.tags, (m.embedding <=> $2::vector) AS dist "
+                "FROM memories m JOIN tome_cards c ON c.memory_id = m.id "
+                "WHERE m.user_id=$1 AND m.is_deleted=FALSE AND m.embedding IS NOT NULL "
+                "ORDER BY dist LIMIT $3",
+                user_id, q_str, limit)
+            out["resonate"] = [{"id": r["id"], "content": r["content"][:120], "archive_no": r["archive_no"],
+                                "title": r["title"], "room": r["room"], "tags": r["tags"],
+                                "dist": round(float(r["dist"]), 4)} for r in rows]
+    except Exception:
+        pass
+
+    # ④ 文库: WIKI 向量（距离升序）—— 注意 wiki id 与 memory id 是两套空间
+    try:
+        from core.embedding import get_embedding_async as _ge
+        w_vec = (await _ge([query]))[0]
+        w_str = "[" + ",".join(str(x) for x in w_vec) + "]"
+        async with pool.acquire() as conn:
+            w_rows = await conn.fetch(
+                "SELECT id, title, content, (embedding <=> $2::vector) AS dist "
+                "FROM wiki_pages WHERE user_id=$1 AND content IS NOT NULL AND embedding IS NOT NULL "
+                "ORDER BY embedding <=> $2::vector LIMIT $3",
+                user_id, w_str, limit)
+            out["wiki"] = [{"id": r["id"], "title": r["title"], "content": (r["content"] or "")[:120],
+                            "dist": round(float(r["dist"]), 4)} for r in w_rows]
+    except Exception:
+        pass
+
+    return out
+
+
+def _ns(channel: str, item_id) -> str:
+    """命名空间前缀：memories 通道 m: / wiki 通道 w:（两套 id 空间，数值会撞）。"""
+    return f"{'w' if channel == 'wiki' else 'm'}:{item_id}"
+
+
+async def summon_fused(pool, query: str, user_id: str = "default", top_k: int = 5,
+                       candidate_k: int = 50, k_rrf: int = 60) -> dict:
+    """四通道 **RRF 融合** 召回（v8.0 S2-1）。
+
+    解决什么
+    --------
+    现状（实测 `palace.py:180-250`）: 四通道各自 `LIMIT top_k` 直接返回 ——
+    不融合、无统一截断，调用方拿到四坨结果无法比较，**更看不出哪条是多通道共识**。
+
+    做法
+    ----
+    各通道先取 `candidate_k`（默认 50）候选 → RRF 融合（只按排名，量纲无关）
+    → 统一截断 `top_k`。多通道共同命中的条目自动排前（数学结果，不是调参）。
+
+    兼容性
+    ------
+    **不改动原 `summon()`** —— 新旧并存，由调用方按 `fused` 开关选择。
+    这样在评测数字出来之前，默认行为零变化（R3 原则：先量后改）。
+
+    返回
+    ----
+    {"query", "fused": [{id, kind, score, channels, item}], "channels": {原始四通道}}
+    其中 `channels` 字段回答“这条为什么排上来”，是融合可解释性的载体。
+    """
+    from core.rrf import rrf_fuse_ranked, fuse_within_topk
+
+    raw = await _summon_channels(pool, query, user_id, candidate_k)
+
+    ranked = {ch: [item["id"] for item in items] for ch, items in raw.items() if items}
+    # fuse 前打命名空间前缀，避免 memories/wiki 两套 id 空间互撞
+    prefixed = {ch: [_ns(ch, i) for i in ids] for ch, ids in ranked.items()}
+    fused = rrf_fuse_ranked(prefixed, k=k_rrf)
+
+    # 回填条目内容（用带前缀的 key 反查）
+    lookup = {}
+    for ch, items in raw.items():
+        for item in items:
+            lookup[_ns(ch, item["id"])] = (ch, item)
+
+    out_items = []
+    for key, score, chans in fuse_within_topk(fused, top_k):
+        ch, item = lookup.get(key, (None, None))
+        if item is None:
+            continue
+        out_items.append({"id": item["id"], "kind": ch, "score": score,
+                          "channels": chans, "item": item})
+
+    return {"query": query, "fused": out_items, "channels": raw,
+            "meta": {"candidate_k": candidate_k, "k_rrf": k_rrf, "top_k": top_k}}
+
+
 # ── 卡片精炼 (资料室: 题名/摘要/标签 生成) ──
 def refine_prompt(content: str) -> str:
     return f"""你是记忆宫殿的图书管理员。给一条记忆生成著录卡片。

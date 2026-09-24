@@ -1,0 +1,64 @@
+{
+  "project": "Mnemosyne-OS",
+  "_comment": "发布流程状态机门禁配置（v8.0 S3-2）。命令以 argv 列表执行（shlex.split，不过 shell）——见 gcat-std 红线。⚠️ 不含 repo 字段（本机路径属隐私红线，公开仓库不许出现）：运行门禁时用 `--repo <你的项目路径>` 传入。",
+  "stages": {
+    "A": {
+      "gate": "全量测试绿 + 契约反证",
+      "commands": [
+        {
+          "name": "全量用例",
+          "run": ".venv/bin/python -m pytest tests/ -q",
+          "timeout": 600
+        },
+        {
+          "name": "分层规格自检",
+          "run": ".venv/bin/python core/layers.py --self-check"
+        },
+        {
+          "name": "回收作业干跑",
+          "run": ".venv/bin/python jobs/compaction.py --dry-run --dsn postgresql:///mnemosyne_v8test --limit 50"
+        }
+      ]
+    },
+    "B": {
+      "gate": "真实链路实测（非 mock）+ 验收",
+      "commands": [
+        {
+          "name": "本机服务可达",
+          "run": "python3 scripts/release_checks.py service-version http://127.0.0.1:18010/"
+        }
+      ]
+    },
+    "C": {
+      "gate": "部署后服务自报版号 == 仓库 VERSION",
+      "commands": [
+        {
+          "name": "服务自报版号与仓库一致",
+          "run": "python3 scripts/release_checks.py service-version http://127.0.0.1:18010/"
+        }
+      ]
+    },
+    "D": {
+      "gate": "版本三处一致 + 隐私两层扫描零输出",
+      "commands": [
+        {
+          "name": "版本一致性",
+          "run": "python3 scripts/release_checks.py version-consistency"
+        },
+        {
+          "name": "隐私扫描",
+          "run": "python3 scripts/release_checks.py privacy"
+        }
+      ]
+    },
+    "E": {
+      "gate": "变更日志 + 指针回链",
+      "commands": [
+        {
+          "name": "CHANGELOG 含版本",
+          "run": "python3 scripts/release_checks.py changelog 8.0.0"
+        }
+      ]
+    }
+  }
+}
