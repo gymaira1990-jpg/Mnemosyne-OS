@@ -778,6 +778,35 @@ def compute_write_heat(content: str, category: str) -> float:
     return round(min(max(heat, 0.3), 0.8), 2)
 
 
+def compute_write_fingerprint(content: str, category: str, user_id: str, *,
+                              session_id=None, source=None, layer=None,
+                              now_ts: float | None = None) -> str:
+    """写入幂等键（v8.0.1 分层化）。
+
+    **为什么必须分层**（红队指出 → 我复核成立）：
+      初版对**所有** category 一律用 `sha256(content|category|user_id)`，
+      与自家分层模型的 L0 契约**直接矛盾** —— L0 是「只增不改、允许矛盾」，
+      但同一天说三次「好的，收到」三条指纹完全相同 → 后两条被 duplicate 吃掉。
+      幂等（同一请求重试只生效一次）≠ 去重（内容相同的多条合成一条），初版把两者混为一谈。
+
+    规则：
+      · L1~L4（版本化·只认最新族）：**内容指纹** —— 同内容重复写视为同一逻辑写入 → 幂等
+      · L0（日志层·只增不改）      ：内容指纹会误杀合法重复，故幂等键必须含**来源上下文**
+          - 有 session_id / source → 用它们区分（同一 session 的重试仍去重）
+          - 都没有（裸 temp 便签）  → 用**小时桶**：秒级重试去重，跨小时保留
+    """
+    import hashlib as _h
+    import time as _t
+    base = f"{content}|{category}|{user_id}"
+    if layer == "L0":
+        ctx = f"{session_id or ''}|{source or ''}".strip("|")
+        if ctx:
+            return _h.sha256(f"{base}|ctx:{ctx}".encode("utf-8")).hexdigest()
+        bucket = int((now_ts if now_ts is not None else _t.time()) // 3600)
+        return _h.sha256(f"{base}|h{bucket}".encode("utf-8")).hexdigest()
+    return _h.sha256(base.encode("utf-8")).hexdigest()
+
+
 @app.post("/api/v1/memories")
 async def create_memory(mem: MemoryCreate):
     raw_vec = (await get_embedding([mem.content]))[0]
@@ -789,9 +818,11 @@ async def create_memory(mem: MemoryCreate):
     uid = "default" if mem.user_id in ("g-cat", "noah", "system", "test", "audit") else (mem.user_id or "default")
     # v6.3: 认知写入信号 — 初始热度按内容重要性加分 (抽屉级联温度设计, 纯正则不调LLM)
     heat_init = compute_write_heat(mem.content, cat)
-    # v8.0 S1-2: 幂等键 = sha256(content|category|user_id) → 落 dedup_fingerprint 唯一索引
-    # 用途: 崩溃重试 / 端云断线重发 / 重复 POST 不再产生新行 (返回原 id)
-    fingerprint = hashlib.sha256(f"{mem.content}|{cat}|{uid}".encode("utf-8")).hexdigest()
+    # v8.0.1: 幂等键**分层化** —— L0 日志层不能套内容指纹（会误杀合法重复）
+    _layer_info = layers_mod.classify_layer(cat, has_artifact=bool(mem.source), source=mem.source)
+    fingerprint = compute_write_fingerprint(
+        mem.content, cat, uid, session_id=mem.session_id, source=mem.source,
+        layer=_layer_info["layer"])
     async with pool.acquire() as conn:
         # ══════════ v8.0 S1-1: 单事务包裹写入路径 ══════════
         # 现状问题(实测 main.py 原文): 顺序 execute + asyncpg autocommit → 崩溃可留
@@ -846,8 +877,7 @@ async def create_memory(mem: MemoryCreate):
             meta_extra["memory_type"] = CAT_MEMORY_TYPE.get(cat, "semantic")  # v7.7.0: 三分类打标
             # v8.0 S3-1: 分层模型**在写入路径上真跑** —— 每条记忆落层可判定、可审计
             #   （这是"文档规格 ≠ 空转"的判据: 若分层只是文档, meta 里不会有 layer）
-            _layer = layers_mod.classify_layer(cat, has_artifact=bool(mem.source),
-                                               source=mem.source)
+            _layer = _layer_info
             meta_extra["layer"] = _layer["layer"]
             meta_extra["layer_family"] = _layer["family"]
             if _layer["requires_source"] and not _layer["source_provided"]:
