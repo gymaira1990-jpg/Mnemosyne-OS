@@ -1,9 +1,27 @@
 {
   "project": "Mnemosyne-OS",
-  "_comment": "发布流程状态机门禁配置（v8.0 S3-2）。命令以 argv 列表执行（shlex.split，不过 shell）——见 gcat-std 红线。⚠️ 不含 repo 字段（本机路径属隐私红线，公开仓库不许出现）：运行门禁时用 `--repo <你的项目路径>` 传入。",
+  "_comment": "发布流程门禁配置（七阶段 P0~P6，权威标准见 gcat-std/RELEASE-FLOW.md）。命令以 argv 列表执行（shlex.split，不过 shell）——见 gcat-std 红线。⚠️ 不含 repo 字段（本机路径属隐私红线）：运行时用 `--repo <路径>` 传入。",
   "stages": {
-    "A": {
-      "gate": "全量测试绿 + 契约反证",
+    "P0": {
+      "gate": "方案：PRD + 判据表 + 不做清单 + 任务拆分表",
+      "commands": [
+        {
+          "name": "方案要件（判据表 + 不做清单）",
+          "run": "python3 scripts/release_checks.py plan openspec/changes/2026-09-25-v8-memory-os/proposal.md"
+        }
+      ]
+    },
+    "P1": {
+      "gate": "工作区开发：改动落地 + 独立 commit（严禁碰正式环境/远端）",
+      "commands": [
+        {
+          "name": "工作区已提交（无未提交改动）",
+          "run": "git diff --quiet HEAD"
+        }
+      ]
+    },
+    "P2": {
+      "gate": "本地测试：全量绿 + 反证 + 契约",
       "commands": [
         {
           "name": "全量用例",
@@ -20,17 +38,12 @@
         }
       ]
     },
-    "B": {
-      "gate": "部署：核对→备份→最小覆盖→三重验证",
-      "commands": [
-        {
-          "name": "公开前检查脚本可用",
-          "run": "python3 scripts/release_checks.py version-consistency"
-        }
-      ]
+    "P3": {
+      "gate": "部署：备份可恢复 + 最小覆盖 + 服务自报版号 + 回滚演练",
+      "commands": []
     },
-    "C": {
-      "gate": "真实环境测试：真实链路实测（非 mock）",
+    "P4": {
+      "gate": "正式环境测试：真链路实测 + 真实数据核验 + 测试件清场",
       "commands": [
         {
           "name": "线上服务自报版号 == 仓库 VERSION",
@@ -38,8 +51,8 @@
         }
       ]
     },
-    "D": {
-      "gate": "公开：用户验收 + 版本一致 + 隐私零输出",
+    "P5": {
+      "gate": "发布：版本三处一致 + 隐私零输出 + 独立 clone 复扫 + 开源就绪",
       "commands": [
         {
           "name": "版本一致性",
@@ -51,8 +64,8 @@
         }
       ]
     },
-    "E": {
-      "gate": "归纳：CHANGELOG + 指针回链",
+    "P6": {
+      "gate": "归纳：CHANGELOG + 指针回链 + 记忆 + 台账 + 交付三件套",
       "commands": [
         {
           "name": "CHANGELOG 含版本",

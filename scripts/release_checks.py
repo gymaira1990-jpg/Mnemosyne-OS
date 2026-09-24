@@ -175,10 +175,30 @@ def check_artifact(pointer: str) -> int:
     return 0
 
 
+def check_plan(path: str) -> int:
+    """P0 方案阶段判据：方案文档存在，且**含判据表与不做清单**（否则方案不可验收）。
+
+    为什么把它做成命令而不是"人工看看"：标准里写得很清楚 ——
+    方案的验收标准是「每条诉求有判据」，没有判据的方案不许进开发。
+    """
+    p = os.path.join(ROOT, path) if not os.path.isabs(path) else path
+    if not os.path.exists(p):
+        print(f"❌ P0 方案文档不存在: {p}")
+        return 1
+    txt = open(p, encoding="utf-8").read()
+    need = {"判据": "判据表", "不做": "不做清单/Out of Scope"}
+    missing = [desc for kw, desc in need.items() if kw not in txt]
+    if missing:
+        print(f"❌ 方案缺验收要件: {missing}（方案不许无判据就开工）")
+        return 1
+    print(f"✅ P0 方案要件齐备（判据表 + 不做清单）: {path}  {len(txt)} 字符")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="v8.0 发布门禁检查项")
     ap.add_argument("check", choices=["version-consistency", "privacy",
-                                      "service-version", "changelog", "artifact"])
+                                      "service-version", "changelog", "artifact", "plan"])
     ap.add_argument("arg", nargs="?", default=None)
     a = ap.parse_args()
     if a.check == "version-consistency":
@@ -198,6 +218,11 @@ def main() -> int:
             print("需要路径参数", file=sys.stderr)
             return 2
         return check_artifact(a.arg)
+    if a.check == "plan":
+        if not a.arg:
+            print("需要方案文档路径参数", file=sys.stderr)
+            return 2
+        return check_plan(a.arg)
     return 2
 
 
