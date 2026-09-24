@@ -40,14 +40,20 @@
     },
     "P3": {
       "gate": "部署：备份可恢复 + 最小覆盖 + 服务自报版号 + 回滚演练",
-      "commands": []
+      "commands": [
+        {
+          "name": "服务自报版号 == 仓库 VERSION",
+          "run": "python3 scripts/release_checks.py service-version http://127.0.0.1:18010/"
+        }
+      ]
     },
     "P4": {
       "gate": "正式环境测试：真链路实测 + 真实数据核验 + 测试件清场",
       "commands": [
         {
-          "name": "线上服务自报版号 == 仓库 VERSION",
-          "run": "python3 scripts/release_checks.py service-version http://127.0.0.1:18010/"
+          "name": "正式环境冒烟（分层写入四发验证 + 落库 + 清场）",
+          "run": ".venv/bin/python scripts/prod_smoke.py http://127.0.0.1:18010",
+          "timeout": 300
         }
       ]
     },
