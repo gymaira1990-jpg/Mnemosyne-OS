@@ -112,13 +112,23 @@ async def archive_columns(conn) -> list[str]:
 
 
 async def do_archive(conn, ids: list[int], batch: str) -> int:
-    """把整行 + traces 快照写进 memories_archive。返回归档行数。"""
+    """把整行 + **四张子表**快照写进 memories_archive。返回归档行数。
+
+    ⚠️ v8.0.1 补正（实测缺陷）：原来只抓 memories + traces，漏了
+    memory_entities / memory_keywords / tome_cards —— 这三张表都是
+    ON DELETE CASCADE，会被静默连带删除，而 --restore 又不重建它们，
+    结果还原出来是「僵尸记忆」（在库里但 BM25 搜不到、无著录卡片）。
+    """
     cols = await archive_columns(conn)
     collist = ", ".join(cols)
     sql = (
-        f"INSERT INTO memories_archive ({collist}, _archived_at, _archive_batch, _traces) "
+        f"INSERT INTO memories_archive ({collist}, _archived_at, _archive_batch, "
+        f"                                 _traces, _entities, _keywords, _tome_cards) "
         f"SELECT m.*, NOW(), $2, "
-        f"  COALESCE((SELECT jsonb_agg(to_jsonb(t)) FROM memory_traces t WHERE t.memory_id = m.id), '[]'::jsonb) "
+        f"  COALESCE((SELECT jsonb_agg(to_jsonb(t)) FROM memory_traces   t WHERE t.memory_id = m.id), '[]'::jsonb), "
+        f"  COALESCE((SELECT jsonb_agg(to_jsonb(e)) FROM memory_entities e WHERE e.memory_id = m.id), '[]'::jsonb), "
+        f"  COALESCE((SELECT jsonb_agg(to_jsonb(k)) FROM memory_keywords k WHERE k.memory_id = m.id), '[]'::jsonb), "
+        f"  COALESCE((SELECT jsonb_agg(to_jsonb(c)) FROM tome_cards      c WHERE c.memory_id = m.id), '[]'::jsonb) "
         f"FROM memories m WHERE m.id = ANY($1::bigint[])"
     )
     status = await conn.execute(sql, ids, batch)
@@ -237,24 +247,53 @@ async def do_restore(conn, batch: str) -> int:
     还原在关键时刻（救援现场）直接报错。
     """
     cols = await archive_columns(conn)
-    tcols = await table_columns(conn, "memory_traces")
     collist = ", ".join(cols)
-    tlist = ", ".join(tcols)
+    # 四张 CASCADE 子表：(归档列, 目标表, 快照里的主键列)
+    CHILDREN = [("_traces", "memory_traces", "id"),
+                ("_entities", "memory_entities", None),
+                ("_keywords", "memory_keywords", None),
+                ("_tome_cards", "tome_cards", None)]
+
+    async def _restore_child(c, col: str, table: str, pk: str | None) -> int:
+        tcols = await table_columns(conn, table)
+        tlist = ", ".join(tcols)
+        conflict = f"ON CONFLICT ({pk}) DO NOTHING " if pk else ""
+        return await conn.fetchval(
+            f"WITH ins AS ("
+            f"  INSERT INTO {table} ({tlist}) "
+            f"  SELECT (jsonb_populate_record(NULL::{table}, j)).* "
+            f"  FROM memories_archive a, jsonb_array_elements(a.{col}) j "
+            f"  WHERE a._archive_batch=$1 {conflict} RETURNING 1) "
+            f"SELECT count(*) FROM ins", batch)
+
     async with conn.transaction():
         n = await conn.fetchval(
             f"WITH ins AS ("
             f"  INSERT INTO memories ({collist}) "
             f"  SELECT {collist} FROM memories_archive WHERE _archive_batch=$1 "
             f"  ON CONFLICT (id) DO NOTHING RETURNING 1) SELECT count(*) FROM ins", batch)
-        # jsonb_populate_record 展开顺序 == 复合类型的表列顺序 == tlist 顺序
-        t = await conn.fetchval(
-            f"WITH ins AS ("
-            f"  INSERT INTO memory_traces ({tlist}) "
-            f"  SELECT (jsonb_populate_record(NULL::memory_traces, j)).* "
-            f"  FROM memories_archive a, jsonb_array_elements(a._traces) j "
-            f"  WHERE a._archive_batch=$1 ON CONFLICT (id) DO NOTHING RETURNING 1) "
-            f"SELECT count(*) FROM ins", batch)
-    print(json.dumps({"restored_memories": n, "restored_traces": t, "batch": batch},
+        counts = {}
+        for col, table, pk in CHILDREN:
+            try:
+                counts[table] = await _restore_child(conn, col, table, pk)
+            except Exception as e:  # noqa: BLE001
+                counts[table] = f"ERR:{type(e).__name__}"
+
+        # ── 完整性断言（v8.0.1 新增）：归档里有的子表记录，还原后必须都有 ──
+        #   这是把「假安全」变成不可能的判据：漏还原一张表就报错，而不是给一具僵尸记忆。
+        problems = []
+        for col, table, _pk in CHILDREN:
+            want = await conn.fetchval(
+                f"SELECT COALESCE(SUM(jsonb_array_length(a.{col})),0) "
+                f"FROM memories_archive a WHERE a._archive_batch=$1", batch)
+            got = counts.get(table)
+            if want != got:
+                problems.append(f"{table}: 归档 {want} 条 → 还原 {got} 条（不一致）")
+        if problems:
+            raise RuntimeError("还原不完整，已回滚：" + "; ".join(problems))
+
+    print(json.dumps({"restored_memories": n, **counts, "batch": batch,
+                      "integrity": "OK（四张子表全部一致）"},
                      ensure_ascii=False, indent=2))
     return 0
 

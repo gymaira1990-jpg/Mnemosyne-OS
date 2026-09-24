@@ -29,8 +29,10 @@ asyncio_marker = pytest.mark.skipif(
     reason="显式跳过数据库测试")
 
 FIXTURE_SQL = """
+-- ⚠️ TRUNCATE 列表必须包含夹具里插入的**所有**表 ——
+--   漏了 entities 会让第二次跑撞 entities_pkey（实测踩到，表现为一串 UniqueViolationError）
 TRUNCATE memories, memory_traces, tome_cards, memory_entities, memory_keywords,
-         beliefs, memories_archive, gc_log RESTART IDENTITY CASCADE;
+         entities, beliefs, memories_archive, gc_log RESTART IDENTITY CASCADE;
 
 -- ① 该回收: 5 条超窗 tombstone, 无引用 (id 1-5)
 INSERT INTO memories (id, user_id, content, category, is_deleted, forgotten_at, tier)
@@ -64,10 +66,14 @@ VALUES (10, 'default', 'TOORECENT', 'knowledge', TRUE, NOW() - INTERVAL '5 days'
 INSERT INTO memories (id, user_id, content, category, is_deleted)
 VALUES (11, 'default', 'ALIVE', 'knowledge', FALSE);
 
--- ⑧ 给 3 号挂子表数据（验级联）
+-- ⑧ 给 3 号挂**四张**子表数据（验级联 + 验还原完整性）
+--   ⚠️ 原夹具漏了 entities —— 正好是红队指出的「CASCADE 静默连带删除」那张表，
+--      漏测导致「还原不完整」的缺陷没被发现。
 INSERT INTO memory_traces (memory_id, action, details) VALUES (3,'stored','{"a":1}'), (3,'accessed','{"b":2}');
 INSERT INTO memory_keywords (memory_id, token, freq) VALUES (3, '测试', 3);
 INSERT INTO tome_cards (memory_id, title, retention) VALUES (3, '普通卡', 'short');
+INSERT INTO entities (id, user_id, name, type) VALUES (1, 'default', '测试实体', 'concept');
+INSERT INTO memory_entities (memory_id, entity_id) VALUES (3, 1);
 
 -- ⚠️ 夹具用显式 id 插入 → 必须把序列推到 max(id)，否则后续不带 id 的 INSERT 撞 pkey
 SELECT setval(pg_get_serial_sequence('memories', 'id'),
@@ -222,6 +228,43 @@ def test_c6_restore_recovers_memories_and_traces():
     assert _fetch("SELECT count(*) AS c FROM memory_traces WHERE memory_id=3")[0]["c"] == 2
     # 凭证不销毁 —— 归档表仍在，可重复救援
     assert _fetch("SELECT count(*) AS c FROM memories_archive")[0]["c"] == 5
+
+
+@_needs_db
+@asyncio_marker
+def test_c9_restore_is_complete_across_all_cascade_children():
+    """v8.0.1 回归测试：还原必须重建**全部四张 CASCADE 子表**，不能只重建 memories。
+
+    这一条来自真实缺陷（红队指出 → 我复现）：
+      原实现只归档+还原 memories/traces，而 memory_entities / memory_keywords /
+      tome_cards 会随主行 CASCADE 删除且**不被还原** →
+      还原出来的是「僵尸记忆」：在库里，但 BM25 搜不到、没有著录卡片。
+
+    判据：删前各子表计数 == 还原后各子表计数。任一表不一致即红。
+    """
+    _setup()
+    before = {
+        t: _fetch(f"SELECT count(*) AS c FROM {t} WHERE memory_id=3")[0]["c"]
+        for t in ("memory_traces", "memory_entities", "memory_keywords", "tome_cards")
+    }
+    assert all(v > 0 for v in before.values()), f"夹具不完整，测不出问题: {before}"
+
+    _run_gc(("apply", True))
+    # 删后：四张子表都该被 CASCADE 清空
+    for t in before:
+        n = _fetch(f"SELECT count(*) AS c FROM {t} WHERE memory_id=3")[0]["c"]
+        assert n == 0, f"{t} 未随主行级联清空"
+
+    batch = _fetch("SELECT batch FROM gc_log WHERE dry_run=FALSE ORDER BY id DESC LIMIT 1")[0]["batch"]
+    assert _run_gc(("restore", batch)) == 0
+
+    after = {
+        t: _fetch(f"SELECT count(*) AS c FROM {t} WHERE memory_id=3")[0]["c"]
+        for t in before
+    }
+    assert after == before, f"还原不完整（僵尸记忆）: 删前 {before} vs 还原后 {after}"
+    # 顺带验：CM 检索依赖的 keywords 必须真回来
+    assert after["memory_keywords"] > 0, "keywords 没回来 → BM25 永远搜不到这条记忆"
 
 
 @_needs_db

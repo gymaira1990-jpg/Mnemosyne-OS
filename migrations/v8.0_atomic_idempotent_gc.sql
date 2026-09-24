@@ -34,10 +34,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS dedup_fingerprint_key
 --   _archived_at   归档时刻
 --   _archive_batch 批次号(与 gc_log.batch 对应, 支持整批还原)
 --   _traces        该记忆的 memory_traces 快照(jsonb) —— 因为 CASCADE 会随主行清掉 traces
+-- ⚠️ v8.0.1 补正：**必须把 CASCADE 子表一起快照**，否则还原出来是「僵尸记忆」
+--   实测（2026-09-25，红队指出后复现）：删前 keywords=1/tome_cards=1 → 删后 0/0 →
+--   --restore 还原后 memories 回来了，但 keywords/tome_cards 仍是 0
+--   → 记忆在库里，却 BM25 搜不到、没有著录卡片。
+--   根因：原实现只归档 memories + traces，而 memory_entities / memory_keywords /
+--   tome_cards 三张表都挂在 memories 上是 ON DELETE CASCADE，会**静默连带删除**。
 CREATE TABLE IF NOT EXISTS memories_archive (LIKE memories INCLUDING DEFAULTS);
 ALTER TABLE memories_archive ADD COLUMN IF NOT EXISTS _archived_at   timestamptz DEFAULT NOW();
 ALTER TABLE memories_archive ADD COLUMN IF NOT EXISTS _archive_batch text;
 ALTER TABLE memories_archive ADD COLUMN IF NOT EXISTS _traces        jsonb;
+ALTER TABLE memories_archive ADD COLUMN IF NOT EXISTS _entities      jsonb;  -- memory_entities 快照
+ALTER TABLE memories_archive ADD COLUMN IF NOT EXISTS _keywords      jsonb;  -- memory_keywords 快照(BM25)
+ALTER TABLE memories_archive ADD COLUMN IF NOT EXISTS _tome_cards    jsonb;  -- tome_cards 快照(著录卡片)
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
