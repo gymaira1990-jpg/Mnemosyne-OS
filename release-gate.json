@@ -21,25 +21,25 @@
       ]
     },
     "B": {
-      "gate": "真实链路实测（非 mock）+ 验收",
+      "gate": "部署：核对→备份→最小覆盖→三重验证",
       "commands": [
         {
-          "name": "本机服务可达",
-          "run": "python3 scripts/release_checks.py service-version http://127.0.0.1:18010/"
+          "name": "公开前检查脚本可用",
+          "run": "python3 scripts/release_checks.py version-consistency"
         }
       ]
     },
     "C": {
-      "gate": "部署后服务自报版号 == 仓库 VERSION",
+      "gate": "真实环境测试：真实链路实测（非 mock）",
       "commands": [
         {
-          "name": "服务自报版号与仓库一致",
+          "name": "线上服务自报版号 == 仓库 VERSION",
           "run": "python3 scripts/release_checks.py service-version http://127.0.0.1:18010/"
         }
       ]
     },
     "D": {
-      "gate": "版本三处一致 + 隐私两层扫描零输出",
+      "gate": "公开：用户验收 + 版本一致 + 隐私零输出",
       "commands": [
         {
           "name": "版本一致性",
@@ -52,11 +52,11 @@
       ]
     },
     "E": {
-      "gate": "变更日志 + 指针回链",
+      "gate": "归纳：CHANGELOG + 指针回链",
       "commands": [
         {
           "name": "CHANGELOG 含版本",
-          "run": "python3 scripts/release_checks.py changelog 8.0.0"
+          "run": "python3 scripts/release_checks.py changelog 8.0.1"
         }
       ]
     }
