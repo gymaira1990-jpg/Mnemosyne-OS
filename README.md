@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-8.0.1-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-8.0.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">

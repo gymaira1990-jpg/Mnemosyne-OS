@@ -1,63 +1,3 @@
-## release · v8.0.1 (2026-09-25) — 收口「测试阶段就该发现、却漏到发布后」的缺陷
-
-> **流程性质**：v8.0.0 已公开（Release `isPrerelease:false`），本版收口的是**发布后才被红队
-> 与生产实测挖出来**的缺陷。按正确节奏，它们本该在 **B 段（真实环境测试）**被吃掉、
-> 留在同一版本号内 —— 这版的存在本身就是流程教训的物证。
-> 本版**严格走完整流程**：本地改 → 本地测 → 汇报 → 用户验收 → 才部署 → 再验收 → 才公开。
-
-### 🔴 修复 — 记忆回收的「整批还原」是假安全（红队指出 → 我复现 → 修复）
-
-**现象（实测复现）**：`--restore` 还原后是**僵尸记忆** ——
-```
-删前 → keywords: 1  tome_cards: 1
-删后 → keywords: 0  tome_cards: 0     ← CASCADE 静默连带删除
-还原后 → memories: 1  traces: 2  keywords: 0  tome_cards: 0   ← 没回来
-```
-记忆回到库里了，但 **BM25 再也搜不到它、著录卡片也没了**。
-
-**根因**：原实现只归档 `memories + memory_traces`，而
-`memory_entities` / `memory_keywords` / `tome_cards` 三张表都挂在 `memories` 上是
-`ON DELETE CASCADE` —— 会**静默连带删除**，且还原时不重建。
-
-**修法（三重）**
-1. `memories_archive` 增列 `_entities` / `_keywords` / `_tome_cards`，归档时把**四张子表全部快照**
-2. `do_restore` 重建**四张子表**，且新增**完整性断言**：归档里有多少条子表记录，还原后必须相等，
-   不等就**整体回滚报错** —— 僵尸记忆在结构上不可能再出现
-3. 新增回归测试 `test_c9_restore_is_complete_across_all_cascade_children`
-   （夹具原先**漏了 entities**，正是红队指出的那张表 —— 漏测导致缺陷没被发现）
-
-**为什么原有测试没抓到**：`test_c6` 名叫 `restore_recovers_memories_and_traces` ——
-**我只测了能用的那两张表，没测不能用的两张**。已在 `v8.0.0 事故段`记下同类教训，
-这是第二次同源：**只测通过的部分 = 没测**。
-
-### 🔧 修复 — 完整性巡检的误报阈值
-- `O5_missing_fingerprint` 的判据改为**幂等键上线时刻**（`2026-09-25T06:25+08`）而非当日 0 点，
-  否则约 500 条部署前写入会**永久误报**。
-
-### 🛠 工程流程 — 发布门禁「硬约束」化（治理底座 `gcat-std`，不在本仓库）
-- `release-gate.py` 重写为 **v2**：`publish` 是**唯一公开入口**（自检 A~E 全过，缺一段拒绝执行）；
-  **删除 `--force` / `--no-check`** 越段开关；**B 段不许用 `pass`**，必须
-  `accept --session <id> --msg-id <n>`，工具去 `state.db` 核实那条消息**真实存在且 role=user**；
-  状态改为 **append-only 事件账本（自哈希 + 前向链）**。
-- 配套 **40 例回归测试**（`gcat-std/tests/test_release_gate.py`）把每条硬约束变成可证伪断言。
-- 诚实边界：这是 **tamper-evident（改必留痕）**，非 tamper-proof —— 真正的外部执行者是
-  GitHub CI 与**用户本人复核**（`log --show-verify-cmd` 打印可独立复核的查询命令）。
-
-### 📌 本版**未**修（已知问题，待用户定归属）
-1. **幂等键与 L0 契约矛盾**：`sha256(内容|分类|用户)` 不含时间/会话，会**误杀合法日志**
-   （同一天说三次「好的，收到」→ 只存第一条），而 L0 的契约是「只增不改、允许矛盾」。
-   修法方向：L0 跳过幂等，或改用**客户端幂等键**（幂等 ≠ 去重）。
-2. **分层模型目前是「标签化」**：`layer` 未进入任何决策（冲突/合并/GC/排序），
-   即红队判据「删掉 `core/layers.py` 行为不变」成立。
-3. **检索评测基线未跑**：只有设计与执行器（150 条金标），**无结果**。
-   —— 这是上一轮红队点名「保留 事务+幂等+评测」里**唯一没落地**的一项。
-
-### 🧪 测试
-- mnemosyne-dev：**259 passed / 6 skipped**（228 → 259）
-- gcat-std：**40 tests OK**（新增 release-gate 硬约束套件）
-
----
-
 ## release · v8.0.0 (2026-09-25) — 记忆供电 OS 8.0：写得对 · 收得回 · 找得准 · 弄得清
 
 > 立项依据: 提案 [P-20260925-01](openspec/changes/2026-09-25-v8-memory-os/proposal.md) · ADR [0002](docs/adr/0002-文件系统机制取舍与触发器.md)
@@ -135,11 +75,50 @@ there is no unique or exclusion constraint matching the ON CONFLICT specificatio
   反证已验证：临时删掉谓词 → `test_w2` 立即失败。
 - 本次由**发布的第三层（生产功能实测）**抓到 —— 这就是"三重验证"不是形式主义的证据。
 
+### 🔧 发布后修正（**仍在 v8.0.0 内**，非新版本）
+
+> 用户 2026-09-25 定调：这些缺陷发生在**测试阶段**，按正确节奏应在**同一版本号内吃掉**，
+> 不该冒出「下一版修复」。故不新增版本号，修正直接并入 v8.0.0 并重切发布。
+
+**🔴 修正一：记忆回收的「整批还原」是假安全（红队指出 → 我复现 → 修复）**
+
+实测复现：
+```
+删前 → keywords: 1  tome_cards: 1
+删后 → keywords: 0  tome_cards: 0        ← CASCADE 静默连带删除
+还原后 → memories: 1  traces: 2  keywords: 0  tome_cards: 0   ← 没回来
+```
+记忆回到库里了，但 **BM25 再也搜不到它、著录卡片也没了**（僵尸记忆）。
+根因：原实现只归档 `memories + memory_traces`，而 `memory_entities` / `memory_keywords` /
+`tome_cards` 三张表都是 `ON DELETE CASCADE` —— 静默连带删除且还原时不重建。
+修法：归档增列 `_entities/_keywords/_tome_cards` 四表全快照 → 还原重建四表 →
+**完整性断言**（归档数 ≠ 还原数则整体回滚，僵尸记忆结构上不可能出现）。
+
+**🔴 修正二：幂等键与 L0 契约矛盾（红队指出 → 复核 → 生产 P4 实测暴露「半修」）**
+
+初版 `sha256(content|category|user_id)` 套用于**所有**分类，与自家分层模型直接矛盾：
+L0 契约是「只增不改、允许矛盾」，但同一天说三次「好的，收到」会被并成一条。
+根因把「幂等（同请求重试只生效一次）」与「去重（同内容多条合一条）」混为一谈。
+
+修法**两处都要改，只改一处是半修**（生产 P4 实测抓到）：
+1. **指纹分层** `compute_write_fingerprint()`：
+   L1~L4 用内容指纹（版本化族，幂等不变）；L0 用**来源上下文**
+   （有 session_id/source 用其区分；都无则用小时桶 — 秒级重试去重、跨小时保留）
+2. **冲突检测分层** `should_run_conflict_detection()`：L0 **跳过** `detect_conflict` 的
+   语义合并 —— 否则近重复内容在指纹判定**之前**就被 merge 掉，L0 日志仍被压缩
+
+实测对照（生产）：旧行为跨会话=并成一条（误杀）→ 新行为=各存一条；
+同来源重试仍去重；L1 同内容跨会话仍幂等。
+
+**教训**：单测只测了 `compute_write_fingerprint` **纯函数**，没测**整条写入路径** ——
+与「只测能用的那半」同源。**这正是正式环境测试（P4）存在的意义。**
+
 ### 🧪 测试
 
 - 新增 **26 例**: `tests/test_v8_rrf.py`(8, 纯函数) · `tests/test_v8_layers.py`(10, 规格断言) ·
   `tests/test_v8_compaction.py`(8, 集成 — 需 v8.0 迁移库, 不可用则整体 skip)。
-- 全量: **228 → 258 passed / 6 skipped**（含 `test_v8_write_path.py` 写入路径 SQL 契约）。
+- 全量: **228 → 267 passed / 6 skipped**（含写入路径 SQL 契约、分层幂等键、L0 跳过分歧、GC 还原完整性 C9 等）
+- gcat-std 治理底座: **45 tests OK**（release-gate 硬约束套件）
 - **反证测试**（造违规样本证明真能拦住）: 干跑零改动 · 越段被拒 · 唯一索引拒重复指纹 ·
   截断/陈旧/空备份被拦 · 分层规格漂移被检出。
 
