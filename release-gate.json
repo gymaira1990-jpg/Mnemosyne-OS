@@ -75,7 +75,7 @@
       "commands": [
         {
           "name": "CHANGELOG 含版本",
-          "run": "python3 scripts/release_checks.py changelog 8.0.1"
+          "run": "python3 scripts/release_checks.py changelog 8.0.0"
         }
       ]
     }
