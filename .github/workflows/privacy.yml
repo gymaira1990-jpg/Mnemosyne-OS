@@ -5,20 +5,39 @@ on:
     branches: [main]
   pull_request:
 
+# 判红的必须是「写死的值」，不是「关键词出现」:
+#   PGPASSWORD="${PGPASSWORD:-}" 是合法变量展开 → 必须放过
+#   PGPASSWORD=hunter2abc123     是硬编码凭据   → 必须抓到
+# pattern 只在此处定义一次，扫描与自检共用（改一处，两边同时生效，避免漂移）。
+env:
+  CRED_PAT: 'sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_|PGPASSWORD=["'']?[A-Za-z0-9]{8,}|BEGIN [A-Z ]*PRIVATE KEY|/mnt/c/Users|tencent-gz'
+  DOMAIN_PAT: 'g-cat[.]cn'
+
 jobs:
   privacy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: 门禁自检 · pattern 双向验证（合法写法必须绿 / 硬编码必须红）
+        run: |
+          KEY='PGPASSWORD'                 # 拼接构造，本步自身不触发扫描
+          D="$RUNNER_TEMP/pg"; mkdir -p "$D"
+          printf '%s\n' "$KEY=\"\${PGPASSWORD:-}\"" > "$D/good.txt"
+          printf '%s\n' "$KEY=hunter2abc123" "$KEY='s3cretPass9'" > "$D/bad.txt"
+          if grep -qE "$CRED_PAT" "$D/good.txt"; then
+            echo "FAIL: 合法变量展开被误判为凭据"; grep -nE "$CRED_PAT" "$D/good.txt"; exit 1
+          fi
+          n=$(grep -cE "$CRED_PAT" "$D/bad.txt" || true)
+          if [ "${n:-0}" -ne 2 ]; then echo "FAIL: 硬编码样本漏判（命中 ${n:-0}/2）"; exit 1; fi
+          echo "OK: 合法写法放过 · 硬编码抓得住（双向验证通过）"
       - name: 隐私扫描 · 凭据类（只扫 git 追踪文件，零输出为通过）
         run: |
-          PAT='sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_|PGPASSWORD=[^y]|BEGIN [A-Z ]*PRIVATE KEY|/mnt/c/Users|tencent-gz'
-          hits=$(git grep -nE "$PAT" 2>/dev/null | grep -v -e '[.]github/workflows/privacy[.]yml' || true)
+          hits=$(git grep -nE "$CRED_PAT" 2>/dev/null | grep -v -e '[.]github/workflows/privacy[.]yml' || true)
           if [ -n "$hits" ]; then printf '%s\n' "$hits"; echo "FAIL: 命中凭据类敏感模式"; exit 1; fi
           echo "OK: 凭据类零命中"
       - name: 隐私扫描 · 内部域名（只扫 git 追踪文件）
         run: |
-          hits=$(git grep -nE 'g-cat[.]cn' 2>/dev/null | grep -v -e '[.]github/workflows/privacy[.]yml' || true)
+          hits=$(git grep -nE "$DOMAIN_PAT" 2>/dev/null | grep -v -e '[.]github/workflows/privacy[.]yml' || true)
           if [ -n "$hits" ]; then printf '%s\n' "$hits"; echo "FAIL: 命中内部域名"; exit 1; fi
           echo "OK: 内部域名零命中"
       - name: 内部目录未被追踪（.hermes / plans / 备份文件）
