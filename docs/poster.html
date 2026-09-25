@@ -1,247 +1,344 @@
 <!DOCTYPE html>
-<html lang="zh">
+<!-- Mnemosyne OS v8.0.0 海报源文件 | 配图: poster-mascot.png（同目录）| 渲染见 README 说明 -->
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    width: 860px;
-    background: #FFF7EC;
-    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    color: #6B4A3A;
-    padding: 36px 32px 24px;
-    position: relative;
+  :root{
+    --orange:#E07B39; --orange-d:#C05621; --brown:#6B4A3A; --brown-l:#8a6a55;
+    --cream:#FFF7EC; --card:#FFFDF8; --ink:#2A1A0A;
+    --green:#2F6B4F; --blue:#2C5C8F; --red:#A33A2A;
   }
-  /* 纸张噪点 */
-  body::before {
-    content: ""; position: fixed; inset: 0; pointer-events: none;
-    background-image: radial-gradient(#6B4A3A08 1px, transparent 1px);
-    background-size: 14px 14px;
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    width:900px; background:var(--cream); position:relative;
+    font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei','WenQuanYi Micro Hei',sans-serif;
+    color:var(--brown); padding:34px 34px 26px;
+    -webkit-font-smoothing:antialiased;
   }
-  .hero { text-align:center; margin-bottom: 24px; position:relative; }
-  .hero .stamp {
-    display:inline-block; font-size:13px; font-weight:700;
-    color:#E07B39; border:2px solid #E07B39; border-radius:999px;
-    padding:3px 14px; transform:rotate(-2deg); letter-spacing:2px; margin-bottom:10px;
-    background:#FFF7EC;
+  /* 纸纹 */
+  body::before{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background-image:radial-gradient(#6B4A3A0A 1px, transparent 1px);
+    background-size:15px 15px;
   }
-  h1 {
-    font-size: 46px; font-weight: 900; letter-spacing: 3px;
-    background: linear-gradient(135deg,#6B4A3A 20%, #E07B39 60%, #C05621 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: 6px;
-  }
-  .hero .sub { font-size:15px; color:#8a6a55; letter-spacing:1px; }
-  .hero .tagline {
-    display:inline-block; margin-top:12px; font-size:13px; font-weight:600;
-    background:#6B4A3A; color:#FFF7EC; border-radius:999px; padding:5px 16px;
-  }
-  /* 姬卡立牌区 */
-  .jika-wrap { display:flex; justify-content:center; margin-top:14px; }
-  .jika-box { position:relative; display:inline-block; transform:rotate(1.5deg); }
-  .jika-box img {
-    width:150px; border-radius:12px; border:2.5px solid #6B4A3A;
-    box-shadow:4px 4px 0 #6B4A3A33; display:block;
-  }
-  .jika-tag {
-    position:absolute; bottom:-12px; left:50%; transform:translateX(-50%);
-    background:#6B4A3A; color:#FFF7EC; font-size:11px; font-weight:800;
-    padding:3px 12px; border-radius:999px; white-space:nowrap;
+  body > *{position:relative; z-index:1;}
+
+  /* ══ HERO ══ */
+  .hero{ text-align:center; padding-bottom:20px; border-bottom:3px solid var(--brown); position:relative; }
+  .hero::after{ content:""; position:absolute; left:0; right:0; bottom:-8px; height:1px; background:var(--brown); opacity:.5; }
+  .badge-row{ display:flex; justify-content:center; gap:10px; margin-bottom:14px; }
+  .badge{
+    display:inline-block; font-size:13px; font-weight:800; letter-spacing:1.5px;
+    color:#fff; background:var(--orange); border-radius:999px; padding:5px 16px;
     box-shadow:2px 2px 0 #6B4A3A33;
   }
-  .card {
-    background: #FFFDF8;
-    border: 2.5px solid #6B4A3A;
-    border-radius: 14px;
-    box-shadow: 4px 4px 0 #6B4A3A22;
-    padding: 16px 18px;
-    margin-bottom: 14px;
-    position: relative;
+  .badge.ghost{ background:transparent; color:var(--orange); border:2px solid var(--orange); }
+  h1{
+    font-size:52px; font-weight:900; letter-spacing:2px; line-height:1.12; margin-bottom:6px;
+    font-family:'Noto Serif CJK SC','Noto Serif SC',serif;
   }
-  .card h3 {
-    font-size: 16px; font-weight: 800; color:#E07B39; margin-bottom: 10px;
-    display:flex; align-items:center; gap:8px;
+  h1 em{ font-style:normal; color:var(--orange); }
+  .sub{ font-size:15px; color:var(--brown-l); letter-spacing:.5px; margin-bottom:16px; }
+  .slogan{ display:flex; justify-content:center; gap:0; margin:16px 0 18px; }
+  .slogan span{
+    font-size:23px; font-weight:900; color:#fff; background:var(--brown);
+    padding:8px 18px; letter-spacing:2px;
   }
-  .card h3 .bar { width:4px; height:16px; background:#E07B39; border-radius:2px; }
-  /* 数据条 */
-  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
-  .stat {
-    background:linear-gradient(160deg,#6B4A3A,#8a5a3a); color:#FFF7EC;
-    border-radius:12px; padding:12px 8px; text-align:center; box-shadow:3px 3px 0 #6B4A3A33;
+  .slogan span:nth-child(2){ background:var(--orange); }
+  .slogan span:nth-child(3){ background:var(--brown); }
+  .slogan span:nth-child(4){ background:var(--orange-d); }
+  .slogan span + span{ border-left:2px solid var(--cream); }
+  .slogan-note{ font-size:12.5px; color:var(--brown-l); letter-spacing:1px; }
+
+  /* 主角立牌 */
+  .mascot{ display:flex; align-items:center; justify-content:center; gap:20px; margin:20px 0 4px; }
+  .mascot-box{ position:relative; transform:rotate(1.2deg); }
+  .mascot-box img{ width:158px; display:block; border-radius:12px; border:2.5px solid var(--brown); box-shadow:5px 5px 0 #6B4A3A2e; }
+  .mascot-tag{
+    position:absolute; bottom:-11px; left:50%; transform:translateX(-50%);
+    background:var(--brown); color:var(--cream); font-size:11px; font-weight:800;
+    padding:3px 12px; border-radius:999px; white-space:nowrap; box-shadow:2px 2px 0 #6B4A3A33;
   }
-  .stat .num { font-size:21px; font-weight:900; }
-  .stat .cap { font-size:10.5px; opacity:.85; margin-top:2px; }
+  .mascot-words{ text-align:left; max-width:400px; }
+  .mascot-words .q{ font-size:13px; line-height:1.7; color:var(--brown); }
+  .mascot-words .q b{ color:var(--orange-d); }
+  .mascot-words .sig{ margin-top:8px; font-size:11.5px; color:var(--brown-l); letter-spacing:1px; }
+
+  /* ══ 数据条 ══ */
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:11px; margin:22px 0 18px; }
+  .stat{
+    background:linear-gradient(160deg,#6B4A3A,#8a5a3a); color:var(--cream);
+    border-radius:13px; padding:14px 9px; text-align:center; box-shadow:3px 3px 0 #6B4A3A2e;
+  }
+  .stat .num{ font-size:26px; font-weight:900; line-height:1.1; font-family:'Noto Serif CJK SC',serif; }
+  .stat .num small{ font-size:14px; font-weight:700; }
+  .stat .cap{ font-size:10.5px; opacity:.88; margin-top:4px; letter-spacing:.5px; }
+
+  /* ══ 通用卡片 ══ */
+  .card{
+    background:var(--card); border:2.5px solid var(--brown); border-radius:15px;
+    box-shadow:4px 4px 0 #6B4A3A20; padding:16px 19px 17px; margin-bottom:15px;
+  }
+  .card h3{
+    font-size:17px; font-weight:900; color:var(--orange-d); margin-bottom:12px;
+    display:flex; align-items:center; gap:9px; letter-spacing:.5px;
+  }
+  .card h3 .bar{ width:5px; height:18px; background:var(--orange); border-radius:3px; flex-shrink:0; }
+  .card h3 .en{ font-size:11px; font-weight:700; color:var(--brown-l); letter-spacing:1px; margin-left:auto; }
+
+  /* 升级条目 */
+  .items{ display:flex; flex-direction:column; gap:8px; }
+  .item{ display:flex; gap:10px; align-items:flex-start; background:var(--cream); border:1.5px solid #6B4A3A38; border-radius:10px; padding:9px 12px; }
+  .item .k{
+    font-size:11px; font-weight:800; color:#fff; background:var(--brown); border-radius:6px;
+    padding:3px 8px; white-space:nowrap; flex-shrink:0; letter-spacing:.5px;
+  }
+  .item .k.hot{ background:var(--orange-d); }
+  .item .k.fix{ background:var(--red); }
+  .item .v{ font-size:12.5px; line-height:1.62; }
+  .item .v b{ color:var(--ink); font-weight:800; }
+  .item .v code{ font-family:'SF Mono',Consolas,monospace; font-size:11.5px; background:#6B4A3A14; padding:1px 5px; border-radius:4px; }
+
+  /* 三宫格（并列） */
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .tile{ background:var(--cream); border:2px solid var(--brown); border-radius:11px; padding:11px 10px; text-align:center; box-shadow:2px 2px 0 #6B4A3A20; }
+  .tile .ic{ font-size:20px; display:block; margin-bottom:4px; }
+  .tile .nm{ font-size:12.5px; font-weight:900; color:var(--brown); }
+  .tile .fn{ font-size:10.5px; color:var(--brown-l); margin-top:4px; line-height:1.5; }
+
   /* 宫殿结构 */
-  .palace { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
-  .level {
-    display:flex; align-items:center; gap:10px;
-    background:#FFF7EC; border:1.8px solid #6B4A3A66; border-radius:10px; padding:7px 12px;
+  .palace{ display:flex; flex-direction:column; gap:7px; }
+  .level{ display:flex; align-items:center; gap:11px; background:var(--cream); border:1.8px solid #6B4A3A55; border-radius:10px; padding:8px 13px; }
+  .level .lbl{
+    font-weight:800; font-size:11.5px; color:var(--cream); background:var(--brown);
+    border-radius:6px; padding:4px 9px; white-space:nowrap; min-width:96px; text-align:center; letter-spacing:.5px;
   }
-  .level .lbl {
-    font-weight:800; font-size:12px; color:#FFF7EC; background:#6B4A3A;
-    border-radius:6px; padding:3px 8px; white-space:nowrap; min-width:88px; text-align:center;
+  .level .desc{ font-size:12.5px; }
+  .level .desc b{ color:var(--ink); }
+
+  /* 分层模型 */
+  .layers{ display:flex; flex-direction:column; gap:7px; }
+  .layer{ display:flex; align-items:center; gap:11px; border-radius:10px; padding:8px 13px; background:var(--cream); border:1.8px solid #6B4A3A55; }
+  .layer .tag{ font-size:11.5px; font-weight:900; color:#fff; border-radius:6px; padding:4px 9px; min-width:96px; text-align:center; white-space:nowrap; }
+  .layer .txt{ font-size:12.5px; }
+  .layer .txt b{ color:var(--ink); }
+  .layer.f1 .tag{ background:var(--blue); }
+  .layer.f2 .tag{ background:var(--green); }
+  .layer.f3 .tag{ background:var(--orange-d); }
+  .family-note{ display:flex; gap:9px; margin-top:9px; }
+  .family-note span{ flex:1; font-size:10.5px; text-align:center; color:#fff; border-radius:8px; padding:5px 4px; font-weight:700; }
+  .family-note .n1{ background:var(--blue); }
+  .family-note .n2{ background:var(--green); }
+  .family-note .n3{ background:var(--orange-d); }
+
+  /* GC 五闸 */
+  .gates{ display:flex; align-items:stretch; gap:6px; }
+  .gate{
+    flex:1; background:linear-gradient(170deg,#FFF3E2,#FFFCF6); border:2px solid var(--orange);
+    border-radius:10px; padding:10px 6px; text-align:center; position:relative;
   }
-  .level .desc { font-size:12.5px; color:#6B4A3A; }
-  .no-example {
-    display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap;
-    background:#6B4A3A; color:#FFF7EC; border-radius:8px; padding:7px 12px;
-    font-family:"SF Mono","Consolas",monospace; font-size:13px; letter-spacing:1px;
-    margin-top:4px;
+  .gate .no{ font-size:15px; font-weight:900; color:var(--orange-d); display:block; }
+  .gate .nm{ font-size:11.5px; font-weight:800; color:var(--brown); margin-top:3px; line-height:1.35; }
+  .gate .fn{ font-size:9.5px; color:var(--brown-l); margin-top:3px; line-height:1.4; }
+  .gate + .gate::before{
+    content:"›"; position:absolute; left:-7px; top:50%; transform:translateY(-50%);
+    font-size:16px; font-weight:900; color:var(--orange);
   }
-  .no-example .seg { background:#E07B39; border-radius:4px; padding:2px 8px; font-weight:700; }
-  /* 三室 */
-  .rooms { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-  .room {
-    background:#FFF7EC; border:2px solid #E07B39; border-radius:10px;
-    padding:9px 6px; text-align:center; box-shadow:2px 2px 0 #E07B3922;
+  .gates-foot{ margin-top:10px; font-size:11.5px; color:var(--brown-l); text-align:center; }
+  .gates-foot b{ color:var(--ink); }
+
+  /* 事故卡（特殊配色） */
+  .card.alert{ border-color:var(--red); box-shadow:4px 4px 0 #A33A2A22; }
+  .card.alert h3{ color:var(--red); }
+  .card.alert h3 .bar{ background:var(--red); }
+  .code-block{
+    font-family:'SF Mono',Consolas,monospace; font-size:11px; line-height:1.65;
+    background:#2A1A0A; color:#FFD9B0; border-radius:9px; padding:10px 13px; margin:8px 0;
+    white-space:pre-wrap; word-break:break-all;
   }
-  .room .ic { font-size:22px; display:block; margin-bottom:3px; }
-  .room .nm { font-size:12px; font-weight:800; color:#6B4A3A; }
-  .room .fn { font-size:10px; color:#8a6a55; margin-top:2px; }
-  /* 召唤三通道 */
-  .channels { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-  .chan {
-    background:linear-gradient(160deg,#FFF0DC,#FFFAF0);
-    border:2px solid #6B4A3A; border-radius:10px; padding:9px 7px; text-align:center;
+  .code-block .hl{ color:#FF9F43; font-weight:700; }
+
+  /* 集成 tags */
+  .integ{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; }
+  .integ .tag{
+    background:var(--cream); border:1.8px solid var(--brown); border-radius:999px;
+    padding:5px 13px; font-size:11.5px; font-weight:700; color:var(--brown);
   }
-  .chan .no { font-size:17px; font-weight:900; color:#E07B39; }
-  .chan .nm { font-size:12px; font-weight:800; color:#6B4A3A; margin-top:2px; }
-  .chan .fn { font-size:10px; color:#8a6a55; margin-top:3px; }
-  /* v7.x 能力 */
-  .v7grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-  .v7item {
-    background:#FFF7EC; border:2px solid #6B4A3A; border-radius:10px;
-    padding:9px 8px; text-align:center; box-shadow:2px 2px 0 #6B4A3A22;
-  }
-  .v7item .ic { font-size:20px; display:block; margin-bottom:3px; }
-  .v7item .nm { font-size:11.5px; font-weight:800; color:#6B4A3A; }
-  .v7item .fn { font-size:9.5px; color:#8a6a55; margin-top:2px; }
-  /* 双底座 */
-  .duo { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .duo-item {
-    background:#FFF7EC; border:2px solid #6B4A3A; border-radius:10px; padding:9px 12px;
-    display:flex; align-items:center; gap:10px;
-  }
-  .duo-item .ic { font-size:20px; }
-  .duo-item .nm { font-size:12.5px; font-weight:800; color:#6B4A3A; }
-  .duo-item .fn { font-size:10px; color:#8a6a55; margin-top:1px; }
-  /* Hermes 集成 */
-  .integ { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-  .integ .tag {
-    background:#FFF7EC; border:1.8px solid #6B4A3A; border-radius:999px;
-    padding:4px 12px; font-size:11px; font-weight:600; color:#6B4A3A;
-  }
-  .footer {
-    text-align:center; font-size:11px; color:#8a6a55; margin-top:14px;
-    padding-top:10px; border-top:1.5px dashed #6B4A3A55; letter-spacing:1px;
-  }
-  .footer b { color:#E07B39; }
+
+  /* footer */
+  .footer{ text-align:center; font-size:11px; color:var(--brown-l); margin-top:18px; padding-top:13px; border-top:1.5px dashed #6B4A3A55; line-height:1.85; letter-spacing:.5px; }
+  .footer b{ color:var(--orange-d); }
+  .footer .repo{ font-family:'SF Mono',Consolas,monospace; font-size:11.5px; color:var(--brown); font-weight:700; }
 </style>
 </head>
 <body>
 
+<!-- ══ HERO ══ -->
 <div class="hero">
-  <div class="stamp">v7.8.0 · 2026-08-18</div>
-  <h1>🏰 魔法记忆宫殿</h1>
-  <div class="sub">Mnemosyne OS — 给 AI 的认知型记忆操作系统</div>
-  <div class="tagline">知识招手就来 · 万千知识汇入 · 永恒知识取用</div>
+  <div class="badge-row">
+    <span class="badge">v8.0.0 · 2026-09-25</span>
+    <span class="badge ghost">写得对 收得回 找得准 弄得清</span>
+  </div>
+  <h1>🏰 记忆<em>供电</em> OS 8.0</h1>
+  <div class="sub">Mnemosyne OS — 给 AI 的认知型记忆操作系统 · 不是向量库，不是 RAG 管道</div>
+  <div class="slogan">
+    <span>写得对</span><span>收得回</span><span>找得准</span><span>弄得清</span>
+  </div>
+  <div class="slogan-note">本版只做四件事：把"会写错、删不掉、找不到、说不清"逐个修掉</div>
 
-  <div class="jika-wrap">
-    <div class="jika-box">
-      <img src="data:image/jpeg;base64,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" alt="姬卡看门喵">
-      <div class="jika-tag">🐱 记忆宫殿看门喵 · 姬卡</div>
+  <div class="mascot">
+    <div class="mascot-box">
+      <img src="poster-mascot.png" alt="小小橘">
+      <div class="mascot-tag">🍊 记忆宫殿看门喵 · 小小橘</div>
+    </div>
+    <div class="mascot-words">
+      <div class="q">
+        「喵…这一版不是加功能，是<b>把地基修结实了</b>。<br>
+        以前删掉的记忆会变成僵尸，现在<b>整批还能捞回来</b>；<br>
+        以前备份只报"跑没跑"，现在<b>真恢复到临时库比对行数</b>。」
+      </div>
+      <div class="sig">— 看门喵值班笔记 · v8.0.0</div>
     </div>
   </div>
 </div>
 
-<!-- 数据条 -->
+<!-- ══ 数据条 ══ -->
 <div class="stats">
-  <div class="stat"><div class="num">12,427+</div><div class="cap">总记忆 · 归档率 99.9%</div></div>
-  <div class="stat"><div class="num">8,299</div><div class="cap">结构化 Facts</div></div>
-  <div class="stat"><div class="num">12,646</div><div class="cap">著录卡片</div></div>
-  <div class="stat"><div class="num">30</div><div class="cap">分类树 节点</div></div>
+  <div class="stat"><div class="num">16,143</div><div class="cap">常驻记忆总量</div></div>
+  <div class="stat"><div class="num">5<small> 层</small></div><div class="cap">记忆分层模型</div></div>
+  <div class="stat"><div class="num">5<small> 道</small></div><div class="cap">GC 回收安全闸</div></div>
+  <div class="stat"><div class="num">4<small> 验</small></div><div class="cap">备份可恢复性</div></div>
 </div>
 
-<!-- 宫殿结构 -->
+<!-- ══ S1 可靠性 ══ -->
 <div class="card">
-  <h3><span class="bar"></span>🏛️ 宫殿结构 — 空间即架构</h3>
+  <h3><span class="bar"></span>🛡 S1 可靠性 — 修真缺陷<span class="en">写得对 · 收得回</span></h3>
+  <div class="items">
+    <div class="item"><span class="k fix">原子性</span><span class="v">写入原为三步 autocommit，崩溃会留"有主行、无实体、无分词"的<b>半成品记忆</b>。改为<b>单事务包裹</b>，任一步失败整体回滚。</span></div>
+    <div class="item"><span class="k fix">幂等键</span><span class="v">崩溃重试 / 断线重发 / 重复提交，现在<b>返回原 id 不再产生新行</b>（部分唯一索引 + <code>ON CONFLICT DO NOTHING</code>，历史 NULL 行不回填）。</span></div>
+    <div class="item"><span class="k hot">记忆回收</span><span class="v">原系统<b>全仓无 DELETE、无 VACUUM</b> —— 软删即终点。现补 <b>tombstone → purged</b> 环节，五道安全闸放行，默认干跑，可整批还原。</span></div>
+    <div class="item"><span class="k">完整性巡检</span><span class="v">新增 <code>jobs/scrub.py</code>（<b>只读</b>）：6 类孤儿与异常 —— 孤儿 inode / 悬空信念证据 / 到期未回收 / 缺指纹 / 活子挂死父。</span></div>
+    <div class="item"><span class="k hot">可观测</span><span class="v">写入/召回延迟埋点（p50/p95/p99，成本≈0）+ <code>GET /api/v1/metrics</code> 一屏看全。此前有 2000ms 阈值却<b>全无埋点</b>，阈值形同虚设。</span></div>
+    <div class="item"><span class="k fix">备份复验</span><span class="v">原备份只回答"跑没跑"（曾<b>静默失败 36 天</b>）。现四验：新鲜度 / 体积 / <b>真读 pg_restore TOC</b> / <code>--deep</code> 真恢复到临时库比对行数。</span></div>
+  </div>
+</div>
+
+<!-- ══ S2 检索 ══ -->
+<div class="card">
+  <h3><span class="bar"></span>🔍 S2 检索质量 — 找得准<span class="en">先量后改</span></h3>
+  <div class="items">
+    <div class="item"><span class="k">前置纪律</span><span class="v">改召回排序前<b>必须先有评测基线</b> —— 红队原话："RRF 更好"无评测支撑则不采信。</span></div>
+    <div class="item"><span class="k hot">四通道融合</span><span class="v">点名 / 引导 / 共鸣 / 文库 原为<b>各自返回、不融合</b>。现各取 50 候选 → <b>RRF 排名融合</b>(k=60) → 统一截断。只按排名融合 = <b>量纲无关</b>（原做法把余弦距离/BM25/时间三种量纲直接相加）。</span></div>
+    <div class="item"><span class="k">两个细节</span><span class="v"><b>命名空间隔离</b>：记忆与 Wiki 是两套 id 空间，融合前分别加 <code>m:</code>/<code>w:</code> 前缀，否则不相关条目互相加分；<b>可解释</b>：<code>channels</code> 字段回答"这条为什么排上来"。</span></div>
+    <div class="item"><span class="k">零行为变化</span><span class="v">融合<b>默认关闭</b>（<code>?fused=true</code> 才启用）—— 评测数字出来之前，线上行为一行不改。</span></div>
+  </div>
+</div>
+
+<!-- ══ S3 治理 ══ -->
+<div class="card">
+  <h3><span class="bar"></span>🗂 S3 治理 — 弄得清<span class="en">制度而非文档</span></h3>
+  <div class="items">
+    <div class="item"><span class="k hot">分层可执行</span><span class="v">5 层记忆模型<b>不是文档</b>：<code>classify_layer()</code> 在<b>写入路径上真跑</b>，每条记忆落 <code>metadata.layer</code>；对外有 <code>/api/v1/layers</code> 与 <code>self_check</code>。</span></div>
+    <div class="item"><span class="k">诚实标注</span><span class="v">约束层（L3）的载体在 <b>Hermes 侧</b>（SOUL / MEMORY / config），不在库内 —— 用断言锁住，防止被硬塞 category 假装存在。</span></div>
+    <div class="item"><span class="k">发布状态机</span><span class="v">本地 → 真实环境 → 部署 → 公开 → 归纳，<b>未过上一段不得进入下一段</b>（越段被硬拒）。本版发布即第一个回填样本。</span></div>
+    <div class="item"><span class="k">产出物指针</span><span class="v">交付=箱子 / 检索=Wiki / 版本=仓库；<b>记忆里只放指针 + 指纹，不放实体</b>。</span></div>
+  </div>
+</div>
+
+<!-- ══ GC 五道闸 ══ -->
+<div class="card">
+  <h3><span class="bar"></span>♻️ 记忆回收 — 五道安全闸<span class="en">本版最硬的一块</span></h3>
+  <div class="gates">
+    <div class="gate"><span class="no">①</span><span class="nm">时间窗口</span><span class="fn">默认 30 天</span></div>
+    <div class="gate"><span class="no">②</span><span class="nm">保护位</span><span class="fn">permanent / pinned</span></div>
+    <div class="gate"><span class="no">③</span><span class="nm">引用完整性</span><span class="fn">信念证据 / 存活子记忆</span></div>
+    <div class="gate"><span class="no">④</span><span class="nm">冷归档</span><span class="fn">archive 表 + traces 快照</span></div>
+    <div class="gate"><span class="no">⑤</span><span class="nm">回滚凭证</span><span class="fn">CSV + 整批还原</span></div>
+  </div>
+  <div class="gates-foot">默认<b>干跑</b>，<code>--apply</code> 才真删；<code>--restore &lt;batch&gt;</code> <b>整批还原</b> —— 删除第一次成为可逆操作</div>
+</div>
+
+<!-- ══ 事故 ══ -->
+<div class="card alert">
+  <h3><span class="bar"></span>⚠️ 发布途中真实事故 —— 教训保留<span class="en">本版最重要的收获</span></h3>
+  <div class="items">
+    <div class="item"><span class="k fix">现象</span><span class="v">部署到生产后，<b>第一发写入即 500</b>。</span></div>
+  </div>
+  <div class="code-block">there is no unique or exclusion constraint
+matching the <span class="hl">ON CONFLICT</span> specification</div>
+  <div class="items">
+    <div class="item"><span class="k">根因</span><span class="v"><code>dedup_fingerprint_key</code> 是<b>部分唯一索引</b>（带 <code>WHERE</code> 谓词），而写入写的是不带谓词的 <code>ON CONFLICT</code>。部分索引推断<b>要求谓词显式匹配</b> —— 缺谓词直接报错，整条写入路径挂掉。</span></div>
+    <div class="item"><span class="k hot">为什么单测没抓到</span><span class="v">已有测试只验证"索引能拦住重复指纹"（裸 <code>INSERT</code>），<b>从没跑过产品代码里那条真实的 INSERT ... ON CONFLICT</b>。</span></div>
+    <div class="item"><span class="k">铁律</span><span class="v"><b>测了索引 ≠ 测了使用索引的那条 SQL。</b>凡"代码里拼出来的 SQL"与"库里建的对象"有耦合，就必须把真实 SQL 拉出来跑一遍 —— 现已改为<b>从源码正则抽 SQL 投库执行</b>的测试，删掉谓词立刻变红。</span></div>
+  </div>
+</div>
+
+<!-- ══ 顺带修的 ══ -->
+<div class="card">
+  <h3><span class="bar"></span>🔧 发布后修正 — 同一版本号内吃掉<span class="en">测试阶段的账不带到下个版本</span></h3>
+  <div class="items">
+    <div class="item"><span class="k fix">僵尸记忆</span><span class="v">GC 整批还原原只归档主表与轨迹，被级联删掉的<b>实体 / 关键词 / 著录卡</b>回不来 —— 修成<b>四表全快照</b> + 还原完整性断言（撤掉修复测试立刻红）。</span></div>
+    <div class="item"><span class="k fix">幂等键误杀</span><span class="v">内容指纹与"允许矛盾"的日志层自相矛盾，会<b>误杀合法日志</b> —— 改为<b>指纹分层</b>（日志层按来源上下文与小时桶，其余按内容）。</span></div>
+    <div class="item"><span class="k">半修</span><span class="v">上面第二处在<b>生产环境实测</b>才暴露 —— 本地单测抓不到，因为"只测了纯函数，没测整条写入路径"。</span></div>
+  </div>
+</div>
+
+<!-- ══ 宫殿 ══ -->
+<div class="card">
+  <h3><span class="bar"></span>🏛️ 宫殿结构 — 空间即架构<span class="en">人类几百年的记忆智慧</span></h3>
   <div class="palace">
-    <div class="level"><span class="lbl">大厅 LOBBY</span><span class="desc">高频记忆常驻注入，抬手即取</span></div>
-    <div class="level"><span class="lbl">翼 WING</span><span class="desc">K知识 · N网络 · D开发 · O运维 · A资产 · P人物 · I灵感</span></div>
-    <div class="level"><span class="lbl">房间 ROOM</span><span class="desc">20 房间（proxy/deploy/secret/model/…）</span></div>
+    <div class="level"><span class="lbl">大厅 LOBBY</span><span class="desc">高频记忆常驻注入 · <b>抬手即取</b></span></div>
+    <div class="level"><span class="lbl">翼 WING</span><span class="desc">K 知识 · N 网络 · D 开发 · O 运维 · A 资产 · P 人物 · I 灵感</span></div>
+    <div class="level"><span class="lbl">房间 ROOM</span><span class="desc"><b>20 间</b>（proxy / deploy / secret / model …）</span></div>
     <div class="level"><span class="lbl">书卷 TOME</span><span class="desc">著录卡片 + 档号 + 全文指针</span></div>
-    <div class="level"><span class="lbl">地下档案馆</span><span class="desc">原始对话全保真（Hermes state.db）</span></div>
+    <div class="level"><span class="lbl">地下档案馆</span><span class="desc">原始对话<b>全保真</b>（Hermes 侧会话库）</span></div>
   </div>
-  <div class="no-example">
-    档号 <span class="seg">K</span>·<span class="seg">PROXY</span>·<span class="seg">2026</span>-<span class="seg">0007</span>
-    <span style="font-size:11px;opacity:.7;margin-left:6px">编号即位置 · 像图书馆索书号</span>
-  </div>
-</div>
-
-<!-- 三室分工 -->
-<div class="card">
-  <h3><span class="bar"></span>🔄 三室分工 — 各司其职</h3>
-  <div class="rooms">
-    <div class="room"><span class="ic">🕵️</span><span class="nm">资料室</span><span class="fn">对话 → 事实精炼</span></div>
-    <div class="room"><span class="ic">🏛️</span><span class="nm">档案馆</span><span class="fn">分类归档 + 著录</span></div>
-    <div class="room"><span class="ic">📚</span><span class="nm">图书馆</span><span class="fn">检索召唤</span></div>
-    <div class="room"><span class="ic">🍵</span><span class="nm">中药柜</span><span class="fn">高频快速取用</span></div>
+  <div class="items" style="margin-top:9px">
+    <div class="item"><span class="k">档号</span><span class="v"><code>K·PROXY·2026-0007</code> — 编号即位置，<b>像图书馆索书号</b></span></div>
   </div>
 </div>
 
-<!-- 三通道召唤 -->
+<!-- ══ 分层模型 ══ -->
 <div class="card">
-  <h3><span class="bar"></span>🪄 三通道召唤 — 知识招手就来</h3>
-  <div class="channels">
-    <div class="chan"><div class="no">①</div><div class="nm">点名 · 精确</div><div class="fn">档号/题名/标签直命中<br>&lt;100ms</div></div>
-    <div class="chan"><div class="no">②</div><div class="nm">引导 · 范围</div><div class="fn">分类树翼/房缩小<br>逐层定位</div></div>
-    <div class="chan"><div class="no">③</div><div class="nm">共鸣 · 模糊</div><div class="fn">向量语义兜底<br>pgvector HNSW</div></div>
+  <h3><span class="bar"></span>🧬 记忆分层模型 — 按「允不允许矛盾」分族<span class="en">v8.0 新增 · 写入时真跑</span></h3>
+  <div class="layers">
+    <div class="layer f1"><span class="tag">L0 日志</span><span class="txt">原始流水 · <b>允许矛盾</b>（同一件事的多次记录共存）</span></div>
+    <div class="layer f2"><span class="tag">L1 认知</span><span class="txt">提炼后的事实与偏好 · <b>只认最新</b></span></div>
+    <div class="layer f3"><span class="tag">L2 技能</span><span class="txt">可执行的过程性记忆 · <b>演进式覆盖</b></span></div>
+    <div class="layer f3"><span class="tag">L3 约束</span><span class="txt">红线与规矩 · <b>载体在 Hermes 侧</b>（有断言锁住）</span></div>
+    <div class="layer f2"><span class="tag">L4 参考</span><span class="txt">外部资料与快照 · <b>只增不改</b></span></div>
+  </div>
+  <div class="family-note">
+    <span class="n1">允许矛盾族 · 日志</span>
+    <span class="n2">只认最新族 · 认知 / 参考</span>
+    <span class="n3">演进覆盖族 · 技能 / 约束</span>
   </div>
 </div>
 
-<!-- v7.x 新能力 -->
+<!-- ══ 集成 ══ -->
 <div class="card">
-  <h3><span class="bar"></span>🚀 v7 系列新能力 — 记忆越来越聪明</h3>
-  <div class="v7grid">
-    <div class="v7item"><span class="ic">🗄️</span><span class="nm">抽屉化记忆</span><span class="fn">v7.1 温度×时间双轨</span></div>
-    <div class="v7item"><span class="ic">🧠</span><span class="nm">Bjork S/R</span><span class="fn">v7.2 存储永不衰减</span></div>
-    <div class="v7item"><span class="ic">📊</span><span class="nm">Rank 综合评分</span><span class="fn">v7.3 复合排序</span></div>
-    <div class="v7item"><span class="ic">🧩</span><span class="nm">WIKI 知识库</span><span class="fn">v7.4 论文方案快照</span></div>
-    <div class="v7item"><span class="ic">🔍</span><span class="nm">BM25+向量融合</span><span class="fn">v7.5 precision@3 100%</span></div>
-    <div class="v7item"><span class="ic">🔬</span><span class="nm">记忆三分类</span><span class="fn">v7.6 episodic/semantic/procedural</span></div>
-    <div class="v7item"><span class="ic">🚀</span><span class="nm">技能资产翼</span><span class="fn">v7.7 技能=可执行记忆 + 注入调度</span></div>
-    <div class="v7item"><span class="ic">⚡</span><span class="nm">真 BM25 搜索</span><span class="fn">v7.8 jieba 分词 + 关键词加权</span></div>
-    <div class="v7item"><span class="ic">🩹</span><span class="nm">排雷瘦身</span><span class="fn">v7.8 AGE 切除 · 21 表对齐 · dedup 修复</span></div>
-  </div>
-</div>
-
-<!-- 双底座 -->
-<div class="card">
-  <h3><span class="bar"></span>⚡ 双底座 — 蒸馏/审计主力</h3>
-  <div class="duo">
-    <div class="duo-item"><span class="ic">🐋</span><div><div class="nm">DeepSeek</div><div class="fn">Tier3/4 蒸馏 · json 长 prompt 无限制</div></div></div>
-    <div class="duo-item"><span class="ic">🍵</span><div><div class="nm">豆包 ARK</div><div class="fn">Tier2 分类 + embedding · 便宜稳定</div></div></div>
-  </div>
-</div>
-
-<!-- Hermes 集成 -->
-<div class="card">
-  <h3><span class="bar"></span>🔌 Hermes 深度集成</h3>
+  <h3><span class="bar"></span>🔌 Hermes 深度集成<span class="en">开箱即用</span></h3>
   <div class="integ">
-    <span class="tag">🧙 palace_summon 召唤工具</span>
+    <span class="tag">🧙 召唤工具</span>
     <span class="tag">🤖 15 个记忆工具</span>
     <span class="tag">📋 宫殿状态注入</span>
-    <span class="tag">💾 对话 → 无损存储</span>
+    <span class="tag">💾 对话无损存储</span>
     <span class="tag">⏳ 永恒分级</span>
-    <span class="tag">🔄 6 大自动钩子</span>
-    <span class="tag">☁️ 端云同步</span>
-    <span class="tag">🛡️ 崩溃安全写队列</span>
+    <span class="tag">🔄 自动钩子</span>
+    <span class="tag">📊 指标端点</span>
+    <span class="tag">🛡 崩溃安全写队列</span>
+    <span class="tag">🧪 契约测试</span>
+    <span class="tag">🔒 自托管</span>
+    <span class="tag">🔌 模型可插拔</span>
   </div>
 </div>
 
+<!-- ══ FOOTER ══ -->
 <div class="footer">
-  Mnemosyne OS <b>v7.8.0</b> · 记忆宫殿法空间编码 + 档案学著录 + 中药柜斗谱 — 人类几百年验证的记忆智慧<br>
-  gymaira1990-jpg/Mnemosyne-OS · MIT License · 自托管 · 模型可插拔（豆包/DeepSeek/任意 OpenAI 兼容）
+  Mnemosyne OS <b>v8.0.0</b> · 记忆宫殿法空间编码 + 档案学著录 + 中药柜斗谱 —— 人类几百年验证的记忆智慧，落到工程上<br>
+  <span class="repo">gymaira1990-jpg/Mnemosyne-OS</span> · MIT License · 自托管 · 模型可插拔（豆包 / DeepSeek / 任意 OpenAI 兼容）<br>
+  本版验证：单元 267 通过 · 契约 45 通过 · 生产冒烟 6/6 · 发布流程七阶段三关卡全过
 </div>
 
 </body>
