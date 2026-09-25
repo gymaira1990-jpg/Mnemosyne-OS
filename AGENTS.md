@@ -37,6 +37,7 @@ git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 - ❌ 集成代码改动必须带契约测试（capabilities 为唯一权威，不许凭印象写字段名/参数位置）
 - ❌ 绝不硬编码 API Key / 真实 IP / 域名 / 密码
 - ❌ push 前必须隐私扫描（判据：零输出）
+- ❌ 扫描/门禁 pattern 改动必须**本地按 workflow 逐步复现**（判据：旧 pattern 命中 → 新 pattern 零命中）**且**过 pattern 双向自检（合法写法绿 / 硬编码红）；本地复现须带反证（放入真样本必须判红后清场）—— 门禁只在 push 后才跑，本地复现是唯一的推送前证据。判红的必须是「写死的值」而非「关键词出现」
 - ❌ 版本号三处一致（VERSION / README badge / CHANGELOG）
 
 ## 文档导航
