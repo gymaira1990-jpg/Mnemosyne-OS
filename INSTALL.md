@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v7.8.3 | 更新: 2026-09-12
+> 版本: v8.0.0 | 更新: 2026-09-25
 
 ---
 
@@ -44,7 +44,7 @@
 | 组件 | 要求 |
 |------|------|
 | 操作系统 | Linux / macOS / Windows (WSL2) |
-| Python | 3.12+ |
+| Python | 3.11+ |
 | PostgreSQL | 16.x（含 pgvector ≥ 0.7、Apache AGE ≥ 1.5） |
 | 内存 | 8GB+（推荐） |
 | 模型 API | 任选其一：火山引擎 ARK（豆包）、DeepSeek、OpenAI 兼容端点 |
@@ -179,7 +179,7 @@ OPENAI_CHAT_MINI=gpt-4o-mini
 ### 4. 安装 Python 依赖
 
 ```bash
-python3.12 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -191,7 +191,7 @@ python main.py
 # → FastAPI 服务监听 http://127.0.0.1:8010
 ```
 
-> 端口与监听地址由 `MNEMOSYNE_PORT` / `MNEMOSYNE_HOST` 控制（默认 `8010` / `127.0.0.1`），v7.8.3 起真正生效；无需改代码。
+> 端口与监听地址由 `MNEMOSYNE_PORT` / `MNEMOSYNE_HOST` 控制（默认 `8010` / `127.0.0.1`），v7.8.3 起真正生效（v8.0.0 沿用）；无需改代码。
 
 > 生产环境建议用 systemd 或进程管理器。参考 [deploy/mnemosyne.service](deploy/mnemosyne.service)（uvicorn 双 worker）。
 
@@ -200,7 +200,7 @@ python main.py
 ```bash
 # 健康检查
 curl http://127.0.0.1:8010/api/v1/echo
-# → {"status":"ok","service":"Mnemosyne OS","version":"7.8.3"}
+# → {"status":"ok","service":"Mnemosyne OS","version":"8.0.0"}
 
 # 存入一条记忆
 curl -X POST http://127.0.0.1:8010/api/v1/memories \

@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/version-8.0.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
-  <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
+  <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
   
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2?style=flat-square" alt="hermes">
@@ -36,7 +36,7 @@
 
 | | |
 |---|---|
-| **Memories** | 12,427+ archived · 8,299 structured facts · 99.9% archive coverage |
+| **Memories** | 16,500+ active · 17,320 rows · 99.4% archived coverage |
 | **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
 | **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
@@ -136,7 +136,7 @@ curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 | 📚 Library | retrieval | `/palace/summon` |
 | 🍵 Medicine cabinet | high-frequency fast access | taxonomy guide + archive-no |
 
-Conversation fragments (88% → 27% of storage) become **8,299 structured facts** — searchable, classifiable, referenceable knowledge instead of raw dialogue noise.
+Conversation fragments (88% → 27% of storage) become **10,798 knowledge entries** — searchable, classifiable, referenceable knowledge instead of raw dialogue noise.
 
 ### ⏳ Retention Tiers
 
@@ -250,7 +250,7 @@ WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jo
 
 ### Prerequisites
 
-- Python 3.12+ · PostgreSQL 16 + pgvector
+- Python 3.11+ · PostgreSQL 16 + pgvector
 - 8GB+ RAM · Any OpenAI-compatible embedding/LLM backend
 
 ### Hermes Agent (one command)
@@ -302,9 +302,8 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Metric | Value |
 |---|---|
-| Memories archived | 12,427+ (99.9% archive coverage) |
-| Structured facts | 8,299 (metadata.fact_type) |
-| Tome cards | 12,646 |
+| Memories archived | 16,500+ active |
+| Tome cards | see `GET /api/v1/health/<user>` |
 | Taxonomy | 7 wings × 20 rooms (30 nodes) |
 | Summon latency | ~100-400ms (3-channel) |
 | Embedding | 1024d Doubao Embedding-Vision |

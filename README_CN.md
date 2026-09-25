@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/version-8.0.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
-  <img src="https://img.shields.io/badge/python-3.12+-blue?style=flat-square" alt="python">
+  <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
   <img src="https://img.shields.io/badge/graph-Apache%20AGE-forestgreen?style=flat-square" alt="graph">
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2?style=flat-square" alt="hermes">
@@ -30,7 +30,7 @@
 
 | | |
 |---|---|
-| **记忆** | 12,427+ 条归档 · 8,299 条结构化事实 · 归档率 99.9% |
+| **记忆** | 16,500+ 条活跃 · 17,320 行（含墓碑 743） · 归档率 99.4% |
 | **搜索** | 🏰 三通道召唤（点名/引导/共鸣）· ~100-400ms |
 | **宫殿** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
 | **技术** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
@@ -235,9 +235,8 @@ python main.py  # → :8010
 
 | 指标 | 数值 |
 |---|---|
-| 归档记忆 | 12,427+ 条（归档率 99.9%） |
-| 结构化 facts | 8,299 条（metadata.fact_type） |
-| 著录卡片 | 12,646 张 |
+| 归档记忆 | 16,500+ 条活跃（归档率 99.4%） |
+| 数据行 | 17,320（含墓碑 743）· 297 MB |
 | 分类树 | 7翼 × 20房（30 节点） |
 | 召唤延迟 | ~100-400ms（三通道） |
 | 向量化 | 1024d 豆包 Embedding-Vision |

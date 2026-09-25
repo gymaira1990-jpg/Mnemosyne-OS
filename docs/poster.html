@@ -1,344 +1,389 @@
 <!DOCTYPE html>
-<!-- Mnemosyne OS v8.0.0 海报源文件 | 配图: poster-mascot.png（同目录）| 渲染见 README 说明 -->
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<title>Mnemosyne OS 8.0 · 头版</title>
 <style>
-  :root{
-    --orange:#E07B39; --orange-d:#C05621; --brown:#6B4A3A; --brown-l:#8a6a55;
-    --cream:#FFF7EC; --card:#FFFDF8; --ink:#2A1A0A;
-    --green:#2F6B4F; --blue:#2C5C8F; --red:#A33A2A;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{
-    width:900px; background:var(--cream); position:relative;
-    font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei','WenQuanYi Micro Hei',sans-serif;
-    color:var(--brown); padding:34px 34px 26px;
-    -webkit-font-smoothing:antialiased;
-  }
-  /* 纸纹 */
-  body::before{
-    content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
-    background-image:radial-gradient(#6B4A3A0A 1px, transparent 1px);
-    background-size:15px 15px;
-  }
-  body > *{position:relative; z-index:1;}
+/* ══════════════════════════════════════════════════════════════
+   Mnemosyne OS v8.0 海报 · 报纸头版风
+   色板沿用「小小橘新闻」既有语言：米白纸面 + 暖橘 + 深棕 + 墨黑
+   文字 100% 走 HTML 排版（AI 生图不写字）· 禁 emoji 图标
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#fdf8f2; --paper2:#fffdfa;
+  --ink:#1a1410; --ink2:#3a2a1a; --ink3:#5d4037;
+  --orange:#e88d3b; --orange-d:#a55813; --orange-l:#f6d9b6;
+  --rule:#ded0bc; --rule-d:#8a7154; --muted:#866348;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  width:900px; background:var(--paper); color:var(--ink2);
+  font-family:"Noto Sans CJK SC","Noto Sans SC",sans-serif;
+  padding:0 44px 40px; line-height:1.62;
+}
+.serif{font-family:"Noto Serif CJK SC","Noto Serif SC",serif}
 
-  /* ══ HERO ══ */
-  .hero{ text-align:center; padding-bottom:20px; border-bottom:3px solid var(--brown); position:relative; }
-  .hero::after{ content:""; position:absolute; left:0; right:0; bottom:-8px; height:1px; background:var(--brown); opacity:.5; }
-  .badge-row{ display:flex; justify-content:center; gap:10px; margin-bottom:14px; }
-  .badge{
-    display:inline-block; font-size:13px; font-weight:800; letter-spacing:1.5px;
-    color:#fff; background:var(--orange); border-radius:999px; padding:5px 16px;
-    box-shadow:2px 2px 0 #6B4A3A33;
-  }
-  .badge.ghost{ background:transparent; color:var(--orange); border:2px solid var(--orange); }
-  h1{
-    font-size:52px; font-weight:900; letter-spacing:2px; line-height:1.12; margin-bottom:6px;
-    font-family:'Noto Serif CJK SC','Noto Serif SC',serif;
-  }
-  h1 em{ font-style:normal; color:var(--orange); }
-  .sub{ font-size:15px; color:var(--brown-l); letter-spacing:.5px; margin-bottom:16px; }
-  .slogan{ display:flex; justify-content:center; gap:0; margin:16px 0 18px; }
-  .slogan span{
-    font-size:23px; font-weight:900; color:#fff; background:var(--brown);
-    padding:8px 18px; letter-spacing:2px;
-  }
-  .slogan span:nth-child(2){ background:var(--orange); }
-  .slogan span:nth-child(3){ background:var(--brown); }
-  .slogan span:nth-child(4){ background:var(--orange-d); }
-  .slogan span + span{ border-left:2px solid var(--cream); }
-  .slogan-note{ font-size:12.5px; color:var(--brown-l); letter-spacing:1px; }
+/* ── 报眉 ── */
+.dateline{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:20px 0 8px; font-size:11.5px; letter-spacing:2.4px;
+  color:var(--muted); text-transform:uppercase;
+}
+.dateline .mid{color:var(--orange-d); font-weight:700}
 
-  /* 主角立牌 */
-  .mascot{ display:flex; align-items:center; justify-content:center; gap:20px; margin:20px 0 4px; }
-  .mascot-box{ position:relative; transform:rotate(1.2deg); }
-  .mascot-box img{ width:158px; display:block; border-radius:12px; border:2.5px solid var(--brown); box-shadow:5px 5px 0 #6B4A3A2e; }
-  .mascot-tag{
-    position:absolute; bottom:-11px; left:50%; transform:translateX(-50%);
-    background:var(--brown); color:var(--cream); font-size:11px; font-weight:800;
-    padding:3px 12px; border-radius:999px; white-space:nowrap; box-shadow:2px 2px 0 #6B4A3A33;
-  }
-  .mascot-words{ text-align:left; max-width:400px; }
-  .mascot-words .q{ font-size:13px; line-height:1.7; color:var(--brown); }
-  .mascot-words .q b{ color:var(--orange-d); }
-  .mascot-words .sig{ margin-top:8px; font-size:11.5px; color:var(--brown-l); letter-spacing:1px; }
+/* ── 报头 ── */
+.masthead{text-align:center; border-top:3px solid var(--ink); border-bottom:1px solid var(--ink);
+  padding:16px 0 12px; position:relative}
+.masthead h1{
+  font-family:"Noto Serif CJK SC",serif; font-size:78px; font-weight:900;
+  letter-spacing:-1px; line-height:1; color:var(--ink);
+}
+.masthead h1 em{font-style:normal; color:var(--orange-d)}
+.mast-sub{font-size:14px; color:var(--ink3); margin-top:10px; letter-spacing:.6px}
+.mast-meta{
+  margin-top:12px; padding-top:9px; border-top:1px solid var(--rule);
+  font-size:11.5px; letter-spacing:1.8px; color:var(--muted);
+}
 
-  /* ══ 数据条 ══ */
-  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:11px; margin:22px 0 18px; }
-  .stat{
-    background:linear-gradient(160deg,#6B4A3A,#8a5a3a); color:var(--cream);
-    border-radius:13px; padding:14px 9px; text-align:center; box-shadow:3px 3px 0 #6B4A3A2e;
-  }
-  .stat .num{ font-size:26px; font-weight:900; line-height:1.1; font-family:'Noto Serif CJK SC',serif; }
-  .stat .num small{ font-size:14px; font-weight:700; }
-  .stat .cap{ font-size:10.5px; opacity:.88; margin-top:4px; letter-spacing:.5px; }
+/* ── 头条 ── */
+.lead{padding:26px 0 8px; border-bottom:3px double var(--ink)}
+.kicker{
+  display:inline-block; font-size:12px; letter-spacing:3px; font-weight:700;
+  color:#fff; background:var(--ink); padding:3px 11px; margin-bottom:14px;
+}
+.lead h2{
+  font-family:"Noto Serif CJK SC",serif; font-size:62px; font-weight:900;
+  line-height:1.08; color:var(--ink); letter-spacing:-.5px;
+}
+.lead h2 .four{
+  display:block; font-size:23px; font-weight:700; color:var(--orange-d);
+  letter-spacing:3.5px; margin-top:12px; font-family:"Noto Sans CJK SC",sans-serif;
+}
+.lede{
+  margin-top:18px; font-size:15px; line-height:1.78; color:var(--ink2);
+  column-count:2; column-gap:34px; column-rule:1px solid var(--rule);
+}
+.lede .dc{
+  float:left; font-family:"Noto Serif CJK SC",serif; font-size:52px; line-height:.9;
+  font-weight:900; color:var(--orange); margin:2px 8px 0 0;
+}
 
-  /* ══ 通用卡片 ══ */
-  .card{
-    background:var(--card); border:2.5px solid var(--brown); border-radius:15px;
-    box-shadow:4px 4px 0 #6B4A3A20; padding:16px 19px 17px; margin-bottom:15px;
-  }
-  .card h3{
-    font-size:17px; font-weight:900; color:var(--orange-d); margin-bottom:12px;
-    display:flex; align-items:center; gap:9px; letter-spacing:.5px;
-  }
-  .card h3 .bar{ width:5px; height:18px; background:var(--orange); border-radius:3px; flex-shrink:0; }
-  .card h3 .en{ font-size:11px; font-weight:700; color:var(--brown-l); letter-spacing:1px; margin-left:auto; }
+/* ── 要闻数字 ── */
+.figures{display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1px solid var(--rule-d);
+  margin-top:22px; background:var(--paper2)}
+.fig{padding:18px 10px; text-align:center; border-right:1px solid var(--rule)}
+.fig:last-child{border-right:none}
+.fig .n{font-family:"Noto Serif CJK SC",serif; font-size:40px; font-weight:900; color:var(--orange-d); line-height:1}
+.fig .n small{font-size:17px; font-weight:700}
+.fig .c{font-size:11.5px; color:var(--muted); margin-top:7px; letter-spacing:1.4px}
 
-  /* 升级条目 */
-  .items{ display:flex; flex-direction:column; gap:8px; }
-  .item{ display:flex; gap:10px; align-items:flex-start; background:var(--cream); border:1.5px solid #6B4A3A38; border-radius:10px; padding:9px 12px; }
-  .item .k{
-    font-size:11px; font-weight:800; color:#fff; background:var(--brown); border-radius:6px;
-    padding:3px 8px; white-space:nowrap; flex-shrink:0; letter-spacing:.5px;
-  }
-  .item .k.hot{ background:var(--orange-d); }
-  .item .k.fix{ background:var(--red); }
-  .item .v{ font-size:12.5px; line-height:1.62; }
-  .item .v b{ color:var(--ink); font-weight:800; }
-  .item .v code{ font-family:'SF Mono',Consolas,monospace; font-size:11.5px; background:#6B4A3A14; padding:1px 5px; border-radius:4px; }
+/* ── 主笔专栏 ── */
+.columnist{margin-top:26px; border:1.5px solid var(--ink); background:var(--paper2)}
+.col-head{
+  background:var(--ink); color:#fdf8f2; font-size:12.5px; letter-spacing:2.6px;
+  padding:7px 14px; font-weight:700;
+}
+.col-body{display:flex; gap:20px; padding:16px 18px; align-items:center}
+.col-body img{width:196px; flex-shrink:0; display:block}
+.col-quote{font-size:13.5px; line-height:1.85; color:var(--ink2)}
+.col-quote b{color:var(--orange-d)}
+.col-sign{margin-top:9px; font-size:11px; color:var(--muted); letter-spacing:1.4px}
 
-  /* 三宫格（并列） */
-  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .tile{ background:var(--cream); border:2px solid var(--brown); border-radius:11px; padding:11px 10px; text-align:center; box-shadow:2px 2px 0 #6B4A3A20; }
-  .tile .ic{ font-size:20px; display:block; margin-bottom:4px; }
-  .tile .nm{ font-size:12.5px; font-weight:900; color:var(--brown); }
-  .tile .fn{ font-size:10.5px; color:var(--brown-l); margin-top:4px; line-height:1.5; }
+/* ── 版块 ── */
+.edition{margin-top:30px; padding-top:18px; border-top:1px solid var(--ink)}
+.ed-head{display:flex; align-items:baseline; gap:12px; margin-bottom:14px}
+.ed-no{
+  font-family:"Noto Serif CJK SC",serif; font-size:13px; font-weight:900; color:#fff;
+  background:var(--orange-d); padding:3px 9px; letter-spacing:1.5px; flex-shrink:0;
+}
+.ed-head h3{font-family:"Noto Serif CJK SC",serif; font-size:29px; font-weight:900; color:var(--ink); letter-spacing:-.3px}
+.ed-head .en{margin-left:auto; font-size:11px; color:var(--muted); letter-spacing:1.8px}
 
-  /* 宫殿结构 */
-  .palace{ display:flex; flex-direction:column; gap:7px; }
-  .level{ display:flex; align-items:center; gap:11px; background:var(--cream); border:1.8px solid #6B4A3A55; border-radius:10px; padding:8px 13px; }
-  .level .lbl{
-    font-weight:800; font-size:11.5px; color:var(--cream); background:var(--brown);
-    border-radius:6px; padding:4px 9px; white-space:nowrap; min-width:96px; text-align:center; letter-spacing:.5px;
-  }
-  .level .desc{ font-size:12.5px; }
-  .level .desc b{ color:var(--ink); }
+/* 条目 */
+.item{display:flex; gap:13px; padding:9px 0; border-bottom:1px dotted var(--rule)}
+.item:last-child{border-bottom:none}
+.item .sq{
+  width:9px; height:9px; background:var(--orange); flex-shrink:0; margin-top:7px;
+}
+.item .body{flex:1}
+.item .t{font-weight:800; color:var(--ink); font-size:14.5px; letter-spacing:.3px}
+.item .d{font-size:13px; line-height:1.72; color:var(--ink3); margin-top:2px}
+.item .d b{color:var(--orange-d); font-weight:800}
+code{
+  font-family:"Noto Sans Mono CJK SC",monospace; font-size:12px;
+  background:#f2e8da; color:#8a4b0e; padding:1px 5px; border-radius:3px;
+}
 
-  /* 分层模型 */
-  .layers{ display:flex; flex-direction:column; gap:7px; }
-  .layer{ display:flex; align-items:center; gap:11px; border-radius:10px; padding:8px 13px; background:var(--cream); border:1.8px solid #6B4A3A55; }
-  .layer .tag{ font-size:11.5px; font-weight:900; color:#fff; border-radius:6px; padding:4px 9px; min-width:96px; text-align:center; white-space:nowrap; }
-  .layer .txt{ font-size:12.5px; }
-  .layer .txt b{ color:var(--ink); }
-  .layer.f1 .tag{ background:var(--blue); }
-  .layer.f2 .tag{ background:var(--green); }
-  .layer.f3 .tag{ background:var(--orange-d); }
-  .family-note{ display:flex; gap:9px; margin-top:9px; }
-  .family-note span{ flex:1; font-size:10.5px; text-align:center; color:#fff; border-radius:8px; padding:5px 4px; font-weight:700; }
-  .family-note .n1{ background:var(--blue); }
-  .family-note .n2{ background:var(--green); }
-  .family-note .n3{ background:var(--orange-d); }
+/* ── 双栏图解 ── */
+.duo{display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:30px;
+  padding-top:18px; border-top:1px solid var(--ink)}
+.duo .ed-head h3{font-size:24px}
+.gate{display:flex; gap:11px; padding:8px 0; border-bottom:1px dotted var(--rule)}
+.gate .num{
+  font-family:"Noto Serif CJK SC",serif; font-size:19px; font-weight:900;
+  color:var(--orange-d); width:26px; flex-shrink:0; line-height:1.35;
+}
+.gate .body{font-size:12.5px; line-height:1.7; color:var(--ink3)}
+.gate .body b{color:var(--ink); font-size:13.5px; display:block}
 
-  /* GC 五闸 */
-  .gates{ display:flex; align-items:stretch; gap:6px; }
-  .gate{
-    flex:1; background:linear-gradient(170deg,#FFF3E2,#FFFCF6); border:2px solid var(--orange);
-    border-radius:10px; padding:10px 6px; text-align:center; position:relative;
-  }
-  .gate .no{ font-size:15px; font-weight:900; color:var(--orange-d); display:block; }
-  .gate .nm{ font-size:11.5px; font-weight:800; color:var(--brown); margin-top:3px; line-height:1.35; }
-  .gate .fn{ font-size:9.5px; color:var(--brown-l); margin-top:3px; line-height:1.4; }
-  .gate + .gate::before{
-    content:"›"; position:absolute; left:-7px; top:50%; transform:translateY(-50%);
-    font-size:16px; font-weight:900; color:var(--orange);
-  }
-  .gates-foot{ margin-top:10px; font-size:11.5px; color:var(--brown-l); text-align:center; }
-  .gates-foot b{ color:var(--ink); }
+/* ── 特稿框 ── */
+.special{margin-top:30px; padding-top:18px; border-top:1px solid var(--ink)}
+.box{border:1.5px solid var(--ink); background:var(--paper2); padding:18px 20px; margin-top:14px}
+.box.warn{border-left:7px solid var(--orange)}
+.box .bh{font-size:13px; font-weight:900; color:var(--orange-d); letter-spacing:1.6px; margin-bottom:9px}
+.box .row{display:flex; gap:11px; margin-bottom:8px; font-size:13px; line-height:1.72}
+.box .row .k{font-weight:800; color:var(--ink); flex-shrink:0; width:74px}
+.box .row .v{color:var(--ink3); flex:1}
+.creed{
+  margin-top:12px; padding:11px 14px; background:#f7ede0; border-left:4px solid var(--orange-d);
+  font-family:"Noto Serif CJK SC",serif; font-size:14.5px; font-weight:900; color:#7a3f08; line-height:1.6;
+}
 
-  /* 事故卡（特殊配色） */
-  .card.alert{ border-color:var(--red); box-shadow:4px 4px 0 #A33A2A22; }
-  .card.alert h3{ color:var(--red); }
-  .card.alert h3 .bar{ background:var(--red); }
-  .code-block{
-    font-family:'SF Mono',Consolas,monospace; font-size:11px; line-height:1.65;
-    background:#2A1A0A; color:#FFD9B0; border-radius:9px; padding:10px 13px; margin:8px 0;
-    white-space:pre-wrap; word-break:break-all;
-  }
-  .code-block .hl{ color:#FF9F43; font-weight:700; }
+/* ── 宫殿结构 ── */
+.palace{display:flex; flex-direction:column; gap:0}
+.prow{display:flex; align-items:center; gap:14px; padding:9px 0; border-bottom:1px dotted var(--rule)}
+.prow .pl{
+  font-family:"Noto Serif CJK SC",serif; width:92px; flex-shrink:0;
+  font-size:14px; font-weight:900; color:var(--ink);
+}
+.prow .pd{font-size:12.5px; color:var(--ink3); line-height:1.65}
 
-  /* 集成 tags */
-  .integ{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; }
-  .integ .tag{
-    background:var(--cream); border:1.8px solid var(--brown); border-radius:999px;
-    padding:5px 13px; font-size:11.5px; font-weight:700; color:var(--brown);
-  }
+/* ── 分层 ── */
+.layers{display:flex; flex-direction:column; gap:7px}
+.lay{display:flex; align-items:center; gap:12px; padding:8px 12px; background:var(--paper2);
+  border:1px solid var(--rule); border-left:5px solid var(--orange)}
+.lay .code2{font-family:"Noto Serif CJK SC",serif; font-weight:900; font-size:14px; color:var(--orange-d); width:38px; flex-shrink:0}
+.lay .nm{font-weight:800; color:var(--ink); font-size:13.5px; width:52px; flex-shrink:0}
+.lay .ds{font-size:12.5px; color:var(--ink3); flex:1}
+.families{margin-top:11px; font-size:12px; color:var(--muted); letter-spacing:.4px; line-height:1.9}
+.families b{color:var(--orange-d)}
 
-  /* footer */
-  .footer{ text-align:center; font-size:11px; color:var(--brown-l); margin-top:18px; padding-top:13px; border-top:1.5px dashed #6B4A3A55; line-height:1.85; letter-spacing:.5px; }
-  .footer b{ color:var(--orange-d); }
-  .footer .repo{ font-family:'SF Mono',Consolas,monospace; font-size:11.5px; color:var(--brown); font-weight:700; }
+/* ── 集成标签 ── */
+.tags{display:flex; flex-wrap:wrap; gap:7px; margin-top:12px}
+.tag{
+  font-size:12px; padding:5px 11px; border:1px solid var(--rule-d); color:var(--ink3);
+  background:var(--paper2); letter-spacing:.5px;
+}
+.tag.on{border-color:var(--orange-d); color:var(--orange-d); font-weight:700}
+
+/* ── 报尾 ── */
+.colophon{
+  margin-top:32px; padding-top:16px; border-top:3px solid var(--ink);
+  text-align:center; font-size:11.5px; color:var(--muted); line-height:1.95; letter-spacing:.4px;
+}
+.colophon .big{font-family:"Noto Serif CJK SC",serif; font-size:16px; font-weight:900; color:var(--ink);
+  letter-spacing:1px; margin-bottom:7px}
+.colophon b{color:var(--orange-d)}
 </style>
 </head>
 <body>
 
-<!-- ══ HERO ══ -->
-<div class="hero">
-  <div class="badge-row">
-    <span class="badge">v8.0.0 · 2026-09-25</span>
-    <span class="badge ghost">写得对 收得回 找得准 弄得清</span>
-  </div>
-  <h1>🏰 记忆<em>宫殿</em> OS 8.0</h1>
-  <div class="sub">Mnemosyne OS — 给 AI 的认知型记忆操作系统 · 不是向量库，不是 RAG 管道</div>
-  <div class="slogan">
-    <span>写得对</span><span>收得回</span><span>找得准</span><span>弄得清</span>
-  </div>
-  <div class="slogan-note">本版只做四件事：把"会写错、删不掉、找不到、说不清"逐个修掉</div>
+<!-- 报眉 -->
+<div class="dateline">
+  <span>G-CAT 出品</span><span class="mid">认知系统特刊</span><span>第 8.0 期</span>
+</div>
 
-  <div class="mascot">
-    <div class="mascot-box">
-      <img src="poster-mascot.png" alt="小小橘">
-      <div class="mascot-tag">🍊 记忆宫殿看门喵 · 小小橘</div>
-    </div>
-    <div class="mascot-words">
-      <div class="q">
-        「喵…这一版不是加功能，是<b>把地基修结实了</b>。<br>
+<!-- 报头 -->
+<header class="masthead">
+  <h1>Mnemosyne <em>OS</em></h1>
+  <div class="mast-sub">给 AI 的认知型记忆操作系统　·　不是向量库，不是 RAG 管道</div>
+  <div class="mast-meta">2026-09-25　|　记忆宫殿法 · 档案学著录 · 中药柜斗谱　|　开源免费</div>
+</header>
+
+<!-- 头条 -->
+<section class="lead">
+  <span class="kicker">本报特稿 · 记忆宫殿加冕</span>
+  <h2 class="serif">记忆宫殿 OS 8.0
+    <span class="four">写得对　收得回　找得准　弄得清</span>
+  </h2>
+  <p class="lede">
+    <span class="dc">本</span>版只做四件事：把「会写错、删不掉、找不到、说不清」逐个修掉。写入从三步游离改为单事务；
+    记忆从「软删即终点」补上可逆回收；召回从四路各说各话改为排名融合；
+    分层模型从文档变成写入路径上真跑的代码。它给出的不是功能清单，是一副能站住的骨架。
+  </p>
+</section>
+
+<!-- 要闻数字 -->
+<section class="figures">
+  <div class="fig"><div class="n serif">16,500<small>+</small></div><div class="c">常驻记忆总量</div></div>
+  <div class="fig"><div class="n serif">5<small> 层</small></div><div class="c">记忆分层模型</div></div>
+  <div class="fig"><div class="n serif">5<small> 道</small></div><div class="c">GC 回收安全闸</div></div>
+  <div class="fig"><div class="n serif">4<small> 验</small></div><div class="c">备份可恢复性</div></div>
+</section>
+
+<!-- 主笔专栏 -->
+<section class="columnist">
+  <div class="col-head">主笔专栏　·　记忆宫殿看门喵　小小橘</div>
+  <div class="col-body">
+    <img src="poster-mascot-8.0.png" alt="小小橘">
+    <div>
+      <div class="col-quote">
+        「喵……这一版不是加功能，是<b>把地基修结实了</b>。<br>
         以前删掉的记忆会变成僵尸，现在<b>整批还能捞回来</b>；<br>
-        以前备份只报"跑没跑"，现在<b>真恢复到临时库比对行数</b>。」
+        以前备份只报『跑没跑』，现在<b>真恢复到临时库比对行数</b>。」
       </div>
-      <div class="sig">— 看门喵值班笔记 · v8.0.0</div>
+      <div class="col-sign">—— 看门喵值班笔记 · v8.0.0</div>
     </div>
   </div>
+</section>
+
+<!-- 第一版 -->
+<section class="edition">
+  <div class="ed-head"><span class="ed-no">第 一 版</span><h3 class="serif">可靠性 · 修真缺陷</h3><span class="en">RELIABILITY</span></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">原子性 —— 写入不再留半成品</div>
+    <div class="d">原为三步 autocommit，崩溃会留下「有主行、无实体、无分词」的半成品记忆。改为<b>单事务包裹</b>，任一步失败整体回滚。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">幂等键 —— 重发不再生新行</div>
+    <div class="d">崩溃重试 / 断线重发 / 重复提交，现在<b>返回原 id 不再产生新行</b>（部分唯一索引 + <code>ON CONFLICT DO NOTHING</code>，历史 NULL 行不回填）。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">记忆回收 —— 软删不再是终点</div>
+    <div class="d">原系统全仓无 DELETE、无 VACUUM。现补 <b>tombstone → purged</b> 环节，五道安全闸放行，默认干跑，可整批还原。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">完整性巡检 —— 六类孤儿与异常</div>
+    <div class="d">新增 <code>jobs/scrub.py</code>（<b>只读</b>）：孤儿 inode / 悬空信念证据 / 到期未回收 / 缺指纹 / 活子挂死父。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">可观测 —— 阈值不再形同虚设</div>
+    <div class="d">写入 / 召回延迟埋点（p50 / p95 / p99，成本≈0）+ <code>GET /api/v1/metrics</code> 一屏看全。此前有 2000ms 阈值却<b>全无埋点</b>。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">备份复验 —— 四验代替「跑没跑」</div>
+    <div class="d">原备份只回答「跑没跑」（曾<b>静默失败 36 天</b>）。现四验：新鲜度 / 体积 / 真读 <code>pg_restore</code> TOC / <code>--deep</code> 真恢复到临时库比对行数。</div>
+  </div></div>
+</section>
+
+<!-- 第二版 -->
+<section class="edition">
+  <div class="ed-head"><span class="ed-no">第 二 版</span><h3 class="serif">检索质量 · 找得准</h3><span class="en">RETRIEVAL</span></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">先量后改 —— 前置纪律</div>
+    <div class="d">改召回排序前<b>必须先有评测基线</b> —— 红队原话：「RRF 更好」无评测支撑则不采信。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">四通道融合 —— 量纲无关</div>
+    <div class="d">点名 / 引导 / 共鸣 / 文库原为各自返回、不融合。现各取 50 候选 → <b>RRF 排名融合（k=60）</b> → 统一截断。只按排名融合，避免把余弦距离 / BM25 / 时间三种量纲直接相加。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">两个细节 —— 隔离与可解释</div>
+    <div class="d"><b>命名空间隔离</b>：记忆与 Wiki 是两套 id 空间，融合前分别加 <code>m:</code>/<code>w:</code> 前缀；<b>可解释</b>：<code>channels</code> 字段回答「这条为什么排上来」。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">零行为变化 —— 评测未出，线上不动</div>
+    <div class="d">融合<b>默认关闭</b>（<code>?fused=true</code> 才启用）—— 评测数字出来之前，线上行为一行不改。</div>
+  </div></div>
+</section>
+
+<!-- 第三版 -->
+<section class="edition">
+  <div class="ed-head"><span class="ed-no">第 三 版</span><h3 class="serif">治理 · 弄得清</h3><span class="en">GOVERNANCE</span></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">分层可执行 —— 不是文档</div>
+    <div class="d">5 层记忆模型<b>在写入路径上真跑</b>：<code>classify_layer()</code> 为每条记忆落 <code>metadata.layer</code>；对外有 <code>/api/v1/layers</code> 与 <code>self_check</code>。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">诚实标注 —— 不许假装存在</div>
+    <div class="d">约束层（L3）的载体在 <b>Hermes 侧</b>（SOUL / MEMORY / config），不在库内 —— 用断言锁住，防止被硬塞 category 假装存在。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">发布状态机 —— 越段被硬拒</div>
+    <div class="d">本地 → 真实环境 → 部署 → 公开 → 归纳，<b>未过上一段不得进入下一段</b>。本版发布即第一个回填样本。</div>
+  </div></div>
+  <div class="item"><div class="sq"></div><div class="body">
+    <div class="t">产出物指针 —— 记忆只放指针</div>
+    <div class="d">交付 = 箱子 / 检索 = Wiki / 版本 = 仓库；<b>记忆里只放指针 + 指纹，不放实体</b>。</div>
+  </div></div>
+</section>
+
+<!-- 双栏图解 -->
+<div class="duo">
+  <section>
+    <div class="ed-head"><span class="ed-no">图 解</span><h3 class="serif">回收五道闸</h3></div>
+    <div class="gate"><span class="num serif">①</span><div class="body"><b>时间窗口</b>默认 30 天</div></div>
+    <div class="gate"><span class="num serif">②</span><div class="body"><b>保护位</b>permanent / pinned 不动</div></div>
+    <div class="gate"><span class="num serif">③</span><div class="body"><b>引用完整性</b>信念证据 / 存活子记忆</div></div>
+    <div class="gate"><span class="num serif">④</span><div class="body"><b>冷归档</b>archive 表 + traces 快照</div></div>
+    <div class="gate"><span class="num serif">⑤</span><div class="body"><b>回滚凭证</b>CSV + 整批还原</div></div>
+    <div style="margin-top:11px;font-size:12px;color:var(--muted);line-height:1.75">
+      默认<b>干跑</b>，<code>--apply</code> 才真删；<code>--restore &lt;batch&gt;</code> 整批还原 —— <b>删除第一次成为可逆操作</b>。
+    </div>
+  </section>
+  <section>
+    <div class="ed-head"><span class="ed-no">图 解</span><h3 class="serif">宫殿结构</h3></div>
+    <div class="palace">
+      <div class="prow"><span class="pl serif">大厅</span><span class="pd">高频记忆常驻注入 · 抬手即取</span></div>
+      <div class="prow"><span class="pl serif">翼</span><span class="pd">K 知识 · N 网络 · D 开发 · O 运维 · A 资产 · P 人物 · I 灵感</span></div>
+      <div class="prow"><span class="pl serif">房间</span><span class="pd">20 间（proxy / deploy / secret / model …）</span></div>
+      <div class="prow"><span class="pl serif">书卷</span><span class="pd">著录卡片 + 档号 + 全文指针</span></div>
+      <div class="prow"><span class="pl serif">地下档案馆</span><span class="pd">原始对话全保真</span></div>
+    </div>
+    <div style="margin-top:11px;font-size:12px;color:var(--muted);line-height:1.75">
+      档号 <code>K·PROXY·2026-0007</code> —— 编号即位置，像图书馆索书号。
+    </div>
+  </section>
 </div>
 
-<!-- ══ 数据条 ══ -->
-<div class="stats">
-  <div class="stat"><div class="num">16,143</div><div class="cap">常驻记忆总量</div></div>
-  <div class="stat"><div class="num">5<small> 层</small></div><div class="cap">记忆分层模型</div></div>
-  <div class="stat"><div class="num">5<small> 道</small></div><div class="cap">GC 回收安全闸</div></div>
-  <div class="stat"><div class="num">4<small> 验</small></div><div class="cap">备份可恢复性</div></div>
-</div>
-
-<!-- ══ S1 可靠性 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🛡 S1 可靠性 — 修真缺陷<span class="en">写得对 · 收得回</span></h3>
-  <div class="items">
-    <div class="item"><span class="k fix">原子性</span><span class="v">写入原为三步 autocommit，崩溃会留"有主行、无实体、无分词"的<b>半成品记忆</b>。改为<b>单事务包裹</b>，任一步失败整体回滚。</span></div>
-    <div class="item"><span class="k fix">幂等键</span><span class="v">崩溃重试 / 断线重发 / 重复提交，现在<b>返回原 id 不再产生新行</b>（部分唯一索引 + <code>ON CONFLICT DO NOTHING</code>，历史 NULL 行不回填）。</span></div>
-    <div class="item"><span class="k hot">记忆回收</span><span class="v">原系统<b>全仓无 DELETE、无 VACUUM</b> —— 软删即终点。现补 <b>tombstone → purged</b> 环节，五道安全闸放行，默认干跑，可整批还原。</span></div>
-    <div class="item"><span class="k">完整性巡检</span><span class="v">新增 <code>jobs/scrub.py</code>（<b>只读</b>）：6 类孤儿与异常 —— 孤儿 inode / 悬空信念证据 / 到期未回收 / 缺指纹 / 活子挂死父。</span></div>
-    <div class="item"><span class="k hot">可观测</span><span class="v">写入/召回延迟埋点（p50/p95/p99，成本≈0）+ <code>GET /api/v1/metrics</code> 一屏看全。此前有 2000ms 阈值却<b>全无埋点</b>，阈值形同虚设。</span></div>
-    <div class="item"><span class="k fix">备份复验</span><span class="v">原备份只回答"跑没跑"（曾<b>静默失败 36 天</b>）。现四验：新鲜度 / 体积 / <b>真读 pg_restore TOC</b> / <code>--deep</code> 真恢复到临时库比对行数。</span></div>
-  </div>
-</div>
-
-<!-- ══ S2 检索 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🔍 S2 检索质量 — 找得准<span class="en">先量后改</span></h3>
-  <div class="items">
-    <div class="item"><span class="k">前置纪律</span><span class="v">改召回排序前<b>必须先有评测基线</b> —— 红队原话："RRF 更好"无评测支撑则不采信。</span></div>
-    <div class="item"><span class="k hot">四通道融合</span><span class="v">点名 / 引导 / 共鸣 / 文库 原为<b>各自返回、不融合</b>。现各取 50 候选 → <b>RRF 排名融合</b>(k=60) → 统一截断。只按排名融合 = <b>量纲无关</b>（原做法把余弦距离/BM25/时间三种量纲直接相加）。</span></div>
-    <div class="item"><span class="k">两个细节</span><span class="v"><b>命名空间隔离</b>：记忆与 Wiki 是两套 id 空间，融合前分别加 <code>m:</code>/<code>w:</code> 前缀，否则不相关条目互相加分；<b>可解释</b>：<code>channels</code> 字段回答"这条为什么排上来"。</span></div>
-    <div class="item"><span class="k">零行为变化</span><span class="v">融合<b>默认关闭</b>（<code>?fused=true</code> 才启用）—— 评测数字出来之前，线上行为一行不改。</span></div>
-  </div>
-</div>
-
-<!-- ══ S3 治理 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🗂 S3 治理 — 弄得清<span class="en">制度而非文档</span></h3>
-  <div class="items">
-    <div class="item"><span class="k hot">分层可执行</span><span class="v">5 层记忆模型<b>不是文档</b>：<code>classify_layer()</code> 在<b>写入路径上真跑</b>，每条记忆落 <code>metadata.layer</code>；对外有 <code>/api/v1/layers</code> 与 <code>self_check</code>。</span></div>
-    <div class="item"><span class="k">诚实标注</span><span class="v">约束层（L3）的载体在 <b>Hermes 侧</b>（SOUL / MEMORY / config），不在库内 —— 用断言锁住，防止被硬塞 category 假装存在。</span></div>
-    <div class="item"><span class="k">发布状态机</span><span class="v">本地 → 真实环境 → 部署 → 公开 → 归纳，<b>未过上一段不得进入下一段</b>（越段被硬拒）。本版发布即第一个回填样本。</span></div>
-    <div class="item"><span class="k">产出物指针</span><span class="v">交付=箱子 / 检索=Wiki / 版本=仓库；<b>记忆里只放指针 + 指纹，不放实体</b>。</span></div>
-  </div>
-</div>
-
-<!-- ══ GC 五道闸 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>♻️ 记忆回收 — 五道安全闸<span class="en">本版最硬的一块</span></h3>
-  <div class="gates">
-    <div class="gate"><span class="no">①</span><span class="nm">时间窗口</span><span class="fn">默认 30 天</span></div>
-    <div class="gate"><span class="no">②</span><span class="nm">保护位</span><span class="fn">permanent / pinned</span></div>
-    <div class="gate"><span class="no">③</span><span class="nm">引用完整性</span><span class="fn">信念证据 / 存活子记忆</span></div>
-    <div class="gate"><span class="no">④</span><span class="nm">冷归档</span><span class="fn">archive 表 + traces 快照</span></div>
-    <div class="gate"><span class="no">⑤</span><span class="nm">回滚凭证</span><span class="fn">CSV + 整批还原</span></div>
-  </div>
-  <div class="gates-foot">默认<b>干跑</b>，<code>--apply</code> 才真删；<code>--restore &lt;batch&gt;</code> <b>整批还原</b> —— 删除第一次成为可逆操作</div>
-</div>
-
-<!-- ══ 事故 ══ -->
-<div class="card alert">
-  <h3><span class="bar"></span>⚠️ 发布途中真实事故 —— 教训保留<span class="en">本版最重要的收获</span></h3>
-  <div class="items">
-    <div class="item"><span class="k fix">现象</span><span class="v">部署到生产后，<b>第一发写入即 500</b>。</span></div>
-  </div>
-  <div class="code-block">there is no unique or exclusion constraint
-matching the <span class="hl">ON CONFLICT</span> specification</div>
-  <div class="items">
-    <div class="item"><span class="k">根因</span><span class="v"><code>dedup_fingerprint_key</code> 是<b>部分唯一索引</b>（带 <code>WHERE</code> 谓词），而写入写的是不带谓词的 <code>ON CONFLICT</code>。部分索引推断<b>要求谓词显式匹配</b> —— 缺谓词直接报错，整条写入路径挂掉。</span></div>
-    <div class="item"><span class="k hot">为什么单测没抓到</span><span class="v">已有测试只验证"索引能拦住重复指纹"（裸 <code>INSERT</code>），<b>从没跑过产品代码里那条真实的 INSERT ... ON CONFLICT</b>。</span></div>
-    <div class="item"><span class="k">铁律</span><span class="v"><b>测了索引 ≠ 测了使用索引的那条 SQL。</b>凡"代码里拼出来的 SQL"与"库里建的对象"有耦合，就必须把真实 SQL 拉出来跑一遍 —— 现已改为<b>从源码正则抽 SQL 投库执行</b>的测试，删掉谓词立刻变红。</span></div>
-  </div>
-</div>
-
-<!-- ══ 顺带修的 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🔧 发布后修正 — 同一版本号内吃掉<span class="en">测试阶段的账不带到下个版本</span></h3>
-  <div class="items">
-    <div class="item"><span class="k fix">僵尸记忆</span><span class="v">GC 整批还原原只归档主表与轨迹，被级联删掉的<b>实体 / 关键词 / 著录卡</b>回不来 —— 修成<b>四表全快照</b> + 还原完整性断言（撤掉修复测试立刻红）。</span></div>
-    <div class="item"><span class="k fix">幂等键误杀</span><span class="v">内容指纹与"允许矛盾"的日志层自相矛盾，会<b>误杀合法日志</b> —— 改为<b>指纹分层</b>（日志层按来源上下文与小时桶，其余按内容）。</span></div>
-    <div class="item"><span class="k">半修</span><span class="v">上面第二处在<b>生产环境实测</b>才暴露 —— 本地单测抓不到，因为"只测了纯函数，没测整条写入路径"。</span></div>
-  </div>
-</div>
-
-<!-- ══ 宫殿 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🏛️ 宫殿结构 — 空间即架构<span class="en">人类几百年的记忆智慧</span></h3>
-  <div class="palace">
-    <div class="level"><span class="lbl">大厅 LOBBY</span><span class="desc">高频记忆常驻注入 · <b>抬手即取</b></span></div>
-    <div class="level"><span class="lbl">翼 WING</span><span class="desc">K 知识 · N 网络 · D 开发 · O 运维 · A 资产 · P 人物 · I 灵感</span></div>
-    <div class="level"><span class="lbl">房间 ROOM</span><span class="desc"><b>20 间</b>（proxy / deploy / secret / model …）</span></div>
-    <div class="level"><span class="lbl">书卷 TOME</span><span class="desc">著录卡片 + 档号 + 全文指针</span></div>
-    <div class="level"><span class="lbl">地下档案馆</span><span class="desc">原始对话<b>全保真</b>（Hermes 侧会话库）</span></div>
-  </div>
-  <div class="items" style="margin-top:9px">
-    <div class="item"><span class="k">档号</span><span class="v"><code>K·PROXY·2026-0007</code> — 编号即位置，<b>像图书馆索书号</b></span></div>
-  </div>
-</div>
-
-<!-- ══ 分层模型 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🧬 记忆分层模型 — 按「允不允许矛盾」分族<span class="en">v8.0 新增 · 写入时真跑</span></h3>
+<!-- 分层模型 -->
+<section class="edition">
+  <div class="ed-head"><span class="ed-no">图 解</span><h3 class="serif">记忆分层 · 按「允不允许矛盾」分族</h3><span class="en">LAYERS</span></div>
   <div class="layers">
-    <div class="layer f1"><span class="tag">L0 日志</span><span class="txt">原始流水 · <b>允许矛盾</b>（同一件事的多次记录共存）</span></div>
-    <div class="layer f2"><span class="tag">L1 认知</span><span class="txt">提炼后的事实与偏好 · <b>只认最新</b></span></div>
-    <div class="layer f3"><span class="tag">L2 技能</span><span class="txt">可执行的过程性记忆 · <b>演进式覆盖</b></span></div>
-    <div class="layer f3"><span class="tag">L3 约束</span><span class="txt">红线与规矩 · <b>载体在 Hermes 侧</b>（有断言锁住）</span></div>
-    <div class="layer f2"><span class="tag">L4 参考</span><span class="txt">外部资料与快照 · <b>只增不改</b></span></div>
+    <div class="lay"><span class="code2 serif">L0</span><span class="nm">日志</span><span class="ds">原始流水 · <b>允许矛盾</b>（同一件事的多次记录共存）</span></div>
+    <div class="lay"><span class="code2 serif">L1</span><span class="nm">认知</span><span class="ds">提炼后的事实与偏好 · <b>只认最新</b></span></div>
+    <div class="lay"><span class="code2 serif">L2</span><span class="nm">技能</span><span class="ds">可执行的过程性记忆 · <b>演进式覆盖</b></span></div>
+    <div class="lay"><span class="code2 serif">L3</span><span class="nm">约束</span><span class="ds">红线与规矩 · <b>载体在 Hermes 侧</b>（有断言锁住）</span></div>
+    <div class="lay"><span class="code2 serif">L4</span><span class="nm">参考</span><span class="ds">外部资料与快照 · <b>只增不改</b></span></div>
   </div>
-  <div class="family-note">
-    <span class="n1">允许矛盾族 · 日志</span>
-    <span class="n2">只认最新族 · 认知 / 参考</span>
-    <span class="n3">演进覆盖族 · 技能 / 约束</span>
+  <div class="families">
+    分族：<b>允许矛盾族</b> = 日志　|　<b>只认最新族</b> = 认知 / 参考　|　<b>演进覆盖族</b> = 技能 / 约束
   </div>
-</div>
+</section>
 
-<!-- ══ 集成 ══ -->
-<div class="card">
-  <h3><span class="bar"></span>🔌 Hermes 深度集成<span class="en">开箱即用</span></h3>
-  <div class="integ">
-    <span class="tag">🧙 召唤工具</span>
-    <span class="tag">🤖 15 个记忆工具</span>
-    <span class="tag">📋 宫殿状态注入</span>
-    <span class="tag">💾 对话无损存储</span>
-    <span class="tag">⏳ 永恒分级</span>
-    <span class="tag">🔄 自动钩子</span>
-    <span class="tag">📊 指标端点</span>
-    <span class="tag">🛡 崩溃安全写队列</span>
-    <span class="tag">🧪 契约测试</span>
-    <span class="tag">🔒 自托管</span>
-    <span class="tag">🔌 模型可插拔</span>
+<!-- 特稿 -->
+<section class="special">
+  <div class="ed-head"><span class="ed-no">调 查</span><h3 class="serif">发布途中真实事故 · 教训保留</h3><span class="en">POST-MORTEM</span></div>
+  <div class="box warn">
+    <div class="bh">本版最重要的收获</div>
+    <div class="row"><span class="k">现象</span><span class="v">部署到生产后，<b>第一发写入即 500</b>：<code>there is no unique or exclusion constraint matching the ON CONFLICT specification</code></span></div>
+    <div class="row"><span class="k">根因</span><span class="v"><code>dedup_fingerprint_key</code> 是<b>部分唯一索引</b>（带 WHERE 谓词），而写入写的是不带谓词的 <code>ON CONFLICT</code>。部分索引推断要求谓词显式匹配 —— 缺谓词直接报错，整条写入路径挂掉。</span></div>
+    <div class="row"><span class="k">为何单测没抓到</span><span class="v">已有测试只验证「索引能拦住重复指纹」（裸 <code>INSERT</code>），<b>从没跑过产品代码里那条真实的 <code>INSERT ... ON CONFLICT</code></b>。</span></div>
+    <div class="creed">测了索引 ≠ 测了使用索引的那条 SQL</div>
+    <div class="row" style="margin-top:10px"><span class="k"></span><span class="v">现已改为<b>从源码正则抽 SQL 投库执行</b>的测试，删掉谓词立刻变红。</span></div>
   </div>
-</div>
+  <div class="box">
+    <div class="bh">追踪 · 发布后修正 —— 同一版本号内吃掉</div>
+    <div class="row"><span class="k">僵尸记忆</span><span class="v">GC 整批还原原只归档主表与轨迹，被级联删掉的实体 / 关键词 / 著录卡回不来 —— 修成<b>四表全快照</b> + 还原完整性断言（撤掉修复测试立刻红）。</span></div>
+    <div class="row"><span class="k">幂等键误杀</span><span class="v">内容指纹与「允许矛盾」的日志层自相矛盾，会<b>误杀合法日志</b> —— 改为<b>指纹分层</b>（日志层按来源上下文与小时桶，其余按内容）。</span></div>
+    <div class="row"><span class="k">半修</span><span class="v">上面第二处在<b>生产环境实测</b>才暴露 —— 本地单测抓不到，因为「只测了纯函数，没测整条写入路径」。</span></div>
+  </div>
+</section>
 
-<!-- ══ FOOTER ══ -->
-<div class="footer">
-  Mnemosyne OS <b>v8.0.0</b> · 记忆宫殿法空间编码 + 档案学著录 + 中药柜斗谱 —— 人类几百年验证的记忆智慧，落到工程上<br>
-  <span class="repo">gymaira1990-jpg/Mnemosyne-OS</span> · MIT License · 自托管 · 模型可插拔（豆包 / DeepSeek / 任意 OpenAI 兼容）<br>
-  本版验证：单元 267 通过 · 契约 45 通过 · 生产冒烟 6/6 · 发布流程七阶段三关卡全过
+<!-- Hermes 集成 -->
+<section class="edition">
+  <div class="ed-head"><span class="ed-no">报 尾</span><h3 class="serif">Hermes 深度集成 · 开箱即用</h3><span class="en">INTEGRATION</span></div>
+  <div class="tags">
+    <span class="tag on">召唤工具</span>
+    <span class="tag on">15 个记忆工具</span>
+    <span class="tag">宫殿状态注入</span>
+    <span class="tag">对话无损存储</span>
+    <span class="tag">永恒分级</span>
+    <span class="tag">自动钩子</span>
+    <span class="tag">指标端点</span>
+    <span class="tag">崩溃安全写队列</span>
+    <span class="tag on">契约测试</span>
+    <span class="tag">自托管</span>
+    <span class="tag">模型可插拔</span>
+  </div>
+</section>
+
+<!-- 报尾 -->
+<div class="colophon">
+  <div class="big serif">Mnemosyne OS v8.0.0</div>
+  记忆宫殿法空间编码 + 档案学著录 + 中药柜斗谱 —— 人类几百年验证的记忆智慧，落到工程上<br>
+  gymaira1990-jpg/Mnemosyne-OS　·　MIT License　·　自托管　·　模型可插拔（豆包 / DeepSeek / 任意 OpenAI 兼容）<br>
+  <b>本版验证</b>：单元 267 通过　·　契约 45 通过　·　生产冒烟 6/6　·　发布流程七阶段三关卡全过
 </div>
 
 </body>
