@@ -269,6 +269,100 @@ def test_c9_restore_is_complete_across_all_cascade_children():
 
 @_needs_db
 @asyncio_marker
+def test_c10_voucher_survives_oversized_field():
+    """回归（2026-09-26 生产实测缺陷）：content 超 csv 默认字段上限时，凭证回数行数不许把整批带走。
+
+    真实缺陷（2026-09-26 生产实测）：`csv` 模块默认 `field_size_limit = 131072` 字节，
+    而生产最长记忆 content 达 270448 **字符** ⇒ 凭证写完回数行数时抛
+    `Error: field larger than field limit (131072)` → `--apply` 整批 exit=3。
+
+    危险点有两层：
+      ① 夹具全用短文本 ⇒ 本地全绿也测不出（“本地全绿 ≠ 路径正确”的又一例）；
+      ② 报错发生在**事务内**、但 CSV 已落盘 ⇒ 出现「凭证存在、数据没删」的撒谎凭证。
+
+    判据：带 270KB content 的批次必须 rc=0、删干净、凭证能被解析器读全。
+    """
+    _setup()
+    big = "B" * 270_000
+    _fetch("INSERT INTO memories (id, user_id, content, category, is_deleted, forgotten_at) "
+           "VALUES (12, 'default', $1, 'knowledge', TRUE, NOW() - INTERVAL '60 days') RETURNING id",
+           big)
+    csv_path = os.path.join(os.path.dirname(__file__), "_v8_gc_voucher_big.csv")
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+    try:
+        rc = _run_gc(("apply", True), ("csv", csv_path))
+        assert rc == 0, "超长字段把整批回收带崩了（field larger than field limit）"
+        ids = {r["id"] for r in _fetch("SELECT id FROM memories")}
+        assert not (PURGEABLE & ids) and 12 not in ids, "该删的没删干净"
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == len(PURGEABLE) + 1, f"凭证行数不对: {len(rows)}"
+        assert max(len(r["content"]) for r in rows) == 270_000, "超长行没进凭证"
+    finally:
+        if os.path.exists(csv_path):
+            os.remove(csv_path)
+
+
+@_needs_db
+@asyncio_marker
+def test_c11_rolled_back_run_leaves_no_voucher(monkeypatch):
+    """反证：事务失败后**不得留下任何"像凭证"的文件**（撒谎凭证）。
+
+    真实事故（2026-09-26 生产批次 GC-20260926）：作业在「凭证行数统计」处抛错 → 事务回滚、
+    一条都没删；但凭证 CSV 已落盘 8.4MB —— 事后看像「已回收 549 条」。这类文件比"没有凭证"危险得多。
+
+    判据：注入失败后 ①正式凭证不存在 ②半成品 `.part` 也不存在 ③库里数据一条没少。
+    """
+    _setup()
+    from jobs import compaction
+
+    csv_path = os.path.join(os.path.dirname(__file__), "_v8_gc_voucher_fail.csv")
+    real = compaction.write_csv_voucher
+
+    async def boom(conn, ids, path):
+        await real(conn, ids, path)          # 先真写出来（模拟"已写盘"这一步已完成）
+        raise RuntimeError("injected failure after voucher write")
+
+    monkeypatch.setattr(compaction, "write_csv_voucher", boom)
+    try:
+        rc = _run_gc(("apply", True), ("csv", csv_path))
+        assert rc == 3, "注入的失败必须被判定为失败（不能静默成功）"
+        assert not os.path.exists(csv_path), "回滚后仍留下正式凭证 = 撒谎凭证"
+        assert not os.path.exists(csv_path + ".part"), "半成品必须清掉，别留在磁盘上混淆"
+        ids = {r["id"] for r in _fetch("SELECT id FROM memories")}
+        assert PURGEABLE <= ids, f"回滚不干净，数据被删了: {PURGEABLE - ids}"
+        assert _fetch("SELECT count(*) AS c FROM memories_archive")[0]["c"] == 0, "归档也不该留痕"
+    finally:
+        for p in (csv_path, csv_path + ".part"):
+            if os.path.exists(p):
+                os.remove(p)
+
+
+@_needs_db
+@asyncio_marker
+def test_c12_successful_run_promotes_voucher_without_part_file():
+    """正证：成功路径下凭证**转正**（正式文件名存在、`.part` 不残留）。"""
+    _setup()
+    csv_path = os.path.join(os.path.dirname(__file__), "_v8_gc_voucher_ok.csv")
+    for p in (csv_path, csv_path + ".part"):
+        if os.path.exists(p):
+            os.remove(p)
+    try:
+        assert _run_gc(("apply", True), ("csv", csv_path)) == 0
+        assert os.path.exists(csv_path), "成功路径必须产出正式凭证"
+        assert not os.path.exists(csv_path + ".part"), "`.part` 不许残留（说明转正没执行）"
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == len(PURGEABLE)
+    finally:
+        for p in (csv_path, csv_path + ".part"):
+            if os.path.exists(p):
+                os.remove(p)
+
+
+@_needs_db
+@asyncio_marker
 def test_c7_unique_index_rejects_duplicate_fingerprint():
     """反证：只测"干净输入能进"不够，必须证明索引**真能拦住**重复。"""
     import asyncpg

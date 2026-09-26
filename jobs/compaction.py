@@ -37,6 +37,14 @@ import os
 import sys
 from datetime import datetime, timezone
 
+# ⚠️ 实测缺陷修复（2026-09-26，生产 549 条批次实测撞上）：
+#   csv 模块默认 `field_size_limit = 131072` 字节，而生产最长记忆 content 达 270448 字符
+#   ⇒ 凭证**写完回数行数**时抛 `Error: field larger than field limit (131072)`，
+#     整个 `--apply` 批次 exit=3 且一条都没删（事务回滚，但 CSV 已落盘 = 撒谎凭证）。
+#   教训：夹具全用短文本 ⇒ 本地 267 例全绿也测不出这条路径。
+#   回归测试：tests/test_v8_compaction.py::test_c10_voucher_survives_oversized_field
+csv.field_size_limit(min(sys.maxsize, 2 ** 31 - 1))
+
 try:
     import asyncpg
 except ImportError:  # pragma: no cover
@@ -142,15 +150,17 @@ async def write_csv_voucher(conn, ids: list[int], path: str) -> int:
         return 0
     fields = list(rows[0].keys())
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    n = 0
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         for r in rows:
             w.writerow({k: (json.dumps(v, default=str, ensure_ascii=False)
                             if isinstance(v, (list, dict)) else v) for k, v in dict(r).items()})
-    # 行数用解析器数（不是 wc -l —— 字段含换行会数错）
-    with open(path, newline="", encoding="utf-8") as f:
-        return sum(1 for _ in csv.DictReader(f))
+            n += 1
+    # 行数**边写边数**：字段含换行也数不错，且避免回读整份凭证
+    #   （回读会二次触发 csv 字段上限，2026-09-26 实测缺陷，见文件头注释）
+    return n
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -158,6 +168,7 @@ async def write_csv_voucher(conn, ids: list[int], path: str) -> int:
 # ─────────────────────────────────────────────────────────────────────────────
 async def run(args) -> int:
     conn = await asyncpg.connect(args.dsn)
+    csv_tmp = None
     try:
         if args.restore:
             return await do_restore(conn, args.restore)
@@ -208,16 +219,24 @@ async def run(args) -> int:
         ids = [r["id"] for r in purge]
         csv_path = args.csv or os.path.join(
             os.path.expanduser("~"), ".hermes", "reports", "gc", f"{batch}.csv")
+        # 凭证先写「半成品」(.part)，**事务提交后**才改名转正（见下方 os.replace 处的注释）
+        csv_tmp = csv_path + ".part"
 
         async with conn.transaction():
             archived = await do_archive(conn, ids, batch)
             if archived != len(ids):
                 raise RuntimeError(f"归档行数 {archived} != 待删 {len(ids)} → 中止（宁可不删）")
-            vouchered = await write_csv_voucher(conn, ids, csv_path)
+            vouchered = await write_csv_voucher(conn, ids, csv_tmp)
             if vouchered != len(ids):
                 raise RuntimeError(f"凭证行数 {vouchered} != 待删 {len(ids)} → 中止（宁可不删）")
             status = await conn.execute("DELETE FROM memories WHERE id = ANY($1::bigint[])", ids)
             deleted = int(status.split()[-1]) if status else 0
+
+        # 凭证「转正」：**副作用挪出事务** —— 只有删除真提交了，磁盘上才会出现正式凭证。
+        # 为什么（2026-09-26 生产实测）: 旧写法在事务内直接写正式凭证 ⇒ 事务回滚后磁盘上
+        # 留下「宣称删了、其实一条没删」的撒谎凭证（批次 GC-20260926 真留下过 8.4MB 孤儿）。
+        # 回归测试: tests/test_v8_compaction.py::test_c11 / test_c12
+        os.replace(csv_tmp, csv_path)
 
         vacuum_msg = "跳过"
         if args.vacuum:
@@ -233,6 +252,12 @@ async def run(args) -> int:
                    csv_path=csv_path, traces_kept=archived and summary["traces_to_archive"])
         return 0
     except Exception as e:  # noqa: BLE001
+        # 失败即清掉凭证半成品：绝不在磁盘上留下可能被误读成「已删除」的文件
+        if csv_tmp and os.path.exists(csv_tmp):
+            try:
+                os.unlink(csv_tmp)
+            except OSError:
+                pass
         print(f"❌ 失败: {type(e).__name__}: {e}", file=sys.stderr)
         return 3
     finally:
