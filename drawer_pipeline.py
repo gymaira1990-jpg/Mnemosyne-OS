@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, "/opt/mnemosyne")
@@ -31,7 +32,13 @@ DENOISE_MIN_LEN = 300      # 超过此长度才值得压缩
 DENOISE_TARGET_DRAWERS = ("cool", "frozen")  # 只压缩冷/冻抽屉
 DEDUP_SIM_VERSION = 0.95   # ≥0.95 → 版本+1 (保留新旧)
 DEDUP_SIM_MERGE = 0.90     # 0.90-0.95 → 合并 (摘要取长+频次累加+最高热度)
-DEDUP_BATCH = 30
+DEDUP_BATCH = 30            # 单批候选数
+# 2026-09-28 修（台账 T-0199）: 原来只有 DEDUP_BATCH，一轮只吃 30 条，
+#   而 distill/factextract 每天新增 500+ 条 ⇒ 队列永不追上，冗余长期堆积。
+#   改为「循环跑到无候选 / 达上限 / 超预算」三选一即止，仍保留 oldest-first（先清历史）。
+DEDUP_MAX_BATCHES = 100     # 100 批 × 30 = 3000 条/轮，覆盖 500+/天 新增并快速清积压
+#   实测（2026-09-28 canary）: 20 批=600 条仅用 15.1s ⇒ 原上限保守；时间预算才是真正的护栏。
+DEDUP_TIME_BUDGET_S = 600   # 单轮时间预算（秒），防跑爆；cron 03:35 起跑，留足余量
 FORGET_CONFLICT_DROP = 0.05  # 冲突记忆额外降温 (reflect 已 -0.1, 这里只标记)
 
 
@@ -64,8 +71,10 @@ async def stage_denoise(pool):
     return done
 
 
-async def stage_dedup(pool):
-    """二级: 完整压缩去重 — 相似记忆合并 (sim≥0.90)"""
+async def _dedup_one_batch(pool):
+    """单批去重 — 返回 (候选数, 合并数)。**主体逻辑与行为一字未改**（含 v7.1 的
+    JSON 拼接/embedding 重算两处坑的修法），只是把结果多返回一个候选数供外层判断。
+    """
     rows = await pool.fetch("""
         SELECT id, content, category, heat_score, access_count, embedding, dedup_fingerprint
         FROM memories
@@ -134,8 +143,35 @@ async def stage_dedup(pool):
             await pool.execute(
                 "UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || '{\"dedup_checked\":true}'::jsonb WHERE id=$1",
                 r["id"])
-    log.info("去重合并完成: %d 条合并", merged)
-    return merged
+    log.info("本批去重完成: 候选 %d, 合并 %d", len(rows), merged)
+    return len(rows), merged
+
+
+async def stage_dedup(pool):
+    """二级: 完整压缩去重 — 相似记忆合并 (sim≥0.90)
+
+    2026-09-28（T-0199）: 由「一轮只跑一批 30 条」改为**循环**，直到
+      · 候选不足一批（队列已清空）／ · 达到 DEDUP_MAX_BATCHES ／ · 超出时间预算
+    三选一即止。保留 oldest-first（先清历史），单批逻辑在 _dedup_one_batch 内未改。
+    """
+    t0 = time.monotonic()
+    total_merged = 0
+    batches = 0
+    for batch_no in range(1, DEDUP_MAX_BATCHES + 1):
+        if time.monotonic() - t0 > DEDUP_TIME_BUDGET_S:
+            log.info("去重: 时间预算 %ds 用尽，本轮已跑 %d 批", DEDUP_TIME_BUDGET_S, batches)
+            break
+        n_cand, merged = await _dedup_one_batch(pool)
+        batches += 1
+        total_merged += merged
+        if n_cand < DEDUP_BATCH:
+            log.info("去重: 候选队列已清空（第 %d 批只剩 %d 条）", batch_no, n_cand)
+            break
+    else:
+        log.info("去重: 达到单轮上限 %d 批（队列可能仍有积压，明日继续）", DEDUP_MAX_BATCHES)
+    log.info("去重完成: 本轮 %d 批, 共合并 %d 条, 用时 %.1fs",
+             batches, total_merged, time.monotonic() - t0)
+    return total_merged
 
 
 async def stage_forget(pool):
