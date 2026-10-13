@@ -130,7 +130,16 @@ from core.llm import call_llm as llm_call
 import tmt.router as tmt_module
 from tmt.router import router as tmt_router
 
-app = FastAPI(title="Mnemosyne OS v7.8.4 — 认知型记忆操作系统")
+def _version_label() -> str:
+    """版本号的唯一真源 = VERSION 文件（根治硬编码漏同步：v8.0 曾漏升 title 与 systemd 描述）"""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as f:
+            return f.read().strip()
+    except Exception:
+        return "unknown"
+
+
+app = FastAPI(title=f"Mnemosyne OS v{_version_label()} — 认知型记忆操作系统")
 
 # ── 挂载 v5.0 路由 ──
 app.include_router(tmt_router)
