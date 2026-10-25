@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-8.0.1-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-8.1.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -248,6 +248,7 @@ python main.py  # → :8010
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v8.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v8.1.0) | 2026-10-26 | Added · Fixed · Docs |
 | [v8.0.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v8.0.1) | 2026-10-26 | 🧩 Hermes 客户端工具: **结果卡**(每轮 问/做/证据/`msg_range`, 零模型调用) + `route-search` 检索路由(结果卡 → state.db FTS 兜底) + 12 例契约测试; ♻️ provider 漂移回流(+207/−25: 自回声过滤 · 片段降权 · 会话收尾后台化 · upsert · 软删镜像) |
 | [v8.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v8.0.0) | 2026-09-25 | 🏛️ 记忆宫殿 OS 8.0（写得对·收得回·找得准·弄得清）: 分层写入(L0/L1) + 层内幂等键 · GC 整批还原含 CASCADE 子表快照 · `prod_smoke.py` 固化为 P4 门禁(6 项断言 + 自动清场) · 七阶段发布状态机(`publish` 唯一入口) |
 | [v7.8.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v7.8.4) | 2026-09-24 | 🩹 修复: 归档质量 —— 收尾汇报与用户消息不再被切(旧版一刀切2000字), 工具调用证据签名入档, 短会话不再静默丢弃; ➕ 汇报卡(category=worklog) + 23 例契约测试 |

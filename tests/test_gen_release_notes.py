@@ -96,5 +96,19 @@ def test_write_changelog_idempotent(tmp_path, monkeypatch):
     assert G.write_changelog("1.1.0", notes) is False, "同版本不许重复插"
 
 
+def test_bump_badge(tmp_path, monkeypatch):
+    """badge 也要自动改 —— 手改必漏（实测漏过一次）。"""
+    monkeypatch.setattr(G, "ROOT", str(tmp_path))
+    (tmp_path / "README.md").write_text(
+        "![v](https://img.shields.io/badge/version-1.0.0-brightgreen?style=flat-square)", encoding="utf-8")
+    (tmp_path / "README_CN.md").write_text(
+        "![v](https://img.shields.io/badge/version-1.0.0-brightgreen?style=flat-square)", encoding="utf-8")
+    changed = G.bump_badge("2.0.0")
+    assert set(changed) == {"README.md", "README_CN.md"}
+    for f in changed:
+        assert "version-2.0.0-brightgreen" in (tmp_path / f).read_text(encoding="utf-8")
+    assert G.bump_badge("2.0.0") == [], "已是目标版本则不应再报改动"
+
+
 def test_selftest_passes():
     assert G._selftest() == 0

@@ -1,5 +1,6 @@
 # Mnemosyne OS · 路线图
 
+> v8.1.0 | 2026-10-26 🧰 发布材料自动生成（conventional commits → CHANGELOG/版本表）+ 社区治理件 + 版本落点扩到 9 处机器校验
 > v8.0.1 | 2026-10-26 🧩 Hermes 客户端工具（结果卡 + 检索路由）+ provider 漂移回流
 > v8.0.0 | 2026-09-25 🏛️ 记忆宫殿 OS 8.0（写得对·收得回·找得准·弄得清）
 > v7.8.3 | 2026-09-12 🔧 服务端口/主机环境变量生效 (MNEMOSYNE_PORT / MNEMOSYNE_HOST) + 文档修正

@@ -155,6 +155,26 @@ def write_changelog(ver: str, notes: str) -> bool:
     return True
 
 
+def bump_badge(ver: str) -> list[str]:
+    """把双语 README 的 version badge 改到 ver。
+
+    2026-10-26 实测：本脚本先只写 CHANGELOG + 版本表，结果 version-consistency 立刻报
+    「EN badge 是 8.0.1，应为 8.1.0」—— badge 也是一处落点，手改必漏。能自动的就别手写。
+    """
+    changed = []
+    pat = re.compile(r"(badge/version-)(\d+\.\d+\.\d+)(-)")
+    for fname in ("README.md", "README_CN.md"):
+        path = os.path.join(ROOT, fname)
+        if not os.path.exists(path):
+            continue
+        txt = open(path, encoding="utf-8").read()
+        new = pat.sub(lambda m: m.group(1) + ver + m.group(3), txt, count=1)
+        if new != txt:
+            open(path, "w", encoding="utf-8").write(new)
+            changed.append(fname)
+    return changed
+
+
 def write_version_history(ver: str, notes: str, slug: str) -> list[str]:
     """向双语 README 的版本表插入新行。返回被改动的文件名。"""
     today = dt.date.today().isoformat()
@@ -225,6 +245,7 @@ def main() -> int:
     changed = []
     if write_changelog(ver, notes):
         changed.append("CHANGELOG.md")
+    changed += bump_badge(ver)
     changed += write_version_history(ver, notes, repo_slug())
     if not changed:
         print("\n⚠️ 未写入任何文件（可能该版本已存在）")
