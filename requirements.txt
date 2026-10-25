@@ -5,7 +5,7 @@ fastapi>=0.136
 uvicorn[standard]
 asyncpg>=0.31
 httpx>=0.28
-python-dotenv>=1.2
+python-dotenv>=1.2.4
 pydantic>=2.13
 psutil>=7.2
 diskcache>=5.6
