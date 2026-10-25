@@ -177,7 +177,7 @@ if __name__ == "__main__":  # 自测：用 ./scripts/outcome_cards.py --selftest
             {"id": 2, "role": "assistant", "content": "我先查一下。"},
             {"id": 3, "role": "tool", "content": "..."},
             {"id": 4, "role": "assistant",
-             "content": "改完了。\n- 修了 /opt/backup/run.sh 的路径\n- 实测 PASS，备份 596MB\n- 台账 T-1234 已记"},
+             "content": "改完了。\n- 修了 /opt/backup/run.sh 的路径\n- 实测 PASS，备份 596MB\n- 工单 T-1234 已记"},
             {"id": 5, "role": "user", "content": "嗯"},
             {"id": 6, "role": "assistant", "content": "好。"},
         ]

@@ -33,7 +33,7 @@ DENOISE_TARGET_DRAWERS = ("cool", "frozen")  # 只压缩冷/冻抽屉
 DEDUP_SIM_VERSION = 0.95   # ≥0.95 → 版本+1 (保留新旧)
 DEDUP_SIM_MERGE = 0.90     # 0.90-0.95 → 合并 (摘要取长+频次累加+最高热度)
 DEDUP_BATCH = 30            # 单批候选数
-# 2026-09-28 修（台账 T-0199）: 原来只有 DEDUP_BATCH，一轮只吃 30 条，
+# 2026-09-28 修（issue T-0199）: 原来只有 DEDUP_BATCH，一轮只吃 30 条，
 #   而 distill/factextract 每天新增 500+ 条 ⇒ 队列永不追上，冗余长期堆积。
 #   改为「循环跑到无候选 / 达上限 / 超预算」三选一即止，仍保留 oldest-first（先清历史）。
 DEDUP_MAX_BATCHES = 100     # 100 批 × 30 = 3000 条/轮，覆盖 500+/天 新增并快速清积压

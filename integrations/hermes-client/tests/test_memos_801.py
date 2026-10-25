@@ -55,7 +55,7 @@ CONVO = [
     _msg(3, "tool", "some tool output"),
     _msg(4, "assistant",
          "改完了。\n- 修了 /opt/backup/run.sh 的路径引用\n"
-         "- 实测 PASS，备份 596MB\n- 台账 T-1234 已记"),
+         "- 实测 PASS，备份 596MB\n- 工单 T-1234 已记"),
     _msg(5, "user", "嗯"),
     _msg(6, "assistant", "好。"),
 ]

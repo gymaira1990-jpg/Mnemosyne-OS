@@ -124,7 +124,7 @@ Knowledge comes when you call it — three channels, each with a job:
 
 ```bash
 # Summon: exact + guided + fuzzy, one call
-curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
+curl "http://127.0.0.1:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 ```
 
 ### 🕵️ Three-Chamber Division

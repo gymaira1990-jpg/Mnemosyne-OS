@@ -114,7 +114,7 @@ Mnemosyne OS 把记忆当作一等公民：**捕获 → 蒸馏 → 老化 → �
 
 ```bash
 # 一次调用同时走三通道
-curl "http://:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
+curl "http://127.0.0.1:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
 ```
 
 ### 🕵️ 三室分工

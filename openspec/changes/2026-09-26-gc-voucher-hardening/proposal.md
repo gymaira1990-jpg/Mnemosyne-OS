@@ -1,6 +1,6 @@
 ---
 提案号: P-20260926-02
-提案者: HERMES-诺亚(EN)
+提案者: Maintainer (EN)
 时间: 2026-09-26T16:10+08:00
 目标: jobs/compaction
 动作: MODIFIED

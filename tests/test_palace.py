@@ -18,7 +18,7 @@ class TestClassify:
         assert r["room"] == "deploy"
 
     def test_secret_keyword(self):
-        r = palace.classify("密钥在保险柜KEY.txt line3", "ops")
+        r = palace.classify("密钥在 config/secrets.txt 第3行", "ops")
         assert r["room"] == "secret"
 
     def test_user_preference(self):

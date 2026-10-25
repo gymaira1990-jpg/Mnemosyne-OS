@@ -39,7 +39,7 @@ CATEGORY_TO_WING = {
 ROOM_KEYWORDS = [
     ("proxy", ["xray", "代理", "proxy", "2081", "2082", "1080", "clash", "分流", "geosite"]),
     ("deploy", ["部署", "deploy", "发布", "rsync", "scp", "systemd", "重启", "升级"]),
-    ("secret", ["密钥", "key", "token", "保险柜", "password", "pat", "凭证", "api_key"]),
+    ("secret", ["密钥", "key", "token", "密码本", "password", "pat", "凭证", "api_key"]),
     ("security", ["安全", "审计", "漏洞", "扫描", "权限", "ssh", "入侵", "加固"]),
     ("domain", ["域名", "domain", "dns", "解析", "cdn"]),
     ("repo", ["仓库", "repo", "github", "git", "commit", "push", "分支"]),
@@ -516,7 +516,7 @@ if __name__ == "__main__":
     tests = [
         ("在生产服务器部署xray代理，2081端口，systemd服务", "ops"),
         ("用户喜欢红果短剧风格的AI美女图", "preference"),
-        ("密钥在保险柜GITHUB/KEY.txt，line3细粒度PAT", "ops"),
+        ("数据库密码写在 config/secrets.env 第3行", "ops"),
         ("mnemosyne蒸馏链修复，双底座DeepSeek", "worklog"),
     ]
     print("=== 分类自测 ===")
