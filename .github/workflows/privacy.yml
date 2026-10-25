@@ -3,6 +3,7 @@ name: privacy & version gates
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 # 判红的必须是「写死的值」，不是「关键词出现」:

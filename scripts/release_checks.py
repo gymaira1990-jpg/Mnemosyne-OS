@@ -195,14 +195,48 @@ def check_plan(path: str) -> int:
     return 0
 
 
+def check_version_history() -> int:
+    """P6 判据：README 的 Version History 必须登记当前 VERSION。
+
+    为什么做成命令（2026-10-26 实测教训）：v8.0.0 与 v8.0.1 连续两个版本漏登记 ——
+    因为**没有任何门禁查它**，漏了没人发现（badge 写着 8.0.1，Version History 却停在 7.8.4，
+    自相矛盾却全绿通过）。人工纪律靠不住，必须机器拦。
+    """
+    ver = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+    checked, missing = [], []
+    for f in ("README.md", "README_CN.md"):
+        path = os.path.join(ROOT, f)
+        if not os.path.exists(path):
+            continue
+        txt = open(path, encoding="utf-8").read()
+        # 判据要准：必须「确实有版本历史表」（≥3 条 releases/tag 链接）才要求登记本版本。
+        # 旧判据用关键词「版本历史」会误判 —— README_CN 的导航表里就有这四个字，却无历史表。
+        if txt.count("releases/tag/v") < 3:
+            continue
+        checked.append(f)
+        ok = (f"releases/tag/v{ver}" in txt) or (f"| v{ver} " in txt) or (f"| v{ver} |" in txt)
+        if not ok:
+            missing.append(f)
+    if not checked:
+        print("❌ 没有任何 README 含 Version History 段（发布记录无处登记）")
+        return 1
+    if missing:
+        print(f"❌ Version History 未登记 v{ver}: {missing}")
+        return 1
+    print(f"✅ Version History 含 v{ver}（已查 {', '.join(checked)}）")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="v8.0 发布门禁检查项")
-    ap.add_argument("check", choices=["version-consistency", "privacy",
+    ap.add_argument("check", choices=["version-consistency", "version-history", "privacy",
                                       "service-version", "changelog", "artifact", "plan"])
     ap.add_argument("arg", nargs="?", default=None)
     a = ap.parse_args()
     if a.check == "version-consistency":
         return check_version_consistency()
+    if a.check == "version-history":
+        return check_version_history()
     if a.check == "privacy":
         return check_privacy()
     if a.check == "service-version":
