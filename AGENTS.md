@@ -4,7 +4,7 @@
 > **目标**：任何 Agent（Hermes / Claude Code / Cursor / Codex）5 分钟完成对接。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v8.0.0（本地已实现 254 用例绿）｜ 生产运行 v8.0.0（部署后复验自报版号） ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v8.0.1（本地已实现 281 用例绿）｜ 生产运行 v8.0.1（部署后复验自报版号） ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 
@@ -38,7 +38,9 @@ git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 - ❌ 绝不硬编码 API Key / 真实 IP / 域名 / 密码
 - ❌ push 前必须隐私扫描（判据：零输出）
 - ❌ 扫描/门禁 pattern 改动必须**本地按 workflow 逐步复现**（判据：旧 pattern 命中 → 新 pattern 零命中）**且**过 pattern 双向自检（合法写法绿 / 硬编码红）；本地复现须带反证（放入真样本必须判红后清场）—— 门禁只在 push 后才跑，本地复现是唯一的推送前证据。判红的必须是「写死的值」而非「关键词出现」
-- ❌ 版本号三处一致（VERSION / README badge / CHANGELOG）
+- ❌ **版本落点全部一致** —— 不是「三处」：`VERSION` / 双语 badge / 双语版本表首行 / CHANGELOG / ROADMAP / AGENTS / PROGRESS / INSTALL（共 8 类落点）。
+  2026-10-26 实测：此条原写作「三处一致」，于是每轮只对齐三处 ⇒ ROADMAP 落后三个版本、AGENTS 落后一版全都没人发现。
+  **判据由机器给**：`python3 scripts/release_checks.py version-consistency`（exit=0 且打印查了 9 处）。
 
 ## 文档导航
 

@@ -80,30 +80,64 @@ def _tracked_files() -> list[str]:
 
 
 def check_version_consistency() -> int:
+    """版本落点一致性 —— 覆盖**全部对外可知的落点**，不再只查三处。
+
+    2026-10-26 实测教训：AGENTS.md 的红线曾写「版本号三处一致（VERSION / README badge / CHANGELOG）」，
+    于是每轮只对齐这三处 ⇒ ROADMAP 落后三个版本（停在 v7.8.3）、AGENTS 停在 v8.0.0 都没人发现。
+    旧技能（mnemosyne-version-publish §3.2）本来有 15 处清单，整合时缩水了。
+    结论：「三处一致」这个口号本身就是缺陷 —— 落点有多少个就查多少个，且必须机器查。
+    """
     vpath = os.path.join(ROOT, "VERSION")
     if not os.path.exists(vpath):
         print("❌ 缺 VERSION 文件")
         return 1
     ver = open(vpath, encoding="utf-8").read().strip()
-    problems = []
-    for readme in ("README.md", "README_CN.md"):
-        p = os.path.join(ROOT, readme)
-        if not os.path.exists(p):
-            continue
-        txt = open(p, encoding="utf-8").read()
-        if ver not in txt:
-            problems.append(f"{readme} 未出现版本 {ver}")
-    cl = os.path.join(ROOT, "CHANGELOG.md")
-    if not os.path.exists(cl):
-        problems.append("缺 CHANGELOG.md")
-    else:
-        head = open(cl, encoding="utf-8").read()[:4000]
-        if ver not in head:
-            problems.append(f"CHANGELOG 头部未见 {ver}")
+    problems, checked = [], []
+
+    def grab(rel, pattern, label, required=True):
+        """从文件里抓出版本串并与 VERSION 比对。"""
+        path = os.path.join(ROOT, rel)
+        if not os.path.exists(path):
+            if required:
+                problems.append(f"缺文件 {rel}")
+            return
+        try:
+            txt = open(path, encoding="utf-8").read()
+        except Exception as e:  # noqa: BLE001
+            problems.append(f"{rel} 读取失败: {type(e).__name__}")
+            return
+        m = re.search(pattern, txt, re.M)
+        if not m:
+            problems.append(f"{rel} 未找到[{label}]标记（格式变了？）")
+            return
+        got = m.group(1).strip()
+        checked.append(f"{label}={got}")
+        if got != ver:
+            problems.append(f"{rel} 的{label}是 {got}，应为 {ver}")
+
+    # ① 双语 badge
+    grab("README.md", r"badge/version-([\d.]+)-", "EN badge")
+    grab("README_CN.md", r"badge/version-([\d.]+)-", "CN badge")
+    # ② 双语版本表首行（Version History）
+    grab("README.md", r"releases/tag/v([\d.]+)\)\s*\|", "EN 版本表首行")
+    grab("README_CN.md", r"releases/tag/v([\d.]+)\)\s*\|", "CN 版本表首行")
+    # ③ CHANGELOG 最新段
+    grab("CHANGELOG.md", r"^##\s*(?:\[)?v?([\d.]+)", "CHANGELOG 最新段")
+    # ④ ROADMAP 首行
+    grab("ROADMAP.md", r"^>\s*v([\d.]+)\s*\|", "ROADMAP 首行")
+    # ⑤ AGENTS 当前版本
+    grab("AGENTS.md", r"\*\*当前版本\*\*：?\s*v?([\d.]+)", "AGENTS 当前版本")
+    # ⑥ PROGRESS 当前版本
+    grab("PROGRESS.md", r"^##\s*当前版本[:：]\s*v?([\d.]+)", "PROGRESS 当前版本")
+    # ⑦ INSTALL 版本行
+    grab("INSTALL.md", r"^>\s*版本[:：]\s*v([\d.]+)", "INSTALL 版本行")
+
     if problems:
-        print("❌ 版本一致性未过: " + "; ".join(problems))
+        print("❌ 版本落点不一致（查了 %d 处）：" % len(checked))
+        for x in problems:
+            print("   · " + x)
         return 1
-    print(f"✅ 版本一致性通过（VERSION={ver}）")
+    print(f"✅ 版本落点全部一致 = {ver}（查了 {len(checked)} 处：{' / '.join(checked)}）")
     return 0
 
 
