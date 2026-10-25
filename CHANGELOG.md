@@ -1,3 +1,30 @@
+## unreleased · Hermes 客户端工具：结果卡 + 检索路由（2026-10-26）
+
+> 背景：客户端 provider 自 2026-09-12 起积累了 **190 行改进未回流仓库**（自回声过滤 / 碎片降权 /
+> 会话收尾后台化 / upsert 防重复）。本次一并回流，并新增"结果卡"客户端工具。
+
+### 新增
+
+- `integrations/hermes-client/` —— 给 Hermes + Mnemosyne 组合用的客户端工具：
+  - `outcome_cards.py`：按**用户消息**切轮生成「结果卡」（问 / 做 / 证据 / `msg_range` 钩子），
+    只收有可验证产物或明确结论的轮次；纯摘录，**零模型调用**
+  - `route-search.py`：检索路由 —— 先查结果卡（语义），相关度不足再下探 `state.db` FTS，
+    两路皆空时**明说未命中**，不做推测
+  - `tests/test_memos_801.py`：12 项回归（切轮 / 系统通知剔除 / 无产物跳过 / 路由判定 / 钩子优先级）
+  - `README.md`：环境变量配置表 + 接入说明 + 已知限制
+- 实测：会话主档 107,428 字 → 6 张结果卡 1,815 字（**1.7%**），每卡可一步跳回原文
+
+### 修复（回流仓库）
+
+- `integrations/hermes-provider/__init__.py`：同步本机 2026-09-12 → 2026-10-13 的 190 行改进
+  —— 自回声过滤、片段降权（session/worklog ×0.5）、会话收尾后台化、事实提取默认关闭、
+  upsert 避免重复写入、软删镜像
+
+### 注意
+
+- 服务端 `POST /api/v1/memories` 会**静默覆盖** `category` 与 `importance`（`metadata` 保留）
+  ⇒ 客户端一律用**内容前缀**（`MEMOS_CARD_PREFIX`）识别结果卡，不依赖 category。
+
 ## unreleased · 去重作业积压修复（2026-09-28 生产修复，2026-10-14 回流）— 队列永远追不上
 
 > 依据：**生产实测**（真实实例，cron `35 3 * * * … drawer_pipeline.py --stage dedup`）。

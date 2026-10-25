@@ -4,10 +4,10 @@ Mnemosyne Memory Provider — 替换 OpenViking，使用自研记忆宫殿。
 Provider v1.1.0 (2026-07-29)
   - v1.0.0: 初始版本，全量 sync_turn + 热点记忆 + prefetch
   - v1.1.0: 写过滤(低价值消息跳过) + 首轮冷启动 + 格式优化(cat_emoji)
-  - Mnemosyne 依赖: v5.5.1+ (生产服务器)
+  - Mnemosyne 依赖: v5.5.1+ (GZ 服务器)
   - 兼容: Hermes v0.19.0+
 
-通过 SSH 隧道连接到 生产服务器上的 Mnemosyne REST API (localhost:18010)。
+通过 SSH 隧道连接到 GZ 服务器上的 Mnemosyne REST API (localhost:18010)。
 提供全量记忆存储、语义检索、TMT 层级蒸馏和热度管理。
 
 配置 (profile-scoped .env):
@@ -26,7 +26,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-from agent.memory_provider import MemoryProvider
+from agent.memory_provider import MemoryProvider, spawn_context_thread
 from tools.registry import tool_error
 
 logger = logging.getLogger(__name__)
@@ -34,8 +34,107 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ENDPOINT = "http://127.0.0.1:18010"
 _DEFAULT_USER_ID = "default"
 _API_TIMEOUT = 15.0
-# recall 含 服务端 LLM 蒸馏(实测 13s+)，单独放宽超时，防偶发超时被误判为空结果
+# recall 含 GZ 端 LLM 蒸馏(实测 13s+)，单独放宽超时，防偶发超时被误判为空结果
 _RECALL_TIMEOUT = 60.0
+# ── 自回声过滤 (2026-10-07, T-0327①) ──────────────────────────────
+# 实测: 本会话自己的发言会被 sync_turn 存成 L2/session 条, 下一轮又被 prefetch
+#      语义检索捞回来注入 prompt ⇒ **自己的话当"记忆"回灌**: 每轮成本上升 +
+#      模型可能把自己的输出当外部事实 (实测本会话 28788/28789 两条已出现在注入块里)。
+# 修法: 注入前过滤「本会话内产生」与「近 _ECHO_RECENT_HOURS 的 session/worklog 碎片」。
+# 字段来源: /memories/search 返回 id/category/content/created_at/heat_score/tier/reliability/access_count。
+_ECHO_CATEGORIES = ("session", "worklog")
+_ECHO_RECENT_HOURS = 2.0
+
+
+def _session_start(session_id: str):
+    """从会话 ID 解析开始时刻。ID 形如 20261007_211449_b0fb01(YYYYMMDD_HHMMSS_xxxx)。
+
+    ⚠️ 会话 ID 是**本机本地时间**(CST), 而 created_at 是 UTC ⇒ 必须 `.astimezone()`
+    附上本地时区再比较; 若误当 UTC, 过滤条件恒不成立 = 静默失效(修了等于没修)。
+    """
+    if not session_id:
+        return None
+    try:
+        from datetime import datetime
+        parts = str(session_id).split("_")
+        if len(parts) < 2 or len(parts[0]) != 8 or len(parts[1]) < 6:
+            return None
+        naive = datetime.strptime(parts[0] + parts[1][:6], "%Y%m%d%H%M%S")
+        return naive.astimezone()          # 附本地时区 → 可跨时区比较
+    except Exception:
+        return None
+
+
+def _parse_dt(v):
+    """解析 ISO 时间字符串为 aware datetime(缺时区按 UTC)。失败返回 None。"""
+    if not v:
+        return None
+    try:
+        from datetime import datetime, timezone
+        d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
+def _is_self_echo(mem, session_id: str = "", *, now=None) -> bool:
+    """True = 该条属于「自回声/近期会话碎片」, 不该注入上下文。"""
+    if not isinstance(mem, dict):
+        return False
+    from datetime import datetime, timedelta, timezone
+    now = now or datetime.now(timezone.utc)
+    created = _parse_dt(mem.get("created_at"))
+    if created is None:
+        return False                      # 无时间戳 ⇒ 不误杀(保守)
+    start = _session_start(session_id)
+    if start is not None and created >= start:
+        return True                       # ① 本会话内产生 = 自回声
+    cat = str(mem.get("category", "") or "").lower()
+    if cat in _ECHO_CATEGORIES and created >= now - timedelta(hours=_ECHO_RECENT_HOURS):
+        return True                       # ② 近 2h 的会话/日志碎片
+    return False
+
+
+# ── 碎片降权 (2026-10-13, T-0327②) ────────────────────────────────
+# 实测: 库内 session+worklog 占 ~21.6%, 而 prefetch 每轮只取 top-N ⇒ 与真知识条目
+#       争注入位。① 只滤「本会话 / 近 2h」, **存量旧碎片仍在**。
+# 修法: **降权不删**（历史价值仍在，只是不该压过知识条）—— 排序时 session/worklog ×0.5。
+#       只改「注入什么顺序」，不改库内容；稳定排序（同分保原顺序，不抖动）。
+_FRAGMENT_WEIGHT = {"session": 0.5, "worklog": 0.5}
+
+
+def _rank_by_category(memories: list) -> list:
+    """按类别降权后重排（T-0327②）。碎片 ×0.5，其余权重 1.0；非 dict 项排后。"""
+    def _key(item):
+        i, m = item
+        heat, cat = 0.0, ""
+        if isinstance(m, dict):
+            try:
+                heat = float(m.get("heat_score", m.get("score", 0)) or 0)
+            except (TypeError, ValueError):
+                heat = 0.0
+            cat = str(m.get("category", "") or "").lower()
+        return (-(heat * _FRAGMENT_WEIGHT.get(cat, 1.0)), i)
+    return [m for _, m in sorted(enumerate(memories), key=_key)]
+# ── 会话边界收尾 (2026-09-28, T-0221) ─────────────────────────────
+# 实测: /new 会先 await session.close → agent.close → shutdown_memory_provider
+#      → on_session_end，所以这里同步跑多久，用户就等多久「新会话出现」。
+# 两处调用都是 LLM 型慢活: L2 蒸馏实测 6.1s; palace/extract 每片约 7s
+#      (batch=3→22s, batch=5→35s) ⇒ 旧的 batch=30 + 15s 客户端超时**必然超时**,
+#      等于每次会话结束白等 15s 且事实提取从未成功。
+# 修法: 整体丢后台(spawn_context_thread) + 提取用小批次 + 放宽超时。
+_SESSION_END_SYNC_JOIN = 1.0        # 写队列是 sqlite 持久化的, 会话边界不必等它排空
+_PALACE_EXTRACT_BATCH = 5           # 每片约 7s; 30 在客户端超时内跑不完
+_PALACE_EXTRACT_TIMEOUT = 90.0      # 后台执行, 不再受 _API_TIMEOUT(15s) 拖累
+# ⚠️ 2026-09-28 (T-0223): 事实提取**默认不再在会话边界跑**（改成 True 可恢复旧行为）。
+#    理由（取证）: GZ 侧每天 02:00 已有 `tmt/factextract.py --batch 60`，而本调用走的是
+#    **同一候选集合同一套逻辑** —— palace.extract_facts_pipeline() 内部直接 `from tmt import
+#    factextract` 复用 find_candidates(metadata->>'fact_extracted' IS NULL, category in
+#    session/worklog, length>=80, oldest-first)。⇒ 会话边界再跑一次是重复劳动（每片约 7s 的
+#    LLM 活），而且每次会话结束都占 GZ 一个 LLM 时段。
+#    裕量判据（2026-09-28 实测）: 待提取积压 23 条 < 日额度 60 ⇒ 日批处理追得上；此判据失效
+#    （积压长期接近/超过 60）时再恢复本开关或调大 GZ 的 --batch。
+_SESSION_END_FACT_EXTRACT = False
 # 幂等检索类 POST 路径：连接/超时错误可安全重试（写入类绝不重试，防重复写入）
 _RETRYABLE_POST = {
     "/memories/search",
@@ -359,6 +458,11 @@ class _MnemosyneClient:
         }
         return self._call("POST", "/memories", json=payload)
 
+    def delete_memory(self, memory_id) -> dict:
+        """软删一条记忆（T-0327③ 镜像 upsert 用）。写操作 ⇒ retry=False，防重复删。"""
+        return self._call("DELETE", f"/memories/{memory_id}",
+                          params={"user_id": self._user_id}, retry=False)
+
     def list_memories(self, limit: int = 10) -> list:
         result = self._call("GET", f"/memories", params={"user_id": self._user_id, "limit": limit})
         if "error" in result:
@@ -398,7 +502,7 @@ class _MnemosyneClient:
         return result if isinstance(result, list) else []
 
     def recall(self, query: str, max_results: int = 5) -> dict:
-        """3 阶段智能召回（含 LLM 蒸馏）。服务端蒸馏慢，用独立长超时。"""
+        """3 阶段智能召回（含 LLM 蒸馏）。GZ 端蒸馏慢，用独立长超时。"""
         payload = {
             "user_id": self._user_id,
             "query": query,
@@ -422,6 +526,8 @@ class MnemosyneMemoryProvider(MemoryProvider):
         self._prefetch_result = ""
         self._prefetch_lock = threading.Lock()
         self._prefetch_thread: Optional[threading.Thread] = None
+        # 会话边界收尾任务（后台）: 见 on_session_end / _run_session_end_job
+        self._endjob_thread: Optional[threading.Thread] = None
 
     @property
     def name(self) -> str:
@@ -499,6 +605,9 @@ class MnemosyneMemoryProvider(MemoryProvider):
                 m_id = m.get("id", "")
                 # 跳过测试/无意义记忆
                 if "测试" in content[:20] or heat < 0.1:
+                    continue
+                # 自回声过滤 (T-0327①): 热点兜底同样不许回灌本会话/近期碎片
+                if _is_self_echo(m, self._session_id):
                     continue
                 # ── 时间衰减 ──
                 effective_heat = heat
@@ -587,7 +696,9 @@ class MnemosyneMemoryProvider(MemoryProvider):
         
         读优化 v1.1: 第一轮无 prefetch 时，用热点记忆填充。"""
         if self._prefetch_thread and self._prefetch_thread.is_alive():
-            self._prefetch_thread.join(timeout=3.0)
+            # 2026-09-28 (T-0221): 3.0s → 1.5s。这行在**每次发言的回合开始**上，
+            # 预取没赶上就用下面「热点记忆」兜底（原本就这么设计），不该让用户等 3 秒。
+            self._prefetch_thread.join(timeout=1.5)
         with self._prefetch_lock:
             result = self._prefetch_result
             self._prefetch_result = ""
@@ -613,9 +724,18 @@ class MnemosyneMemoryProvider(MemoryProvider):
         def _run():
             try:
                 client = _MnemosyneClient(self._endpoint, self._user_id)
-                memories = client.search_memories(query, limit=5)
+                # T-0327②: 多取候选(15) 留降权余量, 注入时仍截前 8 ⇒ 总召回量不减
+                memories = client.search_memories(query, limit=15)
                 if not memories:
                     memories = client.recall_simple(query)
+                # 自回声过滤 (T-0327①): 剔掉本会话产生 / 近 2h 会话碎片
+                if memories:
+                    _n0 = len(memories)
+                    memories = [m for m in memories if not _is_self_echo(m, self._session_id)]
+                    if len(memories) != _n0:
+                        logger.debug("prefetch: 过滤自回声/近期碎片 %d 条", _n0 - len(memories))
+                    # T-0327②: 会话/日志碎片降权重排(只改注入顺序, 不改库/不删)
+                    memories = _rank_by_category(memories)
 
                 # 复杂查询（>15字）追加辨证搜索
                 dialectic_context = ""
@@ -769,11 +889,30 @@ class MnemosyneMemoryProvider(MemoryProvider):
         if not self._client:
             return
 
-        if self._sync_thread and self._sync_thread.is_alive():
-            self._sync_thread.join(timeout=10.0)
-
         if self._turn_count == 0:
             return
+
+        # ⚠️ 2026-09-28 (T-0221): 这里**绝不允许**同步等待。
+        # /new 的链路是 `await session.close` → agent.close() → shutdown_memory_provider
+        # → on_session_end，所以本方法跑多久，用户就干等多久「新会话出现」。
+        # 旧实现同步跑 join(10s) + L2 蒸馏(实测 6.1s) + palace/extract(15s 超时) ⇒
+        # 用户实测「卡半天」(20~31s)。现在整体丢后台。
+        if self._endjob_thread and self._endjob_thread.is_alive():
+            return  # 上一次收尾还在跑: 不排队、不阻塞（端点幂等, 日维度 consolidate 兜底）
+        self._endjob_thread = spawn_context_thread(
+            self._run_session_end_job, name="mnemosyne-session-end")
+        self._endjob_thread.start()
+
+    def _run_session_end_job(self) -> None:
+        """会话边界的记忆收尾（**后台**）：等写队列 → L2 蒸馏 → 资料室事实提取。
+
+        只做写侧收尾，不阻塞任何会话切换；失败只记日志（写队列 sqlite 持久化，
+        turn 级记忆不依赖本任务）。"""
+        try:
+            if self._sync_thread and self._sync_thread.is_alive():
+                self._sync_thread.join(timeout=_SESSION_END_SYNC_JOIN)
+        except Exception:
+            pass
 
         # ② TMT L2 蒸馏
         try:
@@ -784,17 +923,34 @@ class MnemosyneMemoryProvider(MemoryProvider):
             logger.warning("Mnemosyne session consolidation failed: %s", e)
 
         # ③ 资料室事实提取 (v7.0): 本会话新写入的 session 碎片 → facts → 建档
-        try:
-            ex = self._client._call("POST", "/palace/extract?batch=30", json={"batch": 30})
-            logger.info("Mnemosyne palace extract: processed=%s facts=%s",
-                        ex.get("processed", "?"), ex.get("facts_created", "?"))
-        except Exception as e:
-            logger.warning("Mnemosyne palace extract failed: %s", e)
+        #    ⚠️ 2026-09-28 (T-0223): 默认关闭 —— GZ 每天 02:00 的 `tmt/factextract.py --batch 60`
+        #    走的是同一候选集合、同一套逻辑（palace.extract_facts_pipeline 直接复用 tmt.factextract
+        #    的 find_candidates），会话边界再跑一次属重复劳动；开关见文件头 _SESSION_END_FACT_EXTRACT。
+        if _SESSION_END_FACT_EXTRACT:
+            try:
+                ex = self._client._call("POST", f"/palace/extract?batch={_PALACE_EXTRACT_BATCH}",
+                                        json={"batch": _PALACE_EXTRACT_BATCH},
+                                        timeout=_PALACE_EXTRACT_TIMEOUT)
+                logger.info("Mnemosyne palace extract: processed=%s facts=%s",
+                            ex.get("processed", "?"), ex.get("facts_created", "?"))
+            except Exception as e:
+                logger.warning("Mnemosyne palace extract failed: %s", e)
 
     def on_memory_write(self, action: str, target: str, content: str,
                         metadata: Optional[Dict[str, Any]] = None) -> None:
-        """镜像内置 memory 工具写入到 Mnemosyne。"""
-        if not self._client or action != "add" or not content:
+        """镜像内置 memory 工具写入到 Mnemosyne。
+
+        v7.3 (T-0327③): 由「每次 add 无条件写新条」改为 **upsert** ——
+        旧实现无关联键 ⇒ 同一条目改 N 次就堆 N+1 条镜像，召回可能捞到旧版。
+        关联键来自上游 metadata["previous_content"]（被替换/删除的旧条目全文，由
+        memory_manager.notify_memory_tool_write **只在写入真正落库时**提供）:
+          replace/remove → 先按旧内容定位并软删旧镜像条 → 再写新条（remove 只删）。
+        """
+        if not self._client or action not in ("add", "replace", "remove"):
+            return
+        md = metadata or {}
+        prev = str(md.get("previous_content") or "")
+        if action != "remove" and not content:
             return
 
         category_map = {
@@ -806,12 +962,22 @@ class MnemosyneMemoryProvider(MemoryProvider):
         def _write():
             try:
                 client = _MnemosyneClient(self._endpoint, self._user_id)
-                client.store_memory(
-                    content=content,
-                    category=category,
-                    importance=0.6,
-                    source="hermes-memorytool"
-                )
+                if prev:
+                    # 定位旧镜像条：source 标记 + 内容全等（旧内容本身即稳定关联键）
+                    for m in client.search_memories(prev[:120], limit=8, category=category):
+                        if not isinstance(m, dict):
+                            continue
+                        if (str(m.get("content", "")).strip() == prev.strip()
+                                and str(m.get("source", "")).startswith("hermes-memorytool")):
+                            client.delete_memory(m.get("id"))
+                            logger.debug("mnemosyne mirror: 旧条 %s 已软删 (%s)", m.get("id"), action)
+                if action != "remove":
+                    client.store_memory(
+                        content=content,
+                        category=category,
+                        importance=0.6,
+                        source="hermes-memorytool"
+                    )
             except Exception as e:
                 logger.debug("Mnemosyne memory mirror failed: %s", e)
 
@@ -819,6 +985,20 @@ class MnemosyneMemoryProvider(MemoryProvider):
         t.start()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
+        """检索工具面默认留给 MCP —— 这里返回 []（本 provider 只保留钩子能力）。
+
+        理由（2026-09-23 实测）: MemoryProvider 的工具在
+        `agent/memory_manager.py::inject_memory_provider_tools()` 里被**直接 append**
+        进 `agent.tools`，该函数**不看** `tools.tool_search.defer` → 这 11 个 schema
+        (5_381B ≈ 1_345 token)是**每轮常驻**成本，与「on-demand > always-on」冲突。
+        MCP 侧 15 个 mnemosyne 工具覆盖同等检索能力且已是 deferred(按需加载),
+        故 provider 只保留 MCP 给不了的部分: prefetch / system_prompt_block /
+        on_pre_compress / on_memory_write / on_session_end / on_delegation 等钩子。
+        临时把工具面放回来: export HERMES_MNEMOSYNE_PROVIDER_TOOLS=1
+        """
+        if os.environ.get("HERMES_MNEMOSYNE_PROVIDER_TOOLS", "").strip().lower() not in (
+                "1", "true", "yes", "on"):
+            return []
         return [SEARCH_SCHEMA, REMEMBER_SCHEMA, RECALL_SCHEMA, TREE_SCHEMA, HOT_SCHEMA,
                 DIALECTIC_SCHEMA, TIERED_READ_SCHEMA, CONFLICT_SCHEMA, WIKI_SCHEMA, MEDIA_SCHEMA,
                 PALACE_SUMMON_SCHEMA]
@@ -855,9 +1035,11 @@ class MnemosyneMemoryProvider(MemoryProvider):
             return tool_error(str(e))
 
     def shutdown(self) -> None:
+        # 2026-09-28 (T-0221): 只做短等 —— 写队列是 sqlite 持久化的，会话收尾任务
+        # 已在后台跑（_run_session_end_job），关停路径不该再把用户/网关卡住。
         for t in (self._sync_thread, self._prefetch_thread):
             if t and t.is_alive():
-                t.join(timeout=5.0)
+                t.join(timeout=1.0)
 
     def on_pre_compress(self, messages: List[Dict[str, Any]]) -> str:
         """上下文压缩前：提取关键洞察存储到 Mnemosyne，并返回压缩摘要。
