@@ -1,0 +1,37 @@
+[tool.ruff]
+line-length = 120
+# 不扫虚拟环境与迁移脚本（迁移脚本多为一次性 DDL，风格价值低）
+exclude = [".venv", "migrations", "__pycache__"]
+target-version = "py311"
+
+[tool.ruff.lint]
+# 设计原则（2026-10-26 定）：**lint 只拦「会出错」的规则，不拦「风格偏好」**。
+# 全量 ruff 在本仓库报 561 项，其中 111 项 blind-except、31 项 try-except-pass ——
+# 那类改造风险（动异常语义）远高于收益，一律不进阻塞集，只留人工评审时参考。
+#
+# 阻塞集（CI 必须过）：
+#   E9  —— 语法级错误（如 E999）
+#   F63 —— 可疑比较（is 与 == 混用之类）
+#   F7  —— 语法结构问题（F701 break 外、F811 重复定义等）
+#   F82 —— 未定义名（F821）★ 最值钱：能抓到我改代码时引用了不存在的变量
+#   F841 —— 赋了不用的局部变量（常见于「忘了用返回值」的真 bug）
+select = ["E9", "F63", "F7", "F82"]
+# F841（赋值未用的局部变量）故意**不进**阻塞集：它属代码卫生不是「会崩」，
+# 且删变量可能牵动隐含依赖；现有 7 处已入台账待清理。
+
+# 非阻塞但保留可见性：跑 `ruff check --select ALL` 时能看到，CI 不管
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F841"]        # 测试里留中间变量便于调试，属正常
+
+[tool.coverage.run]
+# 覆盖率只统计产品代码，排除测试/虚拟环境/迁移
+omit = [".venv/*", "tests/*", "migrations/*", "*/__init__.py"]
+
+[tool.coverage.report]
+# 不因覆盖率低而失败（只观察趋势，不为数字写测试）
+fail_under = 0
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 覆盖率基线（2026-10-26 首次度量；只要求「不下降」而非硬门槛，避免为数字写垃圾测试）
+addopts = "-q"

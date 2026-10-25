@@ -7,6 +7,7 @@ v5.0: 豆包 Seed-2.0 API 替代本地 LLM (core.llm)
 
 import json
 import asyncio
+import logging
 from datetime import datetime, timezone, date, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
@@ -138,6 +139,8 @@ CONSOLIDATE_PROMPTS = {
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.llm import call_llm_json
+
+log = logging.getLogger("tmt")   # 模块级 logger（函数内另有同名局部变量，勿删）
 
 async def call_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024) -> str:
     """

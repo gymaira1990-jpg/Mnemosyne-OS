@@ -7,6 +7,20 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    # 只拦「会出错」的规则（E9/F63/F7/F82），组见 pyproject.toml [tool.ruff.lint]
+    # 2026-10-26 上线首日即抓到一个真 bug：新加的 log.warning 引用了不存在的变量（F821 NameError 隐患）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Ruff (blocking rules only)
+        run: ruff check .
+
   pytest:
     runs-on: ubuntu-latest
     strategy:

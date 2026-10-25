@@ -47,7 +47,7 @@ async def audit_memory(conn, memory_id: int, content: str) -> Dict:
     try:
         d1 = json.loads(r1.get("content", "{}"))
         results.append({"model": "doubao-lite", "verdict": d1, "tier": r1.get("tier")})
-    except Exception as e:  # 审计解析失败须可见，不许静默
+    except Exception:  # 审计解析失败已写入 results 的 error 字段，不静默
         results.append({"model": "doubao-lite", "error": "parse_failed"})
     
     # 审计 2: deepseek-v4-pro — 通过 Hermes 的 deepseek provider
@@ -56,7 +56,7 @@ async def audit_memory(conn, memory_id: int, content: str) -> Dict:
     try:
         d2 = json.loads(r2.get("content", "{}"))
         results.append({"model": "doubao-code", "verdict": d2, "tier": r2.get("tier")})
-    except Exception as e:  # 审计解析失败须可见，不许静默
+    except Exception:  # 审计解析失败已写入 results 的 error 字段，不静默
         results.append({"model": "doubao-code", "error": "parse_failed"})
     
     # 判决逻辑
