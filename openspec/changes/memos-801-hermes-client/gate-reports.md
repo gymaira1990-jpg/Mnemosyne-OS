@@ -4,6 +4,22 @@
 - 周期：用户 2026-10-26 令补齐完整发布流程（会话 msg 131245「有没有必要走完整的流程」/ 131256「跑通了证明了之后，你看要不要更新上去」/ 131312「你好好地检查一下」）
 - 性质：**客户端改动**（`integrations/`）；服务端 `main.py` 未改
 
+## 判据（各段可证伪，逐条给命令与期望值）
+
+| 段 | 判据 | 命令 | 期望 |
+|---|---|---|---|
+| P1 | 工作区无未提交改动 | `git diff --quiet HEAD` | rc=0 |
+| P2 | 全量套件绿 | `env -u PYTHONPATH .venv/bin/python -m pytest tests/ -q` | 0 failed |
+| P2 | 分层规格自检 | `.venv/bin/python core/layers.py --self-check` | 输出 L0–L4，rc=0 |
+| P2 | 回收干跑不改数据 | `jobs/compaction.py --dry-run …` | 打印「未做任何更改」 |
+| P3 | 服务自报版号 == VERSION | `release_checks.py service-version <url>` | 含 `8.0.1` |
+| P4 | 正式环境真链路 | `scripts/prod_smoke.py <url>` | 6/6 |
+| P5 | 版本三处一致 | `release_checks.py version-consistency` | rc=0 |
+| P5 | 隐私零输出 | `release_checks.py privacy` | rc=0 |
+| P5 | 独立 clone 复扫 | clone 后 `git grep` 敏感 pattern | 零命中 |
+| P6 | CHANGELOG 含版本 | `release_checks.py changelog 8.0.1` | rc=0 |
+
+
 ---
 
 ## P1 · 工作区开发（关卡）
