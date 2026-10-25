@@ -7,7 +7,7 @@
       "commands": [
         {
           "name": "方案要件（判据表 + 不做清单）",
-          "run": "python3 scripts/release_checks.py plan openspec/changes/memos-810-release-automation/proposal.md"
+          "run": "python3 scripts/release_checks.py plan @active"
         }
       ]
     },

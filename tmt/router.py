@@ -188,7 +188,7 @@ def parse_json_response(text: str) -> dict:
         try:
             cleaned = re.sub(r'[^\x00-\x7F]+', '', text)
             return json.loads(cleaned)
-        except:
+        except Exception:  # JSON 兜底解析失败，走下方降级路径
             # v6.5 兜底: 豆包截断 JSON 时, 提取 summary 字段片段, 剩余字段给默认值
             m2 = re.search(r'"summary"\s*:\s*"([^"]{1,300})', text)
             summary = m2.group(1) if m2 else re.sub(r'[*#>`\-]', ' ', text)[:200]
@@ -694,7 +694,8 @@ async def tmt_backfill(user_id: str):
                     orphan_frags[0]["start"], orphan_frags[0]["end"])
                 if not r.get("skipped"):
                     results["L2"] = 1
-            except: pass
+            except Exception as exc:  # 单条失败不中断整批
+                log.warning('backfill L2 单条失败: %s', exc)
 
         missing_dates = await conn.fetch(
             "SELECT DISTINCT DATE(m.created_at) AS d FROM memories m "
@@ -711,6 +712,7 @@ async def tmt_backfill(user_id: str):
                 r = await consolidate_level(user_id, 3, ds, de)
                 if not r.get("skipped"):
                     results["L3"] += 1
-            except: pass
+            except Exception as exc:  # 单条失败不中断整批
+                log.warning('backfill L3 单条失败: %s', exc)
 
     return {"backfilled": results}

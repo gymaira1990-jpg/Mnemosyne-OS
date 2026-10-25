@@ -99,7 +99,7 @@ async def get_fossil_nodes(conn, tenant_id: str = "default", limit: int = 20) ->
         if isinstance(meta, str):
             try:
                 meta = _json.loads(meta)
-            except:
+            except Exception:
                 meta = {}
         
         fossils.append({

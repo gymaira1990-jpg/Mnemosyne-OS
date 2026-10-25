@@ -131,6 +131,8 @@ def check_version_consistency() -> int:
     grab("PROGRESS.md", r"^##\s*当前版本[:：]\s*v?([\d.]+)", "PROGRESS 当前版本")
     # ⑦ INSTALL 版本行
     grab("INSTALL.md", r"^>\s*版本[:：]\s*v([\d.]+)", "INSTALL 版本行")
+    # ⑧ requirements.txt 头注释（2026-10-26 审计发现：这里也曾硬编码 v8.0.0 而无人管）
+    grab("requirements.txt", r"^#\s*Mnemosyne OS v([\d.]+)", "requirements 头注释")
 
     if problems:
         print("❌ 版本落点不一致（查了 %d 处）：" % len(checked))
@@ -209,12 +211,33 @@ def check_artifact(pointer: str) -> int:
     return 0
 
 
+def resolve_active_change(path: str) -> str:
+    """支持传 `@active`：从 openspec/ACTIVE 读取当前变更名，拼成 proposal 路径。
+
+    2026-10-26 审计发现：P0 门禁命令里硬编码了具体 change 目录（memos-810-…），
+    每换一版就得手改 release-gate.json —— 又一个「靠人记」的漂移点。
+    """
+    if path != "@active":
+        return path
+    ptr = os.path.join(ROOT, "openspec", "ACTIVE")
+    if not os.path.exists(ptr):
+        return path
+    name = ""
+    for ln in open(ptr, encoding="utf-8"):
+        ln = ln.strip()
+        if ln and not ln.startswith("#"):
+            name = ln
+            break
+    return os.path.join("openspec", "changes", name, "proposal.md") if name else path
+
+
 def check_plan(path: str) -> int:
     """P0 方案阶段判据：方案文档存在，且**含判据表与不做清单**（否则方案不可验收）。
 
     为什么把它做成命令而不是"人工看看"：标准里写得很清楚 ——
     方案的验收标准是「每条诉求有判据」，没有判据的方案不许进开发。
     """
+    path = resolve_active_change(path)
     p = os.path.join(ROOT, path) if not os.path.isabs(path) else path
     if not os.path.exists(p):
         print(f"❌ P0 方案文档不存在: {p}")
