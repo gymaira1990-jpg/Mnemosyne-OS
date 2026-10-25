@@ -25,6 +25,18 @@
 - 服务端 `POST /api/v1/memories` 会**静默覆盖** `category` 与 `importance`（`metadata` 保留）
   ⇒ 客户端一律用**内容前缀**（`MEMOS_CARD_PREFIX`）识别结果卡，不依赖 category。
 
+### 发布后修正（2026-10-26）
+
+用户指出「Version History 到 7 点几之后再也没填过」「流程没有自动触发、没按规则」。实测确认：
+
+- **根因不是手滑，是零校验**：`release_checks.py` 里没有任何检查管 Version History，
+  漏填照样全绿通过；同时 CI 只在 `push main` / PR 触发，**tag 不跑门禁**。
+- 修复：`release_checks.py` 新增 `version-history` 检查（README / README_CN 凡有历史表就必须登记当前 VERSION）；
+  `release-gate.json` 的 P6 挂上该检查，且 `changelog` 去掉版本硬编码（自动读 VERSION）；
+  `privacy.yml` / `test.yml` 的 `push` 增加 `tags: ['v*']`，发布后自动校验。
+- 补登记：`README.md` / `README_CN.md` 补 v8.0.0、v8.0.1 两行（此前停在 v7.8.4）。
+- 验证：正面 `exit=0`；反证（VERSION 临时改 9.9.9）`exit=1`；四项门禁全绿；CI 本地复现失败 0。
+
 ### 8.0.1 附 · 去重作业积压修复（2026-09-28 生产修复，2026-10-14 回流）— 队列永远追不上
 
 > 依据：**生产实测**（真实实例，cron `35 3 * * * … drawer_pipeline.py --stage dedup`）。
