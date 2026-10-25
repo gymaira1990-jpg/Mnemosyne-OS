@@ -10,5 +10,5 @@ pydantic>=2.13
 psutil>=7.2
 diskcache>=5.6
 numpy>=2.4
-jieba>=0.42          # v7.5+ WIKI BM25 中文分词 (main.py 硬依赖)
+jieba>=0.42.1          # v7.5+ WIKI BM25 中文分词 (main.py 硬依赖)
 mcp>=2.0             # MCP 桥契约测试 (tests/test_mcp_bridge_contract.py) 用; 服务端运行不需要, 实测 2.3.0
