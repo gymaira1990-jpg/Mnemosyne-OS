@@ -7,7 +7,7 @@
       "commands": [
         {
           "name": "方案要件（判据表 + 不做清单）",
-          "run": "python3 scripts/release_checks.py plan openspec/changes/2026-09-25-v8-memory-os/proposal.md"
+          "run": "python3 scripts/release_checks.py plan openspec/changes/memos-801-hermes-client/proposal.md"
         }
       ]
     },
@@ -75,7 +75,7 @@
       "commands": [
         {
           "name": "CHANGELOG 含版本",
-          "run": "python3 scripts/release_checks.py changelog 8.0.0"
+          "run": "python3 scripts/release_checks.py changelog 8.0.1"
         }
       ]
     }
