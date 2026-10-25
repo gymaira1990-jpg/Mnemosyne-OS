@@ -20,6 +20,27 @@
 | P5 | 隐私零输出 | `release_checks.py privacy` | exit=0 | ✅ 164 文件 |
 | P6 | CHANGELOG 含版本 | `release_checks.py changelog` | exit=0 | ✅ |
 
+## 证据（原始命令输出摘录）
+
+```
+scripts/release_checks.py version-consistency
+✅ 版本落点全部一致 = 8.1.0（查了 9 处：EN badge / CN badge / EN 版本表首行 / CN 版本表首行 /
+   CHANGELOG 最新段 / ROADMAP 首行 / AGENTS 当前版本 / PROGRESS 当前版本 / INSTALL 版本行）
+
+PYTHONPATH= .venv/bin/python -m pytest tests/ -q
+294 passed, 4 warnings in 6.28s
+
+scripts/gen-release-notes.py --selftest
+SELFTEST OK — bump 规则 4 例 + 生成结构 4 项断言全过
+
+scripts/gen-release-notes.py --since v8.0.1 --write
+✅ 已写入: CHANGELOG.md, README.md, README_CN.md
+```
+
+- **反证 1**：把 ROADMAP 首行改回 `v7.8.3` → `version-consistency` 立刻 `exit=1` 并指出该行。
+- **反证 2**（历史）：VERSION 临时改 `9.9.9` → `version-history` `exit=1`。还原后回绿。
+- **反证 3**：改 badge 前 `version-consistency` 报「EN badge 是 8.0.1，应为 8.1.0」→ 说明 9 处检查真的覆盖 badge（并促成本轮把 badge 也做进工具）。
+
 ## P1 · 工作区开发
 
 | 项 | 值 |
