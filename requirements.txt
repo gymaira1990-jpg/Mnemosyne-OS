@@ -3,7 +3,7 @@
 
 fastapi>=0.136
 uvicorn[standard]
-asyncpg>=0.31
+asyncpg>=0.32.0
 httpx>=0.28
 python-dotenv>=1.2
 pydantic>=2.13
