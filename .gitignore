@@ -41,3 +41,7 @@ skill_manifest.json
 
 # 日志
 *.log
+.coverage
+.coverage.*
+htmlcov/
+.ruff_cache/
