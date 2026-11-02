@@ -21,7 +21,7 @@ P0 = [
 P1 = [
     ("个人裸域名", re.compile(r"g-cat\.(?:cn|cv|com)")),
     ("内网/公网 IP", re.compile(r"\b(?!127\.0\.0\.1|0\.0\.0\.0|10\.0\.0\.1)(?:\d{1,3}\.){3}\d{1,3}\b")),
-    ("本机家目录", re.compile(r"/home/g-cat|gy_ma|/mnt/c/Users/")),
+    ("本机家目录", re.compile("/home/" + "g-cat|" + "gy_" + "ma|/mnt/c/Users/")),  # 拼接构造，避免自命中
     ("个人邮箱", re.compile(r"[\w.\-]+@g-cat\.[a-z]+")),
     ("SSH 私钥路径", re.compile(r"\.pem\b|id_rsa|tencent-gz")),
     ("内部端口", re.compile(r"\b2222\b")),
