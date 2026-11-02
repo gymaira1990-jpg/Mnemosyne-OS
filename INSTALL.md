@@ -218,6 +218,26 @@ curl "http://127.0.0.1:8010/api/v1/palace/summon?q=测试&user_id=default&top_k=
 
 ---
 
+### 6. 验证 9.0 记忆操作系统（推荐）
+
+```bash
+# 子系统自检
+curl -s http://127.0.0.1:8010/api/v1/memory-os/health
+# → {"status":"ok","router":"memory-os","endpoints":5}
+
+# 写入几张卡之后，试一次四通道召回
+curl -s -X POST http://127.0.0.1:8010/api/v1/memory-os/recall \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"上次部署的结论","limit":5}'
+
+# 卡片体检（档号率 / 实体率 / 向量覆盖）
+curl -s http://127.0.0.1:8010/api/v1/memory-os/stats
+```
+
+> 三个都通，说明卡片、召回、追溯这条主链路是活的。
+
+---
+
 ## 方式三：Python SDK 集成
 
 在方式二部署的服务之上，任何 Python 应用都可以接入：

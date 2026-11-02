@@ -4,14 +4,28 @@
 > **目标**：任何 Agent（Hermes / Claude Code / Cursor / Codex）5 分钟完成对接。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v9.0.1（仓库）｜ 生产运行 v8.1.0（**待部署**，部署后复验自报版号） ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v9.0.1（仓库）｜ 生产运行 v9.0.1（已部署，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 
 ```bash
 pip install -r requirements.txt
-pytest tests/          # 200 用例 = 194 服务端 + 6 MCP 桥契约（契约用例需 Hermes 侧 mcp SDK，无则自动 skip）
+pytest tests/          # 294 用例（服务端 + MCP 桥契约；契约用例需 Hermes 侧 mcp SDK，无则自动 skip）
 ```
+
+## 9.0 端点速查（记忆操作系统）
+
+| 端点 | 用途 | 备注 |
+|---|---|---|
+| `POST /api/v1/memory-os/recall` | 四通道召回（E 精确 / C 关键词 / T 时间 / S 语义） | 返回 `channel_counts`，每条候选带命中通道 |
+| `POST /api/v1/memory-os/exact` | 档号 / 台账号 / 提交 / 路径精确查 | 先锚定首行，再全文兜底 |
+| `POST /api/v1/memory-os/keywords` | 多词 OR + 覆盖率排序 | 不调 embedding，最便宜 |
+| `GET  /api/v1/memory-os/trace/{no}` | 档号 → 卡片 → `sid` → 原文 | 两级跳取证 |
+| `GET  /api/v1/memory-os/stats` | 卡片体检 | 档号率 / 实体率 / 向量覆盖 |
+| `GET  /api/v1/memory-os/diary` | 日记 / 心里话 / 流水 | 前端一次性取数 |
+| `GET  /api/v1/memory-os/health` | 子系统自检 | 部署后第一件事 |
+
+> 8.x 的 `/api/v1/palace/*`、`/api/v1/tmt/*` 等仍可用；9.0 与其**物理隔离**，互不影响。
 
 ## 集成契约（改 handler / 集成代码前必读）
 
@@ -38,9 +52,9 @@ git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 - ❌ 绝不硬编码 API Key / 真实 IP / 域名 / 密码
 - ❌ push 前必须隐私扫描（判据：零输出）
 - ❌ 扫描/门禁 pattern 改动必须**本地按 workflow 逐步复现**（判据：旧 pattern 命中 → 新 pattern 零命中）**且**过 pattern 双向自检（合法写法绿 / 硬编码红）；本地复现须带反证（放入真样本必须判红后清场）—— 门禁只在 push 后才跑，本地复现是唯一的推送前证据。判红的必须是「写死的值」而非「关键词出现」
-- ❌ **版本落点全部一致** —— 不是「三处」：`VERSION` / 双语 badge / 双语版本表首行 / CHANGELOG / ROADMAP / AGENTS / PROGRESS / INSTALL（共 8 类落点）。
+- ❌ **版本落点全部一致** —— 不是「三处」：`VERSION` / 双语 badge / 双语版本表首行 / CHANGELOG / ROADMAP / AGENTS / PROGRESS / INSTALL（共 10 类落点）。
   2026-10-26 实测：此条原写作「三处一致」，于是每轮只对齐三处 ⇒ ROADMAP 落后三个版本、AGENTS 落后一版全都没人发现。
-  **判据由机器给**：`python3 scripts/release_checks.py version-consistency`（exit=0 且打印查了 9 处）。
+  **判据由机器给**：`python3 scripts/release_checks.py version-consistency`（exit=0 且打印查了 10 处）。
 
 ## 文档导航
 
