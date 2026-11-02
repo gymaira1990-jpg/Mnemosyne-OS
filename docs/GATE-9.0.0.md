@@ -25,7 +25,8 @@
 |---|---|---|
 | 1 | 版本 10 处一致 | ✅ 查了 10 处 |
 | 2 | 隐私 P0 零命中 | ✅ P0=0（`privacy_scan.py`） |
-| 3 | 客户端自检 | ✅ 14/14 |
+| 3 | pytest 全量 | ✅ **294 passed**（`hermes verify --json`） |
+| 3b | 客户端自检 | ✅ 14/14 |
 | 4 | 服务端端到端 | ✅ 9/9 |
 | 5 | 生产自报版号 | ✅ `{"service":"Mnemosyne OS v9.0.0"}` |
 | 6 | 9.0 端点在线 | ✅ 7 条 `memory-os` 路径 |
@@ -65,5 +66,6 @@ ssh <prod> 'cp /opt/mnemosyne/VERSION.bak-<时间戳> /opt/mnemosyne/VERSION'
 
 ## 六、诚实记录
 
-- 本轮的 `release-gate-9.0.json` 把 P2 从「pytest 全量」换成「仓库自带自检」——**因为本机没有 `.venv`，测试库也未起**。这不是降低标准，是把判据换成本项目实际可执行的那套（服务端 9 项真打生产、客户端 14 项）。**pytest 全量缺失是已知缺口，已挂账。**
+- ~~本轮 P2 用仓库自带自检代替 pytest 全量（本机无 .venv）~~ —— **这条写错了，已更正**：`.venv` 是存在的（隐藏目录，我第一次没 `ls -a` 就下了结论）。实测 `hermes verify --json` → **pytest 294 passed / 6.46s**，因此 P2 已改回**真 pytest 全量** + 客户端 14 项，不再有缺口。
+  教训：判「环境缺什么」必须实测，不能凭一次 `ls` 的印象；这条差点让我用一个更弱的门禁去发布。
 - main 分支的代码推送发生在 tag 之前（`45698c1..49949b6`），当时 GitHub 提示 `2 of 2 required status checks are expected` 被 bypass。**tag 与 Release 会等 CI 结果再定**，不拿「推上去了」当「发布完成」。

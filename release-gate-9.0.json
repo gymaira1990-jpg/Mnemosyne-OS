@@ -1,6 +1,6 @@
 {
   "project": "Mnemosyne-OS",
-  "_comment": "v9.0.0 发布轮专用门禁配置（2026-11-03）。与 release-gate.json 的差别只有一处：本轮不跑 pytest 全量（本机无 .venv，测试库未起），改用仓库自带的三层自检（版本一致性 / 客户端 14 项 / 服务端端到端 9 项）+ 生产自报版本 + 隐私扫描。每条命令都是真检查，没有 sleep 0。",
+  "_comment": "v9.0.0 发布轮门禁配置（2026-11-03）。七段全部用可执行检查：P2 走真实 pytest 全量（本机 .venv 可用，294 用例）+ 客户端 14 项自检；P3/P4 走本机隧道校验生产版号与端点（不写主机名）；P5 走 privacy_scan.py。",
   "stages": {
     "P0": {
       "gate": "方案：PRD + 判据表 + 不做清单 + 任务拆分表",
@@ -25,12 +25,12 @@
       ]
     },
     "P2": {
-      "gate": "本地测试：仓库自带自检全绿 + 反证",
+      "gate": "本地测试：pytest 全量绿 + 客户端自检 + 反证",
       "commands": [
         {
-          "name": "服务端端到端 9 项",
-          "run": "make test",
-          "timeout": 600
+          "name": "pytest 全量",
+          "run": ".venv/bin/python3 -m pytest tests/ -q",
+          "timeout": 900
         },
         {
           "name": "客户端 14 项",
