@@ -318,39 +318,52 @@ async def stats():
 async def diary(limit: int = 400):
     """小本本：每日日记 + 心里话 + 情感卡。
 
-    为什么放服务端：日记生成已经搬到 GZ（jobs/diary_daily.py，每日 04:30），
-    前端只负责展示。本地关机也不影响「日子继续过」。
+    三类分开查，因为它们的 created_at 分布差很远：
+    日记是今天批量导入的、情感卡是昨晚生成的 —— 混在一起 order by created_at
+    再 limit，情感卡会被日记挤掉（实测 feel_cards 永远 0）。
     """
-    sql = """
-        SELECT content, created_at
-        FROM memories
-        WHERE is_deleted = false
-          AND (content LIKE '[每日日记]%' OR content LIKE '[心里话]%'
-               OR content LIKE '[情感卡]%')
-        ORDER BY created_at DESC
+    q_diary = """
+        SELECT content FROM memories
+        WHERE is_deleted = false AND content LIKE '[每日日记]%'
+        ORDER BY content DESC
         LIMIT $1
     """
+    q_feel = """
+        SELECT content FROM memories
+        WHERE is_deleted = false AND content LIKE '[情感卡]%'
+        ORDER BY id DESC LIMIT $1
+    """
+    q_note = """
+        SELECT content FROM memories
+        WHERE is_deleted = false AND content LIKE '[心里话]%'
+        ORDER BY id DESC LIMIT $1
+    """
     async with pool.acquire() as conn:
-        rows = await conn.fetch(sql, int(limit))
+        drows = await conn.fetch(q_diary, int(limit))
+        frows = await conn.fetch(q_feel, 100)
+        nrows = await conn.fetch(q_note, int(limit))
 
     diary, notes, feels = [], [], []
-    for r in rows:
+    for r in drows:
         c = r["content"] or ""
-        first = c.split("\n", 1)
-        head = first[0]
-        body = first[1] if len(first) > 1 else ""
-        if head.startswith("[每日日记]"):
-            d = ""
-            lines = [l for l in body.splitlines() if not l.startswith("来源：")]
-            if lines and lines[0].startswith("日期："):
-                d = lines[0][3:].strip()
-                lines = lines[1:]
-            diary.append({"date": d, "text": "\n".join(lines).strip()})
-        elif head.startswith("[情感卡]"):
-            feels.append({"title": head.replace("[情感卡]", "").strip(),
-                          "body": body.strip()})
-        else:
-            notes.append({"text": body.strip() or head.replace("[心里话]", "").strip()})
+        head, _, body = c.partition("\n")
+        m = re.search(r"日期[：:]\s*(\d{4}-\d{2}-\d{2})", head)
+        text = "\n".join(l for l in body.splitlines() if not l.startswith("来源：")).strip()
+        diary.append({"date": m.group(1) if m else "", "text": text})
+
+    for r in frows:
+        c = r["content"] or ""
+        head, _, body = c.partition("\n")
+        feels.append({"title": head.replace("[情感卡]", "").strip(),
+                      "body": "\n".join(l for l in body.splitlines()
+                                         if not l.startswith(("证据日期：", "来源："))).strip()})
+
+    for r in nrows:
+        c = r["content"] or ""
+        head, _, body = c.partition("\n")
+        txt = body.strip() or head.replace("[心里话]", "").strip()
+        if txt:
+            notes.append({"text": txt})
 
     diary.sort(key=lambda x: x["date"], reverse=True)
     return {"diary": diary, "notes": notes, "feel": feels,
