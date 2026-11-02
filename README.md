@@ -131,7 +131,7 @@ Changing the embedding model requires a full re-index; a self-retrieval gate (�
 ## The diary
 
 <p align="center">
-  <img src="docs/screenshots/diary.png" alt="The little notebook — daily diary view" width="820">
+  <img src="docs/screenshots/diary-guide.png" alt="The diary — UI overview and how it works" width="920">
 </p>
 
 Most memory systems stop at retrieval. This one also keeps a **diary** — and it is the part people actually
@@ -232,6 +232,40 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 Full walkthrough (permissions, model backends, macOS/Windows, FAQ): [INSTALL.md](INSTALL.md).
 
 ---
+
+---
+
+## Use it your way
+
+| Your situation | What to do |
+|---|---|
+| **Already running Hermes** | `hermes config set memory.provider mnemosyne` → 14 tools appear after `/reset`. Nothing else to wire. |
+| **Your own agent framework** | Call the REST API (`POST /api/v1/memory-os/recall`, `GET /api/v1/memory-os/trace/{no}`) or import the SDK: `from integrations.sdk import MnemosyneHermesMemory`. |
+| **Just want a searchable local store** | You only need 4 tables (`memories`, `entities`, `memory_entities`, `sessions`) and the `/memory-os/*` router. Skip the palace tree, TMT, wiki, skills — they are optional layers. |
+| **Want the full thing** | Everything in this repo: catalog cards + palace taxonomy + butler + diary. |
+
+## Make it yours
+
+| What you want to change | Where | Watch out |
+|---|---|---|
+| Model / provider | `.env`: `EMBED_MODEL`, `LLM_MODEL_LITE`, `LLM_MODEL_PRO` | Changing the **embedding** model invalidates every vector — re-index everything, then run the self-retrieval gate |
+| Add a recall channel | `api/memory_os.py` (`_yourchannel`) + the weight table in `sandbox/mem9/recall.py` | Your channel **must return `id`** — returning archive numbers only caused one card to be counted twice and dropped recall from 90% to 70% |
+| Change the card format | `jobs/steward_polish.py` → `rebuild_card()` + the line regexes | Archive number, evidence and entity lines are a **contract** for trace; don't let a model rewrite them |
+| Add a butler job | new file in `jobs/`, plain Python + cron | Must be idempotent and carry a daily cap — this is the single biggest cost risk |
+| Replace the UI | `frontend/*.html` — one static file, `fetch("./data.json")`, no build step | Keep the JSON shape or change both sides |
+| Change the diary's voice | `diary_daily.py` → `SYSTEM` / `SYSTEM_QUIET` | Run `--selftest`; the "don't invent events" rule is load-bearing |
+| Add auth / multi-tenant | Not built (single-tenant, `user_id=default`) — see ROADMAP | Don't fake it with a token check; the data model has no tenant column yet |
+
+## Deploy shapes
+
+| Shape | Storage | Good for |
+|---|---|---|
+| **Single node, PostgreSQL** (standard) | PG 16 + pgvector | most self-hosted setups |
+| **Edge–cloud** | local SQLite buffer ↔ PG primary | laptops that go offline; buffers writes, flushes on reconnect |
+| **Postgres only, no palace** | 4 core tables | smallest footprint — cards, four-channel recall, trace |
+
+All three run the same `main.py`; the difference is which tables and env vars you configure.
+
 
 ## Operations
 

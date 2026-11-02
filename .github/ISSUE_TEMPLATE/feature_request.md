@@ -1,17 +1,13 @@
 ---
-name: Feature Request
-about: 建议新功能
-title: "[FEATURE] "
+name: Feature request
+about: Suggest a capability or a change
 labels: enhancement
-assignees: gymaira1990-jpg
 ---
 
-## 问题描述
-<!-- 这个功能解决什么问题？ -->
+**What problem are you trying to solve** (please describe the situation, not the solution)
 
-## 建议方案
+**What you tried so far**
 
-## 替代方案
+**Which part of the system** (cards / recall / butler / diary / palace / other)
 
-## 相关版本
-<!-- v7.x / 下一版本 -->
+**Would you accept a smaller version of this?** (e.g. a config flag instead of a new module)

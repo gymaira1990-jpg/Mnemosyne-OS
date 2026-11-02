@@ -128,7 +128,7 @@ Hermes 记忆提供者（改一行配置，14 个工具自动出现）、REST AP
 ## 小本本（The diary）
 
 <p align="center">
-  <img src="docs/screenshots/diary.png" alt="小本本 · 日记视图" width="820">
+  <img src="docs/screenshots/diary-guide.png" alt="小本本 · 界面与玩法导览" width="920">
 </p>
 
 大多数记忆系统做到检索就停了。这套还留了一本**日记**——而它恰恰是每天早上真正会被打开的那一页。
@@ -223,6 +223,40 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 完整步骤（权限、模型后端、macOS/Windows、FAQ）见 [INSTALL.md](INSTALL.md)。
 
 ---
+
+---
+
+## 三种用法（按你的情况选）
+
+| 你的情况 | 怎么用 |
+|---|---|
+| **已经在用 Hermes** | `hermes config set memory.provider mnemosyne`，`/reset` 之后 14 个工具自动出现，不用再接别的 |
+| **自己的 Agent 框架** | 直接调 REST（`POST /api/v1/memory-os/recall`、`GET /api/v1/memory-os/trace/{档号}`），或 `from integrations.sdk import MnemosyneHermesMemory` |
+| **只想要个本地可搜的库** | 只要 4 张表（`memories` / `entities` / `memory_entities` / `sessions`）+ `/memory-os/*` 路由。宫殿树、TMT、Wiki、技能层全部是可选的 |
+| **要全套** | 就是本仓库这个形态：著录卡 + 分类树 + 管家 + 日记 |
+
+## 二创指南（改哪里、注意什么）
+
+| 想改什么 | 改哪里 | 注意 |
+|---|---|---|
+| 换模型 / 供应商 | `.env`：`EMBED_MODEL`、`LLM_MODEL_LITE`、`LLM_MODEL_PRO` | 换 **embedding** 模型等于换向量空间，必须全量重建索引，再跑自检索门禁 |
+| 加一条召回通道 | `api/memory_os.py`（`_yourchannel`）+ `recall.py` 的权重表 | 通道**必须返回 `id`**——只返回档号会让同一张卡被算两次，我们把召回从 90% 打到过 70% |
+| 改卡片格式 | `jobs/steward_polish.py` 的 `rebuild_card()` 与行正则 | 档号、证据行、实体行是 `trace` 的**契约**，不许让模型改 |
+| 加一个管家作业 | `jobs/` 下新建 + cron | 必须幂等 + 有每日上限——这是本项目最大的成本风险点 |
+| 换前端 | `frontend/*.html`，单文件 + `fetch("./data.json")`，无构建步骤 | 要么保持 JSON 结构，要么两边一起改 |
+| 改日记口吻 | `diary_daily.py` 的 `SYSTEM` / `SYSTEM_QUIET` | 改完跑 `--selftest`；「不许编造事件」这条是承重墙 |
+| 加认证 / 多租户 | 还没做（单租户，`user_id=default`），见 ROADMAP | 别用一个 token 检查假装做了——数据模型里还没有 tenant 列 |
+
+## 部署形态
+
+| 形态 | 存储 | 适合谁 |
+|---|---|---|
+| **单机 PostgreSQL**（标准） | PG 16 + pgvector | 大多数自托管场景 |
+| **边缘-云双活** | 本地 SQLite 缓冲 ↔ PG 主库 | 会离线的笔记本：先写本地，联网再静默推回 |
+| **裸 PG、不起宫殿** | 4 张核心表 | 最小占地：卡片 + 四通道召回 + 追溯 |
+
+三种跑的都是同一个 `main.py`，区别只在配了哪些表和哪些环境变量。
+
 
 ## 运维
 

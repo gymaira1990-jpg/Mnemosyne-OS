@@ -1,25 +1,21 @@
 ---
-name: Bug Report
-about: 报告一个 bug
-title: "[BUG] "
+name: Bug report
+about: Something is broken
 labels: bug
-assignees: gymaira1990-jpg
 ---
 
-## 描述
+**What happened**
 
-## 复现步骤
+**What you expected**
 
+**How to reproduce**
 1.
 2.
-3.
 
-## 期望行为
+**Environment**
+- OS:
+- Python / PostgreSQL / pgvector versions:
+- Mnemosyne version (`curl -s localhost:8010/` or `cat VERSION`):
+- Which layers are enabled (cards only / + palace / + wiki / + skills):
 
-## 实际行为
-
-## 环境
-- Mnemosyne 版本:
-- 部署方式 (Docker/裸机/Hermes集成):
-- Python 版本:
-- PostgreSQL 版本:
+**Logs** (redact keys and hostnames)
