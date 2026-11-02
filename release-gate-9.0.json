@@ -43,8 +43,8 @@
       "gate": "部署：生产自报版号一致",
       "commands": [
         {
-          "name": "生产自报 9.0.1（经隧道）",
-          "run": "bash -c \"curl -s -m 10 http://127.0.0.1:18010/ | grep -q 9.0.1 && echo OK-9.0.1\""
+          "name": "生产自报 9.0.2（经隧道）",
+          "run": "bash -c \"curl -s -m 10 http://127.0.0.1:18010/ | grep -q 9.0.2 && echo OK-9.0.2\""
         }
       ]
     },
