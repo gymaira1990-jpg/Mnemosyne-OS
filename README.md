@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-8.1.0-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.0-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -334,6 +334,7 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.0) | 2026-11-03 | Memory OS：著录卡 · 四通道召回 · 服务端管家 |
 | [v8.1.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v8.1.0) | 2026-10-26 | Added · Fixed · Docs |
 | [v8.0.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v8.0.1) | 2026-10-26 | 🧩 Hermes client toolkit: **outcome cards** (per-turn 问/做/证据/`msg_range`, zero-LLM) + `route-search` router (cards → state.db FTS fallback) + 12 contract tests; ♻️ provider drift回流 (+207/−25: self-echo filter · fragment down-weight · session-end backgrounding · upsert · soft-delete mirror) |
 | [v8.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v8.0.0) | 2026-09-25 | 🏛️ Memory OS 8.0（写得对·收得回·找得准·弄得清）: layered write (L0/L1) + idempotency keys per layer · GC batch restore with CASCADE child snapshots · `prod_smoke.py` fixed as P4 gate (6 assertions + auto cleanup) · 7-stage release state machine (`publish` as sole entry) |
