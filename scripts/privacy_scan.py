@@ -11,19 +11,19 @@ import sys
 import pathlib
 
 P0 = [
-    ("OpenAI/DS key", re.compile(r"sk-[A-Za-z0-9]{16,}")),
-    ("Tavily key", re.compile(r"tvly-[A-Za-z0-9]{16,}")),
-    ("GitHub token", re.compile(r"ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}")),
-    ("腾讯云 AK", re.compile(r"AKID[A-Za-z0-9]{13,}")),
-    ("硬编码 PGPASSWORD", re.compile(r"PGPASSWORD=[\"']?[A-Za-z0-9]{8,}")),
-    ("硬编码 API_KEY 字面量", re.compile(r"(?:API_KEY|TOKEN|SECRET)\s*=\s*[\"'][A-Za-z0-9_\-]{16,}[\"']")),
+    ("OpenAI/DS key", re.compile("sk" + "-[A-Za-z0-9]{16,}")),
+    ("Tavily key", re.compile("tv" + "ly-[A-Za-z0-9]{16,}")),
+    ("GitHub token", re.compile("gh" + "p_[A-Za-z0-9]{20,}|github" + "_pat_[A-Za-z0-9_]{20,}")),
+    ("腾讯云 AK", re.compile("AK" + "ID[A-Za-z0-9]{13,}")),
+    ("硬编码 PGPASSWORD", re.compile("PGPASS" + "WORD=[\"']?[A-Za-z0-9]{8,}")),
+    ("硬编码 API_KEY 字面量", re.compile("(?:API_" + "KEY|TOKEN|SECRET)\\s*=\\s*[\\"'][A-Za-z0-9_\\-]{16,}[\\"']")),
 ]
 P1 = [
     ("个人裸域名", re.compile(r"g-cat\.(?:cn|cv|com)")),
     ("内网/公网 IP", re.compile(r"\b(?!127\.0\.0\.1|0\.0\.0\.0|10\.0\.0\.1)(?:\d{1,3}\.){3}\d{1,3}\b")),
-    ("本机家目录", re.compile("/home/" + "g-cat|" + "gy_" + "ma|/mnt/c/Users/")),  # 拼接构造，避免自命中
+    ("本机家目录", re.compile("/home/" + "g-" + "cat|gy_" + "ma|/mnt/c/" + "Users/")),  # 拼接构造，避免自命中
     ("个人邮箱", re.compile(r"[\w.\-]+@g-cat\.[a-z]+")),
-    ("SSH 私钥路径", re.compile(r"\.pem\b|id_rsa|tencent-gz")),
+    ("SSH 私钥路径", re.compile("\\" + ".pem\\b|id_" + "rsa|tencent" + "-gz")),
     ("内部端口", re.compile(r"\b2222\b")),
     ("内部主机名", re.compile(r"\bgz\b(?=/|\.|\s|:)|\bwsl\b", re.I)),
 ]

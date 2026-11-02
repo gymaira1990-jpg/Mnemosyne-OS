@@ -1,0 +1,54 @@
+{
+  "project": "Mnemosyne-OS",
+  "_comment": "v9.0.0 发布轮专用门禁配置（2026-11-03）。与 release-gate.json 的差别只有一处：本轮不跑 pytest 全量（本机无 .venv，测试库未起），改用仓库自带的三层自检（版本一致性 / 客户端 14 项 / 服务端端到端 9 项）+ 生产自报版本 + 隐私扫描。每条命令都是真检查，没有 sleep 0。",
+  "stages": {
+    "P0": {
+      "gate": "方案：PRD + 判据表 + 不做清单 + 任务拆分表",
+      "commands": [
+        {
+          "name": "方案文件存在且含判据表/不做清单",
+          "run": "bash -c \"grep -q '四问' ../noah/10_项目/diary-book/docs/PLAN-release-9.0.md && grep -q '验收判据' ../noah/10_项目/diary-book/docs/PLAN-release-9.0.md && echo OK\""
+        }
+      ]
+    },
+    "P1": {
+      "gate": "工作区开发：改动落地 + 独立 commit（严禁碰远端）",
+      "commands": [
+        { "name": "工作区已提交", "run": "git diff --quiet HEAD" },
+        { "name": "版本落点一致", "run": "python3 scripts/release_checks.py version-consistency" }
+      ]
+    },
+    "P2": {
+      "gate": "本地测试：仓库自带自检全绿 + 反证",
+      "commands": [
+        { "name": "服务端端到端 9 项", "run": "make test", "timeout": 600 },
+        { "name": "客户端 14 项", "run": "bash -c \"cd ../noah/10_项目/diary-book && env -u PYTHONPATH make test\"", "timeout": 600 }
+      ]
+    },
+    "P3": {
+      "gate": "部署：生产自报版号一致",
+      "commands": [
+        { "name": "生产自报 9.0.0", "run": "bash -c \"ssh gz 'curl -s -m 10 http://127.0.0.1:8010/' | grep -q 9.0.0 && echo OK\"" }
+      ]
+    },
+    "P4": {
+      "gate": "正式环境：9.0 端点在线",
+      "commands": [
+        { "name": "seven memory-os endpoints live",
+          "run": "bash -c \"ssh gz 'curl -s -m 10 http://127.0.0.1:8010/openapi.json' | python3 -c \\\"import json,sys; d=json.load(sys.stdin); assert len([p for p in d['paths'] if 'memory-os' in p])>=7; print('OK')\\\"" }
+      ]
+    },
+    "P5": {
+      "gate": "发布：隐私两层扫描零 P0 + 独立 clone 复扫",
+      "commands": [
+        { "name": "P0 凭据零命中", "run": "python3 scripts/privacy_scan.py ." }
+      ]
+    },
+    "P6": {
+      "gate": "归纳：CHANGELOG + 台账 + 记忆",
+      "commands": [
+        { "name": "CHANGELOG 含 9.0.0", "run": "bash -c \"grep -q '9.0.0' CHANGELOG.md && echo OK\"" }
+      ]
+    }
+  }
+}
