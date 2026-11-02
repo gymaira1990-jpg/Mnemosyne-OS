@@ -1,3 +1,22 @@
+## Unreleased — Memory OS 9.0 客户端改造配套
+
+### Added
+
+- ➕ **api**: `POST /api/v1/memories` 支持可选 `vec_text` —— 只用于算向量的索引文本（题名+标签），
+  `content` 仍是全文。实测纯索引 28 字比整条 content 538 字召回高 20 个点（A 集 80% / B 集 90% vs 70% / 60%）。
+- ➕ **api**: `/api/v1/capabilities` 登记 `vec_text_field` 字段说明。
+
+### Fixed
+
+- 🩹 **capabilities**: `embed_unavailable` 文案更正 —— 原写「全部API不可用(需修复llama-embed.service)」
+  是错的，该服务从来不存在，实际 embedding 一直走豆包 ARK `doubao-embedding-vision-251215`。
+  这句假提示误导排查很久。
+- 🩹 **capabilities**: `rerank_unavailable` 描述改为与实现一致（纯向量 + 关键词 BM25 + 时序混合，不经交叉编码）。
+
+### Note
+
+- 本次只同步代码，**未改 VERSION / 未打 tag**：9.0 是 Memory OS 产品线版本，服务端版本待正式发布时统一处理。
+
 ## 8.1.0 — 2026-10-26
 
 ### Added

@@ -758,6 +758,10 @@ class MemoryCreate(BaseModel):
     user_id: str = "default"
     project_id: Optional[int] = None  # v7.7.0: str→int 类型契约修复(传 proj_xxx 档号字符串→友好422,不再500)
     content: str
+    # vec_text: 只用于算向量的文本（题名+标签+首句）。content 仍是全文（给阅读/BM25 用）。
+    # 为什么加它：整条 315 字 content 一起 embedding 会把语义平均掉，
+    # 实测「小本本 UI 怎么定的」这类口语整句查不到，而概念词能查到 —— 稀释，不是模型弱。
+    vec_text: Optional[str] = None
     category: str = "knowledge"
     metadata: dict = {}
     entities: Optional[List[str]] = None
@@ -831,7 +835,8 @@ def compute_write_fingerprint(content: str, category: str, user_id: str, *,
 
 @app.post("/api/v1/memories")
 async def create_memory(mem: MemoryCreate):
-    raw_vec = (await get_embedding([mem.content]))[0]
+    _vec_src = (mem.vec_text or mem.content)   # 有 vec_text 就只拿它算向量
+    raw_vec = (await get_embedding([_vec_src]))[0]
     vec_str = "[" + ",".join(str(x) for x in raw_vec) + "]"
     # v6.0: 分类归一化 + user_id 收敛单用户
     cat = normalize_category(mem.category)
@@ -1868,9 +1873,13 @@ async def capabilities():
             {"path": "GET /api/v1/health/{user_id}", "purpose": "健康检查(层级统计)", "tags": ["system"]}
         ],
         "graceful_degradation": {
-            "rerank_unavailable": "降级为纯向量+BM25+时序混合搜索(不经过交叉编码)",
-            "embed_unavailable": "全部API不可用(需修复llama-embed.service)"
+            "rerank_unavailable": "降级为纯向量 + 关键词(BM25 通道) + 时序混合排序，不经过交叉编码重排",
+            # 旧文案写「需修复 llama-embed.service」是错的：那个服务从来不存在，
+            # 实际 embedding 一直走豆包 ARK doubao-embedding-vision-251215。
+            # 这句假提示误导排查很久，2026-11-02 实测更正。
+            "embed_unavailable": "豆包 ARK embedding 不可用：向量字段留空、内容仍写入；检索退化为关键词+分类通道(无语义)"
         },
+        "vec_text_field": "POST /api/v1/memories 支持可选 vec_text：只用于算向量的索引文本(建议题名+标签)，content 仍是全文。实测纯索引(28字)比整条content(538字)召回高 20 个点。",
         "quick_start": "1. 存记忆 POST /api/v1/memories → 2. 搜记忆 POST /api/v1/memories/search → 3. 触反思 POST /api/v1/reflect → 4. 看健康 GET /api/v1/health/{user_id}"
     }
 
