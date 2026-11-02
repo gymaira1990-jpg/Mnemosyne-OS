@@ -4,10 +4,10 @@ Mnemosyne Memory Provider — 替换 OpenViking，使用自研记忆宫殿。
 Provider v1.1.0 (2026-07-29)
   - v1.0.0: 初始版本，全量 sync_turn + 热点记忆 + prefetch
   - v1.1.0: 写过滤(低价值消息跳过) + 首轮冷启动 + 格式优化(cat_emoji)
-  - Mnemosyne 依赖: v5.5.1+ (GZ 服务器)
+  - Mnemosyne 依赖: v5.5.1+ (the server 服务器)
   - 兼容: Hermes v0.19.0+
 
-通过 SSH 隧道连接到 GZ 服务器上的 Mnemosyne REST API (localhost:18010)。
+通过 SSH 隧道连接到 生产服务器上的 Mnemosyne REST API (localhost:18010)。
 提供全量记忆存储、语义检索、TMT 层级蒸馏和热度管理。
 
 配置 (profile-scoped .env):
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ENDPOINT = "http://127.0.0.1:18010"
 _DEFAULT_USER_ID = "default"
 _API_TIMEOUT = 15.0
-# recall 含 GZ 端 LLM 蒸馏(实测 13s+)，单独放宽超时，防偶发超时被误判为空结果
+# recall 含 服务端 LLM 蒸馏(实测 13s+)，单独放宽超时，防偶发超时被误判为空结果
 _RECALL_TIMEOUT = 60.0
 # ── 自回声过滤 (2026-10-07, T-0327①) ──────────────────────────────
 # 实测: 本会话自己的发言会被 sync_turn 存成 L2/session 条, 下一轮又被 prefetch
@@ -127,13 +127,13 @@ _SESSION_END_SYNC_JOIN = 1.0        # 写队列是 sqlite 持久化的, 会话�
 _PALACE_EXTRACT_BATCH = 5           # 每片约 7s; 30 在客户端超时内跑不完
 _PALACE_EXTRACT_TIMEOUT = 90.0      # 后台执行, 不再受 _API_TIMEOUT(15s) 拖累
 # ⚠️ 2026-09-28 (T-0223): 事实提取**默认不再在会话边界跑**（改成 True 可恢复旧行为）。
-#    理由（取证）: GZ 侧每天 02:00 已有 `tmt/factextract.py --batch 60`，而本调用走的是
+#    理由（取证）: the server 侧每天 02:00 已有 `tmt/factextract.py --batch 60`，而本调用走的是
 #    **同一候选集合同一套逻辑** —— palace.extract_facts_pipeline() 内部直接 `from tmt import
 #    factextract` 复用 find_candidates(metadata->>'fact_extracted' IS NULL, category in
 #    session/worklog, length>=80, oldest-first)。⇒ 会话边界再跑一次是重复劳动（每片约 7s 的
-#    LLM 活），而且每次会话结束都占 GZ 一个 LLM 时段。
+#    LLM 活），而且每次会话结束都占 the server 一个 LLM 时段。
 #    裕量判据（2026-09-28 实测）: 待提取积压 23 条 < 日额度 60 ⇒ 日批处理追得上；此判据失效
-#    （积压长期接近/超过 60）时再恢复本开关或调大 GZ 的 --batch。
+#    （积压长期接近/超过 60）时再恢复本开关或调大 服务端的 --batch。
 _SESSION_END_FACT_EXTRACT = False
 # 幂等检索类 POST 路径：连接/超时错误可安全重试（写入类绝不重试，防重复写入）
 _RETRYABLE_POST = {
@@ -502,7 +502,7 @@ class _MnemosyneClient:
         return result if isinstance(result, list) else []
 
     def recall(self, query: str, max_results: int = 5) -> dict:
-        """3 阶段智能召回（含 LLM 蒸馏）。GZ 端蒸馏慢，用独立长超时。"""
+        """3 阶段智能召回（含 LLM 蒸馏）。the server 端蒸馏慢，用独立长超时。"""
         payload = {
             "user_id": self._user_id,
             "query": query,
@@ -923,7 +923,7 @@ class MnemosyneMemoryProvider(MemoryProvider):
             logger.warning("Mnemosyne session consolidation failed: %s", e)
 
         # ③ 资料室事实提取 (v7.0): 本会话新写入的 session 碎片 → facts → 建档
-        #    ⚠️ 2026-09-28 (T-0223): 默认关闭 —— GZ 每天 02:00 的 `tmt/factextract.py --batch 60`
+        #    ⚠️ 2026-09-28 (T-0223): 默认关闭 —— the server 每天 02:00 的 `tmt/factextract.py --batch 60`
         #    走的是同一候选集合、同一套逻辑（palace.extract_facts_pipeline 直接复用 tmt.factextract
         #    的 find_candidates），会话边界再跑一次属重复劳动；开关见文件头 _SESSION_END_FACT_EXTRACT。
         if _SESSION_END_FACT_EXTRACT:

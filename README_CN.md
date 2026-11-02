@@ -293,7 +293,9 @@ python main.py  # → :8010
 | [docs/palace-architecture.md](docs/palace-architecture.md) | 魔法记忆宫殿详细设计 |
 | [docs/schema.sql](docs/schema.sql) | 完整数据库结构（含宫殿表） |
 
+---
+
 <p align="center">
   <i>「记忆不是用来存的，是用来活的。」</i><br><br>
-  🐾 <b>G-CAT</b> & <b>Hermes Agent</b> · MIT · 2026
+  🐾 <b>G-CAT</b> & <b>Hermes Agent</b> · MIT License · 2026
 </p>

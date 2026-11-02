@@ -4,31 +4,30 @@
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
-  
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2?style=flat-square" alt="hermes">
 </p>
 
 <h1 align="center">🏛️ Mnemosyne OS</h1>
-<h3 align="center">A Cognitive Memory Operating System for AI Agents</h3>
+<h3 align="center">A memory operating system for AI agents</h3>
 
 <p align="center">
-  <i>Not a vector database. Not a RAG pipeline.<br>
-  A living memory palace that archives, refines, and summons knowledge —<br>
-  the way libraries, archives, and medicine cabinets have done for centuries.</i>
+  <i>Not a vector store. Not a RAG pipeline.<br>
+  Every conversation becomes a cataloged card —<br>
+  with an archive number, entities, evidence, and a pointer back to the original transcript.</i>
 </p>
 
 <p align="center">
-  <img src="docs/poster.png" alt="Mnemosyne OS Overview" width="560">
+  <img src="docs/poster.png" alt="Mnemosyne OS architecture" width="640">
 </p>
 
 <p align="center">
-  <a href="#the-problem">Why</a> ·
-  <a href="#how-it-works">How</a> ·
-  <a href="#what-sets-it-apart">Features</a> ·
+  <a href="#what-it-solves">What it solves</a> ·
+  <a href="#what-you-get">What you get</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#quick-start">Quick Start</a> ·
-  <a href="#performance">Performance</a> ·
-  <a href="#version-history">Versions</a> ·
+  <a href="#measured">Measured</a> ·
+  <a href="#vs-rag">vs. RAG</a> ·
+  <a href="#documentation">Docs</a> ·
   <a href="README_CN.md">🇨🇳 中文</a>
 </p>
 
@@ -36,299 +35,178 @@
 
 | | |
 |---|---|
-| **Memories** | 16,500+ active · 17,320 rows · 99.4% archived coverage |
-| **Search** | 🏰 3-channel summon (name/guide/resonate) · ~100-400ms |
-| **Palace** | Taxonomy 7 wings×20 rooms · Archive-no system · Tome cards · Retention tiers |
+| **Memories** | 31,953 (3,499 catalog cards, 100% embedded) |
+| **Recall** | 4 channels fused · 90% recall@10 on two independent eval sets |
+| **Trace** | archive no → card → `sid` → original transcript |
+| **Butler** | polish / dedupe / diary / gap-sweep — runs server-side, 7×24 |
 | **Stack** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
-| **Agent** | Hermes Memory Provider (14 tools incl. palace_summon) · auto-extract |
-| **Uptime** | 7×24 on modest cloud · edge-cloud sync (SQLite ↔ PG) |
+| **Agent** | Hermes memory provider (14 tools) + REST API + Python SDK + MCP |
 
 ---
 
-## The Problem
+## What it solves
 
-Every AI agent today suffers from the same amnesia: conversations reset, context windows overflow, important decisions vanish into scrollback. We duct-tape solutions — vector DBs for retrieval, RAG for injection, prompt stuffing for continuity — but none of them **understand** memory. They store bytes. They don't know what matters and what doesn't.
+Long-running agents forget, or worse, remember badly. Five problems that show up in the first month of daily use:
 
-**Mnemosyne OS** treats memory as a first-class system with its own lifecycle: **capture → distill → age → forget → resurface**. It's built for agents that need to remember across weeks, not just within a single `context_length`.
+| Problem | What usually happens | What Mnemosyne does |
+|---|---|---|
+| **Transcripts too long, summaries too lossy** | Blow the context window, or lose the detail you needed | Each meaningful turn becomes a **catalog card**: ≤20-char title, ≤200-char abstract, entity line, evidence line, `sid=` pointer |
+| **"I know we discussed this"** | One vector search returns something adjacent but wrong | **Four channels** (exact / keyword / time / semantic) fused with per-channel rank decay, each hit labeled with its channel |
+| **Answers cannot be verified** | You can't tell a real memory from a hallucination | Every card carries **evidence** (issue / commit / path / URL); `trace` walks back to the original message |
+| **Nothing survives without a human curating it** | The library rots the week you stop maintaining it | **Butler on the server**: polish, dedupe, diary, missed-card sweep — independent of your laptop |
+| **Duplicates crowd the top-k** | Two generations of one memory eat two slots | **Dedupe marks, never deletes**; duplicates are down-weighted, one flag removes the mark |
 
----
+## What you get
 
-## How It Works
-
-Every conversation end triggers the distillation pipeline:
+### 1. Memory with a shape
 
 ```
-Dialogue flows through the palace pipeline automatically:
-
-```
-Conversation (Hermes)
-     │
-     ▼  state.db (lossless raw, Hermes native)
-     │
-     ▼  sync_turn → session memories (2,000/3,000 chars, lossless-ish)
-     │
-     ▼  🕵️ Fact extraction (DeepSeek) → structured facts
-     │
-     ▼  🏛️ Archive: classify (7 wings × 20 rooms) → archive-no → tome card
-     │
-     ▼  📚 Library: 3-channel summon (name / guide / resonate)
-     │
-     └  🍵 Medicine cabinet: high-frequency facts stay hot
+[Result card] No: K·DIARY·2026-4964
+Title: Diary generation moved to the server
+Abstract: diary_daily.py + cron 04:30, runs without the laptop; self-test 10/10.
+Entities: /opt/.../diary_daily.py · T-0589
+Evidence: docs/DESIGN-steward.md · scripts/verify.sh
+Tags: DIARY ops
+Source: sid=1f1a5a70…
 ```
 
-Every step is **LLM-driven** — not templated. The same pipeline handles agent delegation events, memory writes, and context compression hooks.
+Producing this structure costs **zero LLM tokens** — it is extracted by rules. A model only improves the wording
+afterwards, and is forbidden from touching the archive number, evidence or entity lines.
 
----
+### 2. Find it back — four channels, one call
 
-## What Sets It Apart
+Exact (archive no / issue id / commit / path) · Keyword (multi-term OR with coverage scoring) · Time (recent N days,
+topic-filtered) · Semantic (1024-d vectors). Hits from different channels are fused **with rank decay inside each
+channel**, so "which channel found it first" is preserved instead of flattened into one number.
 
-| Feature | Mnemosyne | Chroma/Pinecone | Mem0 |
+### 3. Two-hop trace
+
+`archive no → card → sid → original conversation`. Anything the vector search cannot find is still findable
+if you know roughly what it was about.
+
+### 4. A butler that runs without you
+
+| Job | When | What it does | Guardrail |
 |---|---|---|---|
-| 🏰 Palace taxonomy (7 wings × 20 rooms) | ✅ | ❌ | ❌ |
-| Archive-no system (number = position) | ✅ | ❌ | ❌ |
-| Tome cards (standardized description) | ✅ | ❌ | ❌ |
-| 3-channel summon (name/guide/resonate) | ✅ | ❌ | ❌ |
-| Fact extraction (dialogue→facts) | ✅ LLM pipeline | ❌ | ✅ |
-| Vector search (1024d HNSW) | ✅ | ✅ | ✅ |
-| Full-text (BM25 + ILIKE) | ✅ | ❌ | ❌ |
-| Retention tiers (permanent/long/short) | ✅ | ❌ | ❌ |
-| Entity graph (table-based) | ✅ entities + memory_entities | ❌ | ❌ |
-| Conversation history (lossless) | ✅ state.db → PG | ❌ | ❌ |
-| Edge-cloud sync | ✅ SQLite ↔ PG | ❌ | ❌ |
-| Agent-native hooks | ✅ 14 tools | ❌ | Limited |
+| Polish | daily 03:20 | Rewrites title + abstract | Never touches archive no / evidence / entities; 20 / 200 char hard caps; idempotent |
+| Dedupe | weekly | Mechanical pass (0 tokens) for same-session generations, model pass for cross-session synonyms | **Marks only**; never deletes or merges |
+| Diary | daily 04:30 | Writes the day's entry from real cards | Quiet days get a quiet entry — invented events are forbidden |
+| Gap sweep | session start | Reconciles sessions against cards, backfills the difference | Only closed sessions; idempotent |
 
-### 🏰 Magic Memory Palace
+### 5. Tiered retention
 
-Memory is organized like a real palace — inspired by library classification (Dewey Decimal), archive description standards (DA/T18), and the Chinese medicine cabinet (position registry). These systems served humanity for centuries without computers; Mnemosyne brings them to AI.
+Hot / warm / cold with per-tier decay, plus cold archive that keeps full content recoverable. Nothing is deleted —
+it moves.
 
-```
-Lobby       → high-frequency memories (always-injected)
-Wing        → K knowledge · N network · D dev · O ops · A assets · P people · I ideas
-Room        → 20 mid categories (proxy / deploy / secret / model / …)
-Shelf       → sub-topic
-Tome        → individual memory: description card + archive-no + content pointer
-Vault       → raw conversations, lossless (Hermes state.db)
-```
+### 6. Palace taxonomy (from v7)
 
-Every memory gets an **archive number** — `K·NET·PROXY·2026-0007` — so "number = position", exactly like a library call number. No more dumping everything into a flat vector pile.
+Memories are also placed in a 7-wing × 20-room tree with library-style call numbers, so "number = position".
+The archive number is not decoration: it is how a human (or an agent) refers to a memory without a search.
 
-### 🪄 Three-Channel Summon
+### 7. Agent-native, model-agnostic
 
-Knowledge comes when you call it — three channels, each with a job:
-
-| Channel | Mechanism | Latency |
-|---|---|---|
-| ① **Name** (exact) | archive-no / title / tag direct hit | <100ms |
-| ② **Guide** (range) | taxonomy wing/room narrowing | ~200ms |
-| ③ **Resonate** (fuzzy) | vector search (pgvector HNSW) | ~300ms |
-
-```bash
-# Summon: exact + guided + fuzzy, one call
-curl "http://127.0.0.1:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
-```
-
-### 🕵️ Three-Chamber Division
-
-| Chamber | Role | Implementation |
-|---|---|---|
-| 🕵️ Research room | dialogue → structured facts | `/palace/extract` |
-| 🏛️ Archive | classify + describe | `tome_cards` + archive-no |
-| 📚 Library | retrieval | `/palace/summon` |
-| 🍵 Medicine cabinet | high-frequency fast access | taxonomy guide + archive-no |
-
-Conversation fragments (88% → 27% of storage) become **10,798 knowledge entries** — searchable, classifiable, referenceable knowledge instead of raw dialogue noise.
-
-### ⏳ Retention Tiers
-
-Not all memories live forever. Lifecycle-aware decay:
-
-| Tier | Decay | Cleanup |
-|---|---|---|
-| permanent | never | rules / identity / red lines |
-| long | 0.999 (very slow) | knowledge / projects |
-| short | fast | auto-removed after 90 days |
-
-### 💬 Permanent Conversation History
-
-Hermes `state.db` (SQLite) syncs to PostgreSQL on every session end. Full exchanges — user, assistant, tool calls, reasoning — preserved with timestamps. The vault under the palace: raw truth, lossless.
-
-### 🔌 Agent-Native Integration
-
-**Memory Provider** (14 tools) — automatic, no manual `remember()` calls:
-
-```
-mnemosyne_palace_summon  → 3-channel summon (the magic front desk)
-mnemosyne_search         · mnemosyne_recall      · mnemosyne_hot_memories
-mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
-mnemosyne_media          · session_search        · mnemosyne_tree
-mnemosyne_skill_search   · mnemosyne_skill_wakeup · mnemosyne_injection_plan  (v7.7.0)
-```
-
-**WIKI knowledge base** (v7.4+, full-text snapshot archive for papers/plans):
-
-```
-mnemosyne_wiki search      → semantic search (vector HNSW + BM25 keywords, RRF fusion, default on)
-mnemosyne_wiki by_source   → exact lookup by source path/URL (snapshot survives source loss)
-mnemosyne_wiki get/list    → read full text by ID / list pages
-Optional: rerank=true (doubao rerank, high-precision), graph=true (1-hop KG expansion, default off)
-Eval (20 queries, v7.5): precision@3 100% / recall@3 98.3% / MRR 1.0
-```
-
-**🚀 Injection Scheduler** (v7.7.0) — procedural skill wing + context-aware injection:
-
-```
-POST /api/v1/skills/sync     → idempotent skill asset sync (state machine aligned with Hermes curator)
-POST /api/v1/skills/search   → semantic skill summon (incl. dormant/archived, wakeable)
-PATCH /api/v1/skills/{name}  → state transition (wake up / demote) — never deleted, only flowed
-POST /api/v1/injection/plan  → scene-aware injection flow {skills + memories + hooks}
-```
-Skills are *procedural memory*: same palace philosophy as declarative memory (never DELETE, only
-state-flow active → stale → archived → wake). Embedding layer optimized: concurrent calls +
-standard LRU cache + exponential-backoff retry (7.7x faster cold batches, ~0ms cache hits).
-
-```text
-on_session_end   → sync + fact extraction     on_turn_start    → prefetch
-on_pre_compress  → inject before compression  on_delegation    → log subtasks
-on_memory_write  → mirror to Mnemosyne        on_session_switch → flush queue
-```
-
-### ☁️ Edge-Cloud Resilience
-
-WSL offline? Local SQLite cache. Back online? Silent push to PostgreSQL. Cron jobs maintain heat decay, dedup, fact extraction, session consolidation, and offline sync.
-
----
+Hermes memory provider (tools appear after one config change), REST API, Python SDK, MCP server.
+Any OpenAI-compatible endpoint: swap `EMBED_MODEL` / `LLM_MODEL_LITE` / `LLM_MODEL_PRO` — no code changes.
+Changing the embedding model requires a full re-index, and a self-retrieval gate checks it (≥90% top-1).
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────┐
-│            Mnemosyne OS v7.0 · Magic Memory Palace    │
-│                                                        │
-│  FastAPI (50+ endpoints)                               │
-│  ├── /api/v1/palace/*        🏰 Palace (core)         │
-│  │   ├── status             palace state (coverage)   │
-│  │   ├── summon             3-channel (name/guide/rs)  │
-│  │   ├── archive            classify + archive-no     │
-│  │   ├── extract            fact extraction pipeline  │
-│  │   ├── refine             LLM card refinement       │
-│  │   └── lifecycle          retention tiers           │
-│  ├── /api/v1/memories       CRUD + search (legacy)    │
-│  ├── /api/v1/sessions       Conversation history      │
-│  ├── /api/v1/wiki           Knowledge base            │
-│  └── /api/v1/echo           Health check              │
-│                                                        │
-│  PostgreSQL 16 · pgvector 1024d (HNSW)                │
-│  Entity graph (entities + memory_entities tables)                     │
-│  asyncpg connection pool                               │
-│                                                        │
-│  🏰 Palace data model                                   │
-│  archive_taxonomy (7 wings × 20 rooms)                 │
-│  tome_cards (description cards) + entities               │
-│  memories.archive_no (K·NET·PROXY·2026-0007)          │
-│                                                        │
-│  Fact pipeline (dual LLM: DeepSeek / Doubao)           │
-│  dialogue → facts → classify → archive-no → tome card  │
-│                                                        │
-│  Integrations                                          │
-│  ├── Hermes Memory Provider (14 tools)                 │
-│  ├── Hermes auto-extract (on_session_end)              │
-│  └── Python SDK                                        │
-└──────────────────────────────────────────────────────┘
+                    ┌──────────────────────────────┐
+   agent / user ───▶│  FastAPI · 8.x + 9.0 routers │
+                    └───────────┬──────────────────┘
+        ┌───────────────────────┼─────────────────────────┐
+        ▼                       ▼                         ▼
+ ┌─────────────┐        ┌──────────────┐          ┌───────────────┐
+ │   Recall    │        │    Cards     │          │    Butler     │
+ │ E · C · T · S│◀─────▶│ archive no   │◀────────▶│ polish        │
+ │ fuse + decay│        │ entities     │          │ dedupe        │
+ └──────┬──────┘        │ evidence     │          │ diary         │
+        │               │ sid ─────────┼──▶ transcript store (SQLite ↔ PG)
+        │               └──────┬───────┘          └───────────────┘
+        ▼                      ▼
+  pgvector 1024d HNSW   PostgreSQL 16 · taxonomy (7×20) · entity graph
 ```
 
----
+| Layer | Key endpoints |
+|---|---|
+| 9.0 memory OS | `/api/v1/memory-os/{recall,exact,keywords,trace/{no},stats,diary,health}` |
+| 8.x palace | `/api/v1/palace/{summon,archive,extract,refine,lifecycle,status}` |
+| Memory / sessions | `/api/v1/memories`, `/api/v1/sessions/archive`, `/api/v1/metrics` |
+| Knowledge | `/api/v1/wiki`, `/api/v1/skills/*`, `/api/v1/tmt/*` |
 
 ## Quick Start
 
-> **Start here** — pick your path:
-
-| You want to… | Do this | Time |
-|---|---|---|
-| 🤖 Give your Hermes Agent long-term memory | `hermes config set memory.provider mnemosyne` | ~2 min |
-| 🐍 Call Mnemosyne from your own code | Install + Python SDK | ~15 min |
-| 🏠 Self-host the full service | Follow [INSTALL.md](INSTALL.md) | ~15 min |
-
-### Prerequisites
-
-- Python 3.11+ · PostgreSQL 16 + pgvector
-- 8GB+ RAM · Any OpenAI-compatible embedding/LLM backend
-
-### Hermes Agent (one command)
-
-The Mnemosyne Memory Provider ships with Hermes — tools appear after `/reset`:
+**Prerequisites** — PostgreSQL 16 with `pgvector ≥ 0.7` (and optionally Apache AGE ≥ 1.5 for the entity graph),
+Python 3.11+, 8 GB RAM, one OpenAI-compatible LLM + embedding endpoint.
 
 ```bash
-hermes config set memory.provider mnemosyne
-# Tools: mnemosyne_palace_summon · mnemosyne_search · mnemosyne_recall · …
-```
+git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git && cd Mnemosyne-OS
 
-No other configuration needed.
+# 1. Database (superuser once, for CREATE EXTENSION)
+sudo -u postgres createdb mnemosyne
+sudo -u postgres psql -d mnemosyne -f docs/schema.sql
 
-### Standalone
+# 2. Configure
+cp .env.template .env
+#    ARK_API_KEY / DEEPSEEK_API_KEY (or any OpenAI-compatible)
+#    EMBED_MODEL, LLM_MODEL_LITE, LLM_MODEL_PRO, PGHOST/PGUSER/PGPASSWORD/PGDATABASE
 
-> Full step-by-step guide: **[INSTALL.md](INSTALL.md)** (database setup, permissions, model backends, FAQ).
-
-```bash
-git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
-cd Mnemosyne-OS
+# 3. Install & run
+python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
+python3 main.py                      # → http://127.0.0.1:8010
 
-# 1. PostgreSQL 16 + pgvector (Ubuntu example):
-#    sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
-# 2. Import schema (superuser required for CREATE EXTENSION):
-#    sudo -u postgres psql -d mnemosyne -f docs/schema.sql
-# 3. Configure model backend in .env (ARK / DeepSeek / any OpenAI-compatible):
-cp .env.template .env   # fill in ARK_API_KEY (or OPENAI_API_KEY + MODEL_BACKEND=openai)
-
-python main.py  # → :8010
+# 4. Verify
+curl -s http://127.0.0.1:8010/api/v1/memory-os/health
+# → {"status":"ok","router":"memory-os","endpoints":5}
 ```
 
-### Python SDK
+**Hermes users** get the shorter path: `hermes config set memory.provider mnemosyne` — 14 tools appear after `/reset`.
 
-```python
-from integrations.sdk import MnemosyneHermesMemory
-m = MnemosyneHermesMemory(endpoint="http://127.0.0.1:18010")
+Full walkthrough (permissions, model backends, macOS/Windows, FAQ): [INSTALL.md](INSTALL.md).
 
-m.add("pgvector HNSW outperforms IVFFlat for high-dimensional recall")
-results = m.get_relevant("which pgvector index is better?")
-# → top-5 with per-dimension score breakdown
-```
+## Measured
 
----
-
-## Performance
-
-Single user + 5 agent workers, 7×24 on a modest cloud instance:
+One user, one modest cloud instance (4 vCPU), 7×24:
 
 | Metric | Value |
 |---|---|
-| Memories archived | 16,500+ active |
-| Tome cards | see `GET /api/v1/health/<user>` |
-| Taxonomy | 7 wings × 20 rooms (30 nodes) |
-| Summon latency | ~100-400ms (3-channel) |
-| Embedding | 1024d Doubao Embedding-Vision |
-| Fact extraction LLM | DeepSeek V4 (dual-base: DeepSeek + Doubao) |
+| Memories | **31,953** |
+| Catalog cards | **3,499** — 97.8% with archive no, 100% with vectors |
+| Average card length | 337 characters (from transcripts averaging ~33,000) |
+| Recall@10 — general set | **9/10 (90%)** |
+| Recall@10 — anti-overfit set | **9/10 (90%)** |
+| Recall latency | 100–400 ms (four channels, fused) |
+| Embedding | 1024-d Doubao Embedding-Vision |
 
-**Model-agnostic**: any OpenAI-compatible endpoint. Swap `EMBED_MODEL` / `LLM_MODEL_LITE` / `LLM_MODEL_PRO` env vars — zero code changes.
+Both eval sets ship with the repo (`eval_recall.py`, `eval_recall_b.py`). The second one deliberately avoids the
+domain lexicon, so tuning against the first cannot fake the second. Negative results are kept in `CHANGELOG.md` —
+including a regression we caused and fixed within one day.
 
----
+## vs. RAG
+
+| | Typical RAG | Mnemosyne OS |
+|---|---|---|
+| Unit of memory | a chunk of text | **a card** with archive no, entities, evidence |
+| Retrieval | one vector search | **four channels fused**, channel shown per hit |
+| Verification | none | `trace` back to the original message |
+| Duplicates | pile up | **marked and down-weighted**, never deleted |
+| Maintenance | manual | **butler runs on the server** |
+| Time awareness | none | time channel + tiered retention |
+| Cost to structure | LLM per chunk | **rules: 0 tokens**; the model only improves wording |
 
 ## Documentation
 
 | | |
 |---|---|
-| [INSTALL.md](INSTALL.md) | Step-by-step installation guide (Linux / macOS / WSL) |
-| [AGENTS.md](AGENTS.md) | AI agent manual — API reference, env vars, Hermes/MCP setup |
-| [ROADMAP.md](ROADMAP.md) | Current priorities & next steps |
-| [CHANGELOG.md](CHANGELOG.md) | Full version history |
-| [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | v7.0 product whitepaper — palace architecture |
-| [docs/palace-architecture.md](docs/palace-architecture.md) | Magic Memory Palace detailed design |
-| [docs/schema.sql](docs/schema.sql) | Full database schema (incl. palace tables) |
-| [docs/design/](docs/design/) | Per-version design docs (v6.2-v6.4) |
-| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Dev workflow, commit conventions |
-| [.github/SECURITY.md](.github/SECURITY.md) | Vulnerability reporting |
-
----
+| [INSTALL.md](INSTALL.md) | Installation (Linux / macOS / WSL2), model backends, FAQ |
+| [AGENTS.md](AGENTS.md) | Manual for AI agents: API surface, env vars, Hermes/MCP |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internals: layers, fusion, storage |
+| [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST reference · every environment variable |
+| [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | Design philosophy |
+| [docs/design/](docs/design/) · [docs/adr/](docs/adr/) | Design docs · architecture decision records |
+| [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) | Where it is going · what changed |
 
 ## Version History
 
@@ -365,6 +243,8 @@ Single user + 5 agent workers, 7×24 on a modest cloud instance:
 | v5.0.0 | 2026-06-24 | First 7×24 deployment |
 
 [Full changelog →](CHANGELOG.md)
+
+---
 
 ---
 

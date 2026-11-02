@@ -8,7 +8,7 @@ on:
 
 # 判红的必须是「写死的值」，不是「关键词出现」:
 #   PGPASSWORD="${PGPASSWORD:-}" 是合法变量展开 → 必须放过
-#   PGPASSWORD=hunter2abc123     是硬编码凭据   → 必须抓到
+#   PGPASSWORD=<8+ 位字面量>      是硬编码凭据   → 必须抓到（样本用变量拼接构造，不写死值）
 # pattern 只在此处定义一次，扫描与自检共用（改一处，两边同时生效，避免漂移）。
 env:
   CRED_PAT: 'sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_|PGPASSWORD=["'']?[A-Za-z0-9]{8,}|BEGIN [A-Z ]*PRIVATE KEY|/mnt/c/Users|tencent-gz'
