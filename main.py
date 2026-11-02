@@ -166,6 +166,14 @@ import api.injection as injection_module
 from api.injection import router as injection_router
 app.include_router(injection_router)
 
+# Memory OS 9.0：四通道召回 / 精确查 / 多词 BM25 / 两级跳 trace / 卡片体检
+# 物理隔离在 /api/v1/memory-os/*，不碰 8.x 的老端点
+try:
+    from api.memory_os import router as memory_os_router
+    app.include_router(memory_os_router)
+except Exception as _e:      # 加载失败不能拖垮主服务
+    print(f"[warn] memory-os router 未加载: {_e}")
+
 # v8.0 S3-1 记忆分层模型（可执行规格）
 import core.layers as layers_mod
 injection_module.pool = None
@@ -683,6 +691,12 @@ async def startup():
     )
     # 注入 TMT 模块
     tmt_module.pool = pool
+    # 注入给 memory-os router 用
+    try:
+        import api.memory_os as _mos
+        _mos.pool = pool
+    except Exception:
+        pass
     # 注入 v5.0 模块
     security_module.pool = pool
     skills_module.pool = pool
