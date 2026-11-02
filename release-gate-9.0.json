@@ -28,14 +28,14 @@
     "P3": {
       "gate": "部署：生产自报版号一致",
       "commands": [
-        { "name": "生产自报 9.0.0", "run": "bash -c \"ssh gz 'curl -s -m 10 http://127.0.0.1:8010/' | grep -q 9.0.0 && echo OK\"" }
+        { "name": "生产自报 9.0.0", "run": "bash -c \"ssh \"${GCAT_PROD_HOST:-prod}\" 'curl -s -m 10 http://127.0.0.1:8010/' | grep -q 9.0.0 && echo OK\"" }
       ]
     },
     "P4": {
       "gate": "正式环境：9.0 端点在线",
       "commands": [
         { "name": "seven memory-os endpoints live",
-          "run": "bash -c \"ssh gz 'curl -s -m 10 http://127.0.0.1:8010/openapi.json' | python3 -c \\\"import json,sys; d=json.load(sys.stdin); assert len([p for p in d['paths'] if 'memory-os' in p])>=7; print('OK')\\\"" }
+          "run": "bash -c \"ssh \"${GCAT_PROD_HOST:-prod}\" 'curl -s -m 10 http://127.0.0.1:8010/openapi.json' | python3 -c \\\"import json,sys; d=json.load(sys.stdin); assert len([p for p in d['paths'] if 'memory-os' in p])>=7; print('OK')\\\"" }
       ]
     },
     "P5": {
