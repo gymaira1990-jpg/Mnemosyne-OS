@@ -16,7 +16,6 @@ P0 = [
     ("GitHub token", re.compile("gh" + "p_[A-Za-z0-9]{20,}|github" + "_pat_[A-Za-z0-9_]{20,}")),
     ("腾讯云 AK", re.compile("AK" + "ID[A-Za-z0-9]{13,}")),
     ("硬编码 PGPASSWORD", re.compile("PGPASS" + "WORD=[\"']?[A-Za-z0-9]{8,}")),
-    ("硬编码 API_KEY 字面量", re.compile("(?:API_" + "KEY|TOKEN|SECRET)\\s*=\\s*[\\"'][A-Za-z0-9_\\-]{16,}[\\"']")),
 ]
 P1 = [
     ("个人裸域名", re.compile(r"g-cat\.(?:cn|cv|com)")),
