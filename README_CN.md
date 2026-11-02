@@ -4,245 +4,303 @@
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/DB-PostgreSQL%2016%20%2B%20pgvector-336791?style=flat-square" alt="postgres">
-  <img src="https://img.shields.io/badge/graph-Apache%20AGE-forestgreen?style=flat-square" alt="graph">
   <img src="https://img.shields.io/badge/agent-Hermes%20native-8A2BE2?style=flat-square" alt="hermes">
 </p>
 
 <h1 align="center">🏛️ Mnemosyne OS</h1>
-<h3 align="center">认知型记忆操作系统 · 给 AI Agent 的长期记忆</h3>
+<h3 align="center">给 AI Agent 用的记忆操作系统</h3>
 
 <p align="center">
-  <i>不是向量数据库，不是 RAG 管道。<br>
-  是会自己整理、提炼、老化的记忆 OS——跨会话、跨天数、跨项目。</i>
+  <i>不是向量库，也不是 RAG 管道。<br>
+  每一次有效对话都会变成一张著录卡——带档号、实体、证据行，以及指回原始对话的指针。<br>
+  还配一本日记：你不开机它也照写。</i>
 </p>
 
 <p align="center">
-  <a href="#它解决了什么">为什么</a> ·
-  <a href="#怎么工作的">怎么工作</a> ·
-  <a href="#核心能力">核心能力</a> ·
+  <img src="docs/poster.png" alt="Mnemosyne OS 架构" width="640">
+</p>
+
+<p align="center">
+  <a href="#它解决什么问题">解决什么</a> ·
+  <a href="#七项能力">能力</a> ·
+  <a href="#小本本the-diary">小本本</a> ·
+  <a href="#架构">架构</a> ·
   <a href="#快速开始">快速开始</a> ·
-  <a href="#技术栈">技术栈</a> ·
-  <a href="#版本">版本</a> ·
-  <a href="README.md">English</a>
+  <a href="#运维">运维</a> ·
+  <a href="#实测">实测</a> ·
+  <a href="#负结果照登">负结果</a> ·
+  <a href="README.md">🇬🇧 English</a>
 </p>
 
 ---
 
 | | |
 |---|---|
-| **记忆** | 16,500+ 条活跃 · 17,320 行（含墓碑 743） · 归档率 99.4% |
-| **搜索** | 🏰 三通道召唤（点名/引导/共鸣）· ~100-400ms |
-| **宫殿** | 分类树 7翼×20房 · 档号体系 · 著录卡片 · 永恒分级 |
-| **技术** | PostgreSQL 16 · pgvector 1024d HNSW · FastAPI |
-| **Agent** | Hermes Memory Provider（11工具含 palace_summon）· 自动提取 |
-| **运行** | 7×24 云端 · 端云双活（SQLite ↔ PG） |
+| **记忆量** | 31,953 条（3,499 张著录卡，100% 有向量） |
+| **召回** | 四通道融合 · 两个独立评测集各 90% recall@10 |
+| **追溯** | 档号 → 卡片 → `sid` → 原始对话 |
+| **管家** | 精修 / 判重 / 日记 / 漏卡巡检 —— 跑在服务器上，7×24 |
+| **小本本** | 每天一段人话，只写真实发生的事；没聊的日子也写 |
+| **技术栈** | PostgreSQL 16 · pgvector 1024 维 HNSW · FastAPI |
+| **接入** | Hermes 记忆提供者（14 个工具）+ REST API + Python SDK + MCP |
 
 ---
 
-## 它解决了什么
+## 它解决什么问题
 
-每个 AI Agent 都健忘：会话一关全忘光，上下文窗口溢出，重要决策消失在滚动条里。现有方案——向量数据库检索、RAG 注入、prompt 拼接——都是打补丁。能存数据，但不懂**什么重要、什么该忘**。
+长期运行的 Agent 会忘事，更糟的是「记得很糟」。以下五个问题，日常用一个月必然遇到：
 
-Mnemosyne OS 把记忆当作一等公民：**捕获 → 蒸馏 → 老化 → 遗忘 → 浮现**。专为需要跨周记忆的 Agent 设计，跑在你自己的服务器上。
-
----
-
-## 怎么工作的
-
-每次对话结束，系统自动触发蒸馏管道：
-
-```
-对话自动流经宫殿管道：
-
-```
-对话 (Hermes)
-     │
-     ▼  state.db (无损原始记录, Hermes 原生)
-     │
-     ▼  sync_turn → session 记忆 (2000/3000字符, 接近无损)
-     │
-     ▼  🕵️ 资料室: 事实提取 (DeepSeek) → 结构化 facts
-     │
-     ▼  🏛️ 档案馆: 分类 (7翼×20房) → 档号 → 著录卡片
-     │
-     ▼  📚 图书馆: 三通道召唤 (点名 / 引导 / 共鸣)
-     │
-     └  🍵 中药柜: 高频 facts 保持热度
-```
-
-每一步都是 **LLM 驱动**，不是模板填空。同一个管道处理 Agent 委托事件、记忆写入和上下文压缩。
-
----
-
-## 核心能力
-
-| 能力 | Mnemosyne | Chroma/Pinecone | Mem0 |
-|---|---|---|---|
-| 向量搜索 (1024d HNSW) | ✅ | ✅ | ✅ |
-| 全文搜索 (BM25 + ILIKE) | ✅ | ❌ | ❌ |
-| 时间衰减评分 | ✅ 7/30/90天分层 | ❌ | ❌ |
-| 事实提取 (对话→facts) | ✅ LLM管道 | ❌ | ✅ |
-| 知识图谱 (Cypher) | ✅ Apache AGE | ❌ | ❌ |
-| 会话历史 | ✅ state.db→PG同步 | ❌ | ❌ |
-| 端云同步 | ✅ SQLite↔PG | ❌ | ❌ |
-| Agent原生Hook | ✅ 11个工具 | ❌ | 有限 |
-
-### 🏰 魔法记忆宫殿
-
-记忆像真实宫殿一样组织——灵感来自图书馆分类（杜威十进）、档案著录（DA/T18）、中药柜斗谱（位置即药）。这些体系在没有电脑的年代服务人类几百年，Mnemosyne 把它们带给 AI。
-
-```
-大厅 LOBBY   → 高频记忆（常驻注入，抬手取）
-翼   WING    → K知识 · N网络 · D开发 · O运维 · A资产 · P人物 · I灵感
-房间 ROOM    → 20 中类（proxy / deploy / secret / model / …）
-书架 SHELF   → 小类 / 主题
-书卷 TOME    → 单条知识：著录卡片 + 档号 + 全文指针
-地下档案馆    → 原始对话全保真（Hermes state.db）
-```
-
-每条记忆获得**档号**——`K·NET·PROXY·2026-0007`——「编号即位置」，像图书馆索书号。不再把一切倒进扁平向量堆。
-
-### 🪄 三通道召唤
-
-知识招手就来——三通道各司其职：
-
-| 通道 | 机制 | 延迟 |
+| 问题 | 通常的后果 | Mnemosyne 怎么做 |
 |---|---|---|
-| ① **点名**（精确） | 档号/题名/标签直命中 | <100ms |
-| ② **引导**（范围） | 分类树翼/房逐层缩小 | ~200ms |
-| ③ **共鸣**（模糊） | 向量检索（pgvector HNSW） | ~300ms |
+| **原文太长、摘要太糙** | 要么爆上下文，要么丢掉当时要的细节 | 每轮有效对话成为一张**著录卡**：题名 ≤20 字、摘要 ≤200 字、实体行、证据行、`sid=` 指针 |
+| **「我记得讨论过」** | 一次向量检索返回「差不多但不对」的东西 | **四通道**（精确/关键词/时间/语义）融合排序，并标出命中的是哪条通道 |
+| **答案没法验证** | 分不清是真记忆还是模型编的 | 每张卡带**证据行**（台账/提交/路径/URL）；`trace` 顺档号跳回原始消息 |
+| **没人维护就会烂** | 你不整理，库就变成垃圾场 | **服务端管家**：精修、判重、日记、漏卡巡检 —— 不依赖你的电脑开着 |
+| **重复卡挤占结果** | 同一件事的两代记录占两个位置 | **判重只标记不删除**；重复卡在召回里降权，撤掉标记即恢复 |
+
+---
+
+## 七项能力
+
+### 1. 记忆是有形状的
+
+```
+[结果卡] 档号：K·DIARY·2026-4964
+题名：日记生成搬到服务器
+摘要：diary_daily.py + cron 04:30，不依赖笔记本开机；自检 10/10。
+实体：/opt/.../diary_daily.py · T-0589
+证据：docs/DESIGN-steward.md · scripts/verify.sh
+标签：DIARY 运维
+来源：sid=1f1a5a70…
+```
+
+生成这套结构**消耗 0 个 LLM token**，每个字段都由规则抽出：
+档号来自序号分配器；实体按八类正则（台账号 / 提交 hash / 版本号 / 路径 / URL / 带单位数字 / 日期 / 项目名）；
+证据按持久度分级（台账 > 提交 > 仓库文件 > URL > 绝对路径，`/tmp`、`/cache`、`/scratch` 一律排除）。
+
+模型只负责后续润色措辞，**禁止**碰档号、证据、实体行。**卡片是法律文书，不是摘要。**
+
+### 2. 找得回：四通道，一次调用
+
+| 通道 | 机制 | 权重 |
+|---|---|---|
+| **E** 精确 | 档号 / 台账号 / 提交 hash / 路径——先锚定行首，再全文兜底 | 100 |
+| **C** 关键词 | 多词 OR，按覆盖率打分（命中数 ÷ 词数，分母封顶 3） | 60 |
+| **T** 时间 | 最近窗口内、且主题词命中 | 45 |
+| **S** 语义 | 1024 维 pgvector HNSW | 40 |
+
+通道内部按排名衰减（`K/(K+rank)`，K=10）。这条很关键：**把通道拍平成一个分数，等于把排序本身丢掉**——我们踩过这个坑（见「负结果」）。
+
+### 3. 两级跳追溯
+
+`档号 → 卡片 → sid → 原始对话`。向量索引是近似，档号不是。
+**只要你说得出它是什么，就能原文取回。**
+
+### 4. 不需要你在场的管家
+
+| 作业 | 时间 | 做什么 | 护栏 |
+|---|---|---|---|
+| 精修 | 每天 03:20 | 重写题名 + 摘要 | 不碰档号/证据/实体；20/200 字硬上限；幂等可续跑 |
+| 判重 | 每周 | 机械阶段（0 token，同会话 + 题名 trgm ≥0.8），模型阶段处理跨会话同义 | **只标记**，从不删除或合并 |
+| 日记 | 每天 04:30 | 用真实卡片写当天 | 没聊的日子写「没聊」，禁止编造事件 |
+| 漏卡巡检 | 会话开始 | 有会话没卡就补 | 只补已结束会话；幂等 |
+
+四个都是 cron 上的普通 Python 作业。没有队列、没有 worker 集群、没有要盯的状态机。
+
+### 5. 分层保留
+
+热/温/冷三层，各自衰减；冷层归档保留全文可恢复。
+**没有任何东西被删除，只是换了个位置，而且换得回来。**
+
+### 6. 宫殿分类
+
+记忆同时落在一棵 7 翼 × 20 室的分类树上，配图书馆式索书号，做到「号即位置」。
+档号不是装饰：它是人和 Agent 指认某条记忆的方式，不必先搜索。
+
+### 7. Agent 原生、模型无关
+
+Hermes 记忆提供者（改一行配置，14 个工具自动出现）、REST API、Python SDK、MCP 服务端。
+任何 OpenAI 兼容端点：换 `EMBED_MODEL` / `LLM_MODEL_LITE` / `LLM_MODEL_PRO`，零改码。
+换 embedding 模型必须全量重建索引，并有自检索门禁（top-1 ≥90%）把关。
+
+---
+
+## 小本本（The diary）
+
+<p align="center">
+  <img src="docs/screenshots/diary.png" alt="小本本 · 日记视图" width="820">
+</p>
+
+大多数记忆系统做到检索就停了。这套还留了一本**日记**——而它恰恰是每天早上真正会被打开的那一页。
+
+它是什么：
+
+- **每天一条**，100–180 字，第一人称，只用当天**真实卡片**里的事来写。
+  什么都没发生，就写什么都没发生；编造事件在 prompt 里是明令禁止的，也要人工抽查。
+- **三个视图**：`日记`（每日正文）· `心里话`（值得留下的感受）· `流水`（会话记录：做了什么、多少次工具调用、怎么收的尾）。
+- **一个端点供数**：`GET /api/v1/memory-os/diary` 返回 `{diary[], sessions[], feel[], counts}`；
+  前端就是一个静态 HTML，`fetch("./data.json")` 然后渲染。没有构建步骤，没有框架。
+
+为什么放在服务器上、而不是客户端：
+
+> 只在你开着电脑时才存在的日记，不叫日记，叫会话日志。
+> 作业 04:30 在服务器上跑。你一天没开电脑，那天仍然有一条——而且它诚实地写着「今天没聊」。
+
+怎么接上：
 
 ```bash
-# 一次调用同时走三通道
-curl "http://127.0.0.1:8010/api/v1/palace/summon?q=xray&user_id=default&top_k=5"
+# 每天 04:30 —— 用卡片写昨天的日记
+30 4 * * * cd /opt/mnemosyne && set -a && . .env && set +a \
+  && ./venv/bin/python3 diary_daily.py >> /var/log/diary_daily.log 2>&1
 ```
 
-### 🕵️ 三室分工
+想关掉：`MEMOS_DIARY=0`（作业级）或直接删掉这行 cron。没有别的东西依赖它。
 
-| 室 | 职责 | 实现 |
+---
+
+## 架构
+
+```
+                    ┌──────────────────────────────┐
+   Agent / 用户 ───▶│  FastAPI · 8.x + 9.0 路由     │
+                    └───────────┬──────────────────┘
+        ┌───────────────────────┼─────────────────────────┐
+        ▼                       ▼                         ▼
+ ┌─────────────┐        ┌──────────────┐          ┌───────────────┐
+ │   召回       │        │    卡片       │          │    管家       │
+ │ E·C·T·S 融合│◀─────▶│ 档号/实体/证据│◀────────▶│ 精修 · 判重   │
+ │ + 排名衰减   │        │ sid ─────────┼──▶ 会话原文（SQLite ↔ PG）
+ └──────┬──────┘        └──────┬───────┘          └───────────────┘
+        ▼                      ▼
+  pgvector 1024 维 HNSW   PostgreSQL 16 · 分类树(7×20) · 实体图谱
+```
+
+| 层 | 职责 | 主要端点 |
 |---|---|---|
-| 🕵️ 资料室 | 对话 → 结构化 facts | `/palace/extract` |
-| 🏛️ 档案馆 | 分类 + 著录 | `tome_cards` + 档号 |
-| 📚 图书馆 | 检索召唤 | `/palace/summon` |
-| 🍵 中药柜 | 高频快速取用 | 分类引导 + 档号点名 |
+| 9.0 记忆操作系统 | 召回 / 精确 / 关键词 / 追溯 / 体检 / 日记 / 自检 | `/api/v1/memory-os/*` |
+| 8.x 宫殿 | 分类树、召唤、精炼、生命周期 | `/api/v1/palace/*` |
+| 记忆读写 | 写入、读取、反馈、分层、指标 | `/api/v1/memories/*`、`/api/v1/metrics` |
+| 知识 | Wiki 快照、技能、TMT 整合 | `/api/v1/wiki`、`/api/v1/skills/*`、`/api/v1/tmt/*` |
+| 存储 | PG 16 + pgvector（向量）+ 实体表 + 会话镜像 | — |
 
-对话碎片（存储占比 88% → 27%）变成 **8,299 条结构化 facts**——可检索、可分类、可引用的知识，不再是对话噪音。
+**写入路径**：一轮结束 → 规则抽结构 → 卡片入库，向量只对**索引文本**（题名+标签）计算
+（我们自己的 A/B：28 字索引比 538 字全文高 20 个点）→ 会话镜像落库供追溯。
 
-### ⏳ 永恒分级
-
-不是所有记忆都活到永远。生命周期衰减：
-
-| 等级 | 衰减 | 清理 |
-|---|---|---|
-| permanent | 永不 | 规则 / 身份 / 红线 |
-| long | 0.999（极慢） | 知识 / 项目 |
-| short | 快 | 90 天后自动撤架 |
-
-### 💬 永久会话历史
-
-Hermes `state.db`（SQLite）每次会话结束同步到 PostgreSQL。完整对话——用户、助手、工具调用、思考链——带时间戳全保真。宫殿下的地窖：原始真相，无损。
-
-### 🔌 Agent 原生集成
-
-**Memory Provider**（14 工具）——全自动，无需手动 `remember()`：
-
-```
-mnemosyne_palace_summon  → 三通道召唤（魔法前台）
-mnemosyne_search         · mnemosyne_recall      · mnemosyne_hot_memories
-mnemosyne_remember       · mnemosyne_dialectic   · mnemosyne_wiki
-mnemosyne_media          · session_search        · mnemosyne_tree
-mnemosyne_skill_search   · mnemosyne_skill_wakeup · mnemosyne_injection_plan（v7.7.0）
-```
-
-**WIKI 知识库检索**（v7.4+，论文/方案全文快照档案馆）：
-
-```
-mnemosyne_wiki search      → 语义搜索（向量 HNSW + BM25 关键词，RRF 融合，默认开）
-mnemosyne_wiki by_source   → 按来源路径/URL 精确查证（防源损毁）
-mnemosyne_wiki get/list    → 按 ID 读全文 / 列表
-可选参数: rerank=true（豆包重排，高精度场景）、graph=true（图谱 1 跳扩展，默认关）
-效果: 20 查询评测 precision@3 100% / recall@3 98.3% / MRR 1.0（v7.5）
-```
-
-**🚀 注入调度大厅**（v7.7.0）——程序性记忆翼 + 场景感知注入：
-
-```
-POST /api/v1/skills/sync     → 技能资产幂等同步（状态机对齐 Hermes curator）
-POST /api/v1/skills/search   → 语义召唤技能（含沉寂/归档，可唤醒）
-PATCH /api/v1/skills/{name}  → 状态流转（唤醒/降级）——永不删除，只流转
-POST /api/v1/injection/plan  → 按场景返回注入流 {技能 + 记忆 + 钩子}
-```
-技能=程序性记忆：与陈述性记忆同哲学（永不 DELETE，状态流转 active→stale→archived→唤醒）。
-embedding 层深度优化：并发调用 + 标准 LRU 缓存 + 指数退避重试（冷批量 7.7 倍提速，缓存命中≈0ms）。
-```
-
-```
-on_session_end   → 同步 + 事实提取        on_turn_start    → 预取
-on_pre_compress  → 压缩前注入            on_delegation    → 记录子任务
-on_memory_write  → 镜像写入              on_session_switch → 刷写队列
-```
-
-### ☁️ 端云双活
-
-WSL 离线？本地 SQLite 缓存。恢复联网？静默推送 PostgreSQL。Cron 维护热度衰减、去重、事实提取、会话整合、离线同步。
+**读取路径**：查询 → 判层决定用哪几条通道 → 并行取 → 按「通道权重 × 排名衰减」融合 →
+重复卡降权 → 取 top-k。
 
 ---
 
 ## 快速开始
 
-> **从这里开始** —— 按需选择你的路径：
-
-| 你想要… | 怎么做 | 耗时 |
-|---|---|---|
-| 🤖 给 Hermes Agent 长期记忆 | `hermes config set memory.provider mnemosyne` | ~2 分钟 |
-| 🐍 在自己代码里调用 | 独立部署 + Python SDK | ~15 分钟 |
-| 🏠 自托管完整服务 | 按 [INSTALL.md](INSTALL.md) | ~15 分钟 |
+**前置**：PostgreSQL 16 + `pgvector ≥ 0.7`（实体图谱可选 Apache AGE ≥ 1.5）、Python 3.11+、8G 内存、
+一个 OpenAI 兼容的 LLM + embedding 端点。
 
 ```bash
-# Hermes Agent（一条命令）
-hermes config set memory.provider mnemosyne
-# 工具: mnemosyne_palace_summon · mnemosyne_search · mnemosyne_recall · …
+git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git && cd Mnemosyne-OS
 
-# 独立部署 → 完整步骤见 INSTALL.md（含数据库初始化/模型配置/验证）
-git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
-cd Mnemosyne-OS
-# ① 装 PostgreSQL 16 + pgvector + Apache AGE ② 导入 docs/schema.sql
-# ③ 配置 .env（模型后端）④ pip install -r requirements.txt
-python main.py  # → :8010
+# 1. 数据库（CREATE EXTENSION 需要一次超级用户）
+sudo -u postgres createdb mnemosyne
+sudo -u postgres psql -d mnemosyne -f docs/schema.sql
+
+# 2. 配置
+cp .env.template .env
+#    ARK_API_KEY / DEEPSEEK_API_KEY（或任意 OpenAI 兼容）
+#    EMBED_MODEL、LLM_MODEL_LITE、LLM_MODEL_PRO、PGHOST/PGUSER/PGPASSWORD/PGDATABASE
+
+# 3. 安装并启动
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+python3 main.py                      # → http://127.0.0.1:8010
+
+# 4. 验证
+curl -s http://127.0.0.1:8010/api/v1/memory-os/health
+# → {"status":"ok","router":"memory-os","endpoints":5}
 ```
 
-> 📖 详细的分环境安装步骤（Linux/macOS/WSL + 权限说明 + 常见问题）见 [INSTALL.md](INSTALL.md)。
+**Hermes 用户**走更短的路：`hermes config set memory.provider mnemosyne`，`/reset` 之后 14 个工具自动出现。
+
+完整步骤（权限、模型后端、macOS/Windows、FAQ）见 [INSTALL.md](INSTALL.md)。
 
 ---
 
-## 技术栈
+## 运维
 
-| 层 | 技术 |
-|---|---|
-| 数据库 | PostgreSQL 16 + pgvector 1024d (HNSW) |
-| 图 | Apache AGE (Cypher) |
-| API | FastAPI + asyncpg · 50+ REST 端点（含 /palace/*） |
-| 搜索 | 三通道召唤（点名/引导/共鸣） |
-| 事实提取 | DeepSeek V4 / 豆包 ARK 双底座 |
-| 同步 | SQLite ↔ PostgreSQL |
-| Agent | Memory Provider 14 工具（含 palace_summon） |
+| 环境变量 | 默认 | 作用 |
+|---|---|---|
+| `EMBED_MODEL` | — | 向量模型 id |
+| `LLM_MODEL_LITE` / `LLM_MODEL_PRO` | — | 廉价 / 强力对话模型 |
+| `MEMOS_MODEL` | `deepseek-flash` | 管家作业用的模型 |
+| `MEMOS_POLISH_DAILY_CAP` | `300` | 精修每日硬上限（成本闸） |
+| `MEMOS_STEWARD` | `1` | 设 `0` 停掉全部管家作业 |
+| `MEMOS_DEDUPE_SIM` / `MEMOS_DEDUPE_RULE_SIM` | `0.6` / `0.8` | 判重阈值 |
+
+**成本形状**：结构化抽取 0 token；日常维护是一个廉价模型、低温度。
+精修有每日上限，判重每周一次，两者都跳过已标记完成的活。
+
+**失败处理**：坏 key 连续 3 次接口失败即熔断（退出码 2）；
+模型返回畸形 JSON 时按批二分重试，连续 10 批才停——一次格式抖动不该让整个回填停摆。
 
 ---
 
-## 规模
+## 实测
 
-单用户 + 5 Agent 分身，7×24 稳定运行：
+单用户、一台 4 核云主机、7×24：
 
 | 指标 | 数值 |
 |---|---|
-| 归档记忆 | 16,500+ 条活跃（归档率 99.4%） |
-| 数据行 | 17,320（含墓碑 743）· 297 MB |
-| 分类树 | 7翼 × 20房（30 节点） |
-| 召唤延迟 | ~100-400ms（三通道） |
-| 向量化 | 1024d 豆包 Embedding-Vision |
-| 事实提取 | DeepSeek V4（双底座：DeepSeek + 豆包） |
+| 记忆总量 | **31,953** |
+| 著录卡 | **3,499 张** —— 97.8% 有档号，100% 有向量 |
+| 平均卡长 | 337 字（原始对话平均 ~33,000 字） |
+| recall@10（通用集） | **9/10（90%）** |
+| recall@10（防过拟合集） | **9/10（90%）** |
+| 召回延迟 | 100–400 ms（四通道融合） |
+| 日记 | 每天一条，含没有对话的日子 |
+
+两个评测集都在仓库里（`eval_recall.py` / `eval_recall_b.py`），第二个故意绕开领域词典，
+所以「针对第一个调参」骗不过第二个。
 
 ---
+
+## 负结果照登
+
+只报喜的记录是宣传，不是工程。这些是踩过的：
+
+| 尝试 | 结果 |
+|---|---|
+| 整条摘要算向量（538 字） | **更差**——比 28 字索引低 20 个点 |
+| 用档号合并通道结果 | **召回崩到 70%**：语义通道不返回档号，一张卡变成两条，分数不再累加 |
+| 判重直接删除重复卡 | **否决**：机械规则误判过同一轮的两张不同卡——现在只标记 + 降权 |
+| 把召回下降归因于「语料变多」 | **错**，真因是合并键。归因要代码证据，不要说得通的故事 |
+
+---
+
+## 与传统 RAG 的差别
+
+| | 传统 RAG | Mnemosyne OS |
+|---|---|---|
+| 记忆单元 | 一段文本块 | **一张卡**（档号/实体/证据） |
+| 检索 | 一次向量检索 | **四通道融合**，标出命中通道 |
+| 可验证性 | 无 | `trace` 跳回原始消息 |
+| 重复 | 越积越多 | **标记 + 降权**，从不删除 |
+| 维护 | 靠人 | **管家跑在服务器上** |
+| 时间感知 | 无 | 时间通道 + 分层保留 |
+| 结构化成本 | 每个块一次 LLM | **规则抽取，0 token**；模型只润色措辞 |
+| 给人看的记录 | 无 | **一本用真实卡片写的日记** |
+
+---
+
+## 文档
+
+| | |
+|---|---|
+| [INSTALL.md](INSTALL.md) | 安装（Linux / macOS / WSL2）、模型后端、FAQ |
+| [AGENTS.md](AGENTS.md) | 给 AI Agent 的手册：API 面、环境变量、Hermes/MCP |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 内部结构：分层、融合、存储 |
+| [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST 参考 · 全部环境变量 |
+| [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | 设计哲学 |
+| [docs/design/](docs/design/) · [docs/adr/](docs/adr/) | 设计文档 · 架构决策记录 |
+| [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) | 往哪走 · 改了什么 |
 
 ## 版本
 
