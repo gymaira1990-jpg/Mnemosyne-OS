@@ -1,3 +1,27 @@
+## [9.0.0] — 2026-11-03
+
+### Added
+
+- ➕ **api/memory-os**: 5 个 9.0 端点，物理隔离在 `/api/v1/memory-os/*`（不动 8.x 的 27 个老端点）
+  - `POST /recall` 四通道召回（精确/关键词/时间），返回候选+通道+分数
+  - `POST /exact` 档号/台账/提交/路径精确查（锚定首行优先）
+  - `POST /keywords` 多关键词 OR + 命中数排序（BM25 穷人版）
+  - `GET /trace/{archive_no}` 两级跳：卡 → `sid=` → 原文
+  - `GET /stats` 卡片库体检（档号数/实体率/向量覆盖/老格式残留）
+- ➕ **api/memory-os**: `GET /diary` 小本本数据源（日记 / 心里话 / 情感卡）
+- ➕ **jobs**: `diary_daily.py` 每日日记自动生成（cron 04:30，无对话日也写）
+- ➕ **api**: `POST /memories` 支持可选 `vec_text`（只用于算向量的索引文本）
+
+### Fixed
+
+- 🩹 **api/memory-os**: `/diary` 两处真 bug —— 日期在首行却从正文找（`diary_days` 恒 0）；三类混查被日记挤掉（`feel_cards` 恒 0）
+- 🩹 **api/memory-os**: 档号提取从 `regexp_match` 改 `split_part` —— 同一正则在 `_exact` 正常、`_multi_kw` 返回 null（`·` U+00B7 处理不稳定）
+- 🩹 **capabilities**: `embed_unavailable` 文案更正（原写「需修复 llama-embed.service」是错的，该服务从不存在，实际走豆包 ARK）
+
+### Docs
+
+- 📝 新增 `scripts/verify.sh` + `Makefile`（`make test` 做语法/服务状态/端点实测三段，共 9 项）
+
 ## Unreleased — Memory OS 9.0 客户端改造配套
 
 ### Added
