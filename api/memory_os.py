@@ -112,6 +112,9 @@ def expand_kw(kws: List[str]) -> List[str]:
 
 
 # ---------- 数据访问 ----------
+# 判重口径（2026-11-03 T-0594）：被管家判定为「同一张卡的另一代」的卡
+# （metadata.dup_verdict='same'）默认**不参与召回** —— 不是删，恢复只需改这个标记。
+# 动机：K· 一代与 M· 一代存在 825 对同 sid 同题名重复，重复候选会挤占 top-k。
 
 async def _exact(q: str, limit: int = 10) -> List[dict]:
     """精确查：必须锚定首行，否则会命中「正文里提到过这个号」的卡。"""
@@ -122,6 +125,7 @@ async def _exact(q: str, limit: int = 10) -> List[dict]:
                left(content, 200) AS head
         FROM memories
         WHERE is_deleted = false
+          AND (metadata->>'dup_verdict') IS DISTINCT FROM 'same'
           AND (content LIKE '[结果卡] 档号：{safe}%'
                OR content LIKE '%{safe}%')
         ORDER BY (content LIKE '[结果卡] 档号：{safe}%') DESC, id DESC
@@ -147,6 +151,7 @@ async def _multi_kw(kws: List[str], limit: int = 60) -> List[dict]:
                ({hit_sum}) AS kw_hit, {len(safe)} AS n_kw
         FROM memories
         WHERE is_deleted = false AND content LIKE '[结果卡]%'
+          AND (metadata->>'dup_verdict') IS DISTINCT FROM 'same'
           AND ({where})
         ORDER BY kw_hit DESC, id DESC
         LIMIT {int(limit)}
@@ -166,7 +171,8 @@ async def _recent(days: int, kws: List[str], limit: int = 30) -> List[dict]:
                NULLIF(split_part(split_part(content, '档号：', 2), chr(10), 1), '') AS no,
                left(content, 200) AS head
         FROM memories
-        WHERE is_deleted = false AND content LIKE '[结果卡]%' {cond}
+        WHERE is_deleted = false AND content LIKE '[结果卡]%'
+          AND (metadata->>'dup_verdict') IS DISTINCT FROM 'same' {cond}
         ORDER BY created_at DESC LIMIT {int(limit)}
     """
     async with pool.acquire() as conn:
