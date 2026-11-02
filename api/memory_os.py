@@ -312,6 +312,52 @@ async def stats():
     return d
 
 
+
+
+@router.get("/diary")
+async def diary(limit: int = 400):
+    """小本本：每日日记 + 心里话 + 情感卡。
+
+    为什么放服务端：日记生成已经搬到 GZ（jobs/diary_daily.py，每日 04:30），
+    前端只负责展示。本地关机也不影响「日子继续过」。
+    """
+    sql = """
+        SELECT content, created_at
+        FROM memories
+        WHERE is_deleted = false
+          AND (content LIKE '[每日日记]%' OR content LIKE '[心里话]%'
+               OR content LIKE '[情感卡]%')
+        ORDER BY created_at DESC
+        LIMIT $1
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, int(limit))
+
+    diary, notes, feels = [], [], []
+    for r in rows:
+        c = r["content"] or ""
+        first = c.split("\n", 1)
+        head = first[0]
+        body = first[1] if len(first) > 1 else ""
+        if head.startswith("[每日日记]"):
+            d = ""
+            lines = [l for l in body.splitlines() if not l.startswith("来源：")]
+            if lines and lines[0].startswith("日期："):
+                d = lines[0][3:].strip()
+                lines = lines[1:]
+            diary.append({"date": d, "text": "\n".join(lines).strip()})
+        elif head.startswith("[情感卡]"):
+            feels.append({"title": head.replace("[情感卡]", "").strip(),
+                          "body": body.strip()})
+        else:
+            notes.append({"text": body.strip() or head.replace("[心里话]", "").strip()})
+
+    diary.sort(key=lambda x: x["date"], reverse=True)
+    return {"diary": diary, "notes": notes, "feel": feels,
+            "counts": {"diary_days": len({d["date"] for d in diary if d["date"]}),
+                       "feel_cards": len(feels), "notes": len(notes)}}
+
+
 @router.get("/health")
 async def health():
     """本 router 的连通性自检（不依赖数据库）。"""
