@@ -14,6 +14,11 @@
   （先 `two_factor` 注册、再改回 `one_factor`）、轮换与丢失恢复、备份两样
 - **README / README_CN**：加「三种部署形态」表（API 只跑 / 加页面 / 公网私人站），并修正 CN 里
   指向不存在的 `frontend/*.html` 的过时说明（仓库不含前端）
+- **安全：依赖下限修正**（GitHub Dependabot 在本次推送时报 4 条告警）——
+  `certifi>=2026.10.18`（旧版捆绑了被攻破中间 CA 签发的 emSign 根证书）、
+  `anyio>=4.14.2`（旧版 TLSStream 用 IDNA2003 编码主机名，可致 TLS 证书欺骗；另有 worker 挂死问题），
+  **移除未使用的 `diskcache`**（代码零引用，且其最新版 5.6.3 仍受「不安全 pickle 反序列化」影响、无修复版）。
+  生产实机已升级并回归：health / stats / diary / recall 四项烟测通过，294 用例全过
 - 隐私：新增文档全部使用占位值（`example.com` / `change-me` / `127.0.0.1`），`scripts/privacy_scan.py` 对这四篇 0 命中
 
 ## [9.0.2] — 2026-11-03 · 文档一致性门禁
