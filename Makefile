@@ -33,3 +33,11 @@ test:
 clean:
 	@find . -name '__pycache__' -type d -not -path '*/node_modules/*' -exec rm -rf {} + 2>/dev/null || true
 	@echo cleaned
+
+## release-check: 版本三件套是否齐全（VERSION ↔ tag ↔ Release ↔ 已推送）
+release-check:
+	$(PY) scripts/release.py verify
+
+## release: 一条命令发版（建 tag → 推 tag → 建 Release → 复验）
+release:
+	$(PY) scripts/release.py ship
