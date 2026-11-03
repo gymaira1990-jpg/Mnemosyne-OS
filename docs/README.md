@@ -8,6 +8,10 @@
 |---|---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 分层、召回融合、存储结构 | 想改代码之前 |
 | [API.md](API.md) | REST 端点与参数 | 接入或写客户端 |
+| [DEPLOY-PRIVATE.md](DEPLOY-PRIVATE.md) | 公网私人站：Authelia 通行密钥登录墙 + nginx auth_request（含三个实测坑） | 想让外人看不到内容 |
+| [DIARY-PIPELINE.md](DIARY-PIPELINE.md) | 日记定时线：几点写、真源是谁、关机怎么办、产物保护 | 要「每天自动一篇」 |
+| [PAGES-AND-PORTS.md](PAGES-AND-PORTS.md) | 端口表 + 页面与接口对照 + 自建前端最小示例 | 要摆页面 |
+| [SECRETS-AND-PASSKEY.md](SECRETS-AND-PASSKEY.md) | 六类密钥、通行密钥注册顺序、轮换与丢失恢复 | 管密码/密钥 |
 | [ENV.md](ENV.md) | 全部环境变量与默认值 | 部署调参 |
 | [INTEGRATION.md](INTEGRATION.md) | Hermes / MCP / Python SDK 接入 | 接到别的 Agent |
 | [AGENT-USAGE.md](AGENT-USAGE.md) | 给 AI 助手看的最小用法 | 让 Agent 自己读 |

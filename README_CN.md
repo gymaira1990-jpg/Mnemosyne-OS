@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.2-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.3-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -243,11 +243,20 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 | 加一条召回通道 | `api/memory_os.py`（`_yourchannel`）+ `recall.py` 的权重表 | 通道**必须返回 `id`**——只返回档号会让同一张卡被算两次，我们把召回从 90% 打到过 70% |
 | 改卡片格式 | `jobs/steward_polish.py` 的 `rebuild_card()` 与行正则 | 档号、证据行、实体行是 `trace` 的**契约**，不许让模型改 |
 | 加一个管家作业 | `jobs/` 下新建 + cron | 必须幂等 + 有每日上限——这是本项目最大的成本风险点 |
-| 换前端 | `frontend/*.html`，单文件 + `fetch("./data.json")`，无构建步骤 | 要么保持 JSON 结构，要么两边一起改 |
+| 换前端 | 仓库**不含**前端：页面自己写，读 `data.json` 或 `/api/v1/*`（见 [docs/PAGES-AND-PORTS.md](docs/PAGES-AND-PORTS.md)） | 要么保持 JSON 结构，要么两边一起改 |
 | 改日记口吻 | `diary_daily.py` 的 `SYSTEM` / `SYSTEM_QUIET` | 改完跑 `--selftest`；「不许编造事件」这条是承重墙 |
 | 加认证 / 多租户 | 还没做（单租户，`user_id=default`），见 ROADMAP | 别用一个 token 检查假装做了——数据模型里还没有 tenant 列 |
 
-## 部署形态
+## 部署形态（按「想多省事」选）
+
+| 形态 | 你会得到 | 从哪开始 |
+|---|---|---|
+| **A · 只跑 API** | REST API + SDK，只绑本机 | [INSTALL.md](INSTALL.md) |
+| **B · API + 自己的页面** | 多一个日记页 / 检索页（局域网） | [docs/PAGES-AND-PORTS.md](docs/PAGES-AND-PORTS.md) |
+| **C · 公网私人站** | 上面的全部 + 通行密钥登录墙 | [docs/DEPLOY-PRIVATE.md](docs/DEPLOY-PRIVATE.md) · [docs/SECRETS-AND-PASSKEY.md](docs/SECRETS-AND-PASSKEY.md) |
+
+日记不是每天手动写，是**定时作业**：笔记本关机它也照跑 → [docs/DIARY-PIPELINE.md](docs/DIARY-PIPELINE.md)
+
 
 | 形态 | 存储 | 适合谁 |
 |---|---|---|
@@ -340,6 +349,7 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | 私人部署文档：通行密钥登录墙 / 日记生产线 / 端口与页面 / 密钥管理 |
 | [v9.0.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.2) | 2026-11-03 | Doc consistency gate (`make consistency`) + stale-doc fixes |
 | [v9.0.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.1) | 2026-11-03 | Docs revision: usage & remix guide, diary walkthrough with annotated UI, deploy shapes, issue templates |
 | [v9.0.0](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.0) | 2026-11-03 | 记忆操作系统：著录卡 · 四通道召回 · 服务端管家 |

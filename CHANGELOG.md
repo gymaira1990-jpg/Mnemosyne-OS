@@ -1,3 +1,21 @@
+## [9.0.3] — 2026-11-04 · 私人部署文档（文档零代码改动）
+
+> 起因：把自己的记忆库做成「只有自己能看」的公网站点时，踩通了一套链路（登录墙 + 通行密钥 + 日记定时线），
+> 但仓库里 **authelia / passkey / auth_request / nginx 一个字都没提**，`render_book` / `export_diary` 也没有 ——
+> 别人克隆下来能跑 API，却变不成那个站。本版只补文档。
+
+- **新增 [docs/DEPLOY-PRIVATE.md](docs/DEPLOY-PRIVATE.md)**：nginx `auth_request` + Authelia 通行密钥登录墙；
+  含三个实测坑（子请求路径不能落 `/auth/` 下 · 必须 `Accept: application/json` · 门户别挂 `/auth/` 前缀否则白屏）
+- **新增 [docs/DIARY-PIPELINE.md](docs/DIARY-PIPELINE.md)**：日记定时线（04:30 写 / 05:10 导 / 05:25 渲染）、
+  幂等判据要看卡内日期、cron 日志目录必须可写、产物过小拒绝替换
+- **新增 [docs/PAGES-AND-PORTS.md](docs/PAGES-AND-PORTS.md)**：端口表（8010 / 9091 / 443）、页面与接口对照、
+  自建前端最小示例 + 两条交互规矩（新标签打开 · 每个页面自带回路）
+- **新增 [docs/SECRETS-AND-PASSKEY.md](docs/SECRETS-AND-PASSKEY.md)**：六类密钥清单、通行密钥注册顺序
+  （先 `two_factor` 注册、再改回 `one_factor`）、轮换与丢失恢复、备份两样
+- **README / README_CN**：加「三种部署形态」表（API 只跑 / 加页面 / 公网私人站），并修正 CN 里
+  指向不存在的 `frontend/*.html` 的过时说明（仓库不含前端）
+- 隐私：新增文档全部使用占位值（`example.com` / `change-me` / `127.0.0.1`），`scripts/privacy_scan.py` 对这四篇 0 命中
+
 ## [9.0.2] — 2026-11-03 · 文档一致性门禁
 
 > 代码零改动。起因：同一天里连着发现三处「文档在骗人」（AGENTS 说生产 8.1.0 待部署、200 用例、

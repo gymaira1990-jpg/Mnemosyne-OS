@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.2 | 更新: 2026-11-03
+> 版本: v9.0.3 | 更新: 2026-11-03
 
 ---
 
@@ -200,7 +200,7 @@ python main.py
 ```bash
 # 健康检查
 curl http://127.0.0.1:8010/api/v1/echo
-# → {"status":"ok","service":"Mnemosyne OS","version":"9.0.2"}
+# → {"status":"ok","service":"Mnemosyne OS","version":"9.0.3"}
 
 # 存入一条记忆
 curl -X POST http://127.0.0.1:8010/api/v1/memories \
