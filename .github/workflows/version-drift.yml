@@ -1,0 +1,33 @@
+name: version drift
+
+# 为什么有这条（2026-11-04 主人第三次提「打版本总遗漏」）：
+# VERSION 改了、代码推了、tag/Release 忘了 —— 三处对不上，谁也说不清到底发没发。
+# 这条每天自检一次：VERSION ↔ tag ↔ GitHub Release 是否一致，不一致就红，让 GitHub 发邮件提醒。
+# 注意：只有「已推送但不完整」才红；本地未推送的改动不在 CI 视野内（那是 make release-check 的活）。
+
+on:
+  schedule:
+    - cron: '17 1 * * *'      # 每天 UTC 01:17（北京时间 09:17，开机时段）
+  workflow_dispatch:
+
+# 安全说明：本工作流不插入任何事件字段（issue/PR/commit 内容）到 run: 里，
+# 只跑仓库自带的 scripts/release.py，因此无注入面。
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # verify 需要 tag 历史
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check VERSION ↔ tag ↔ Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release.py verify
