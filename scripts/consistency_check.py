@@ -15,6 +15,7 @@
   C5 README 相对链接与图片是否存在
   C6 README 引用的截图文件是否真实存在
   C7 文档里出现「v8.」（旧版本）而当前是 9.x → 提示核对
+  C8 生产自报版本 ≠ VERSION → 失败（发布后忘部署；取不到生产版本时跳过）
 
 用法：python3 scripts/consistency_check.py [--repo .]
 """
@@ -118,6 +119,13 @@ def main() -> int:
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             if re.search(r"v?8\.\d+\.\d+", line) and not re.search(r"20\d\d-\d\d-\d\d\s*[|｜]", line):
                 warns.append(f"C7 {d}:{i} 出现旧版本号，确认是历史叙述还是残留：{line.strip()[:70]}")
+
+    # C8 生产自报版本必须等于 VERSION（「发了 tag 忘了部署」是反复发生的老毛病）
+    #     取不到生产版本（隧道没开 / 本机离线）时跳过，不误报。
+    if prod_ver and prod_ver != ver:
+        fails.append(
+            f"C8 生产自报 {prod_ver}，仓库 VERSION 是 {ver} —— 要么没部署，要么生产跑的是旧版"
+        )
 
     print(f"版本 {ver}｜真实用例 {real_cases}｜落点 {real_spots}｜生产自报 {prod_ver}")
     for f in fails:
