@@ -18,7 +18,7 @@ jobs:
   privacy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 门禁自检 · pattern 双向验证（合法写法必须绿 / 硬编码必须红）
         run: |
           KEY='PGPASSWORD'                 # 拼接构造，本步自身不触发扫描
@@ -50,7 +50,7 @@ jobs:
   version-consistency:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: VERSION 与 README badge 一致
         run: |
           v=$(cat VERSION)
