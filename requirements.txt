@@ -1,7 +1,7 @@
 # Mnemosyne OS v9.0.3 — 生产依赖
 # 零本地模型依赖 (全 API 驱动)
 
-fastapi>=0.136
+fastapi>=0.162.0
 uvicorn[standard]
 asyncpg>=0.31
 httpx>=0.28
