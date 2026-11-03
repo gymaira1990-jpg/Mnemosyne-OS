@@ -3,7 +3,7 @@
 
 fastapi>=0.162.0
 uvicorn[standard]
-asyncpg>=0.31
+asyncpg>=0.32.0
 httpx>=0.28
 anyio>=4.14.2        # 安全下限：<4.14.2 的 TLSStream IDNA2003 可致证书欺骗（GHSA）
 certifi>=2026.10.18  # 安全下限：<2026.10.18 捆绑被攻破中间 CA 签发的 emSign 根证书
