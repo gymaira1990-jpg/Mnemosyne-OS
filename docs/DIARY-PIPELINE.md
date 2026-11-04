@@ -4,6 +4,12 @@
 > 前置：已完成 [`INSTALL.md`](../INSTALL.md) 部署，`/api/v1/memory-os/diary` 能返回数据。
 > 本文只讲「怎么排班、数据从哪来、坏了怎么办」；登录墙见 [`DEPLOY-PRIVATE.md`](DEPLOY-PRIVATE.md)。
 
+> ⚠️ **先说实话：本文里的 `diary_daily.py`、`jobs/export_diary_data.py` 不在本仓库。**
+> 它们是作者本机生产的实现（依赖真实语料、写入策略与私有调度）。本文交付的是**数据契约 + 调度形态 + 故障处理**，
+> 你可以照着自己写一个 —— 判据在下面每节都写着。
+> 仓库里**能直接跑的**是：`integrations/card-builder/`（对话→卡）与 `scripts/seed_demo.py --cards`（灌卡）、
+> `scripts/eval_recall.py`（召回评测）。
+
 ## 1. 数据流（记住这一张图）
 
 ```

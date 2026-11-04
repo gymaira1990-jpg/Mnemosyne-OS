@@ -7,7 +7,7 @@
 > 再跑 `bash scripts/bootstrap.sh`。这份 AGENTS.md 是给**改代码**的 Agent 看的。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v9.0.13（仓库 = 生产，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v9.0.14（仓库 = 生产，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.13-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.14-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -36,7 +36,7 @@
 
 | | |
 |---|---|
-| **Memories** | 31,953 (3,499 catalog cards, 100% embedded) |
+| **Memories** | 32,383 (3,524 catalog cards, 100% embedded) — snapshot 2026-11-04 |
 | **Recall** | 4 channels fused (server: E/C/T · client: S) · 90% recall@10 measured first-party |
 | **Trace** | archive no → card → `sid` → original transcript |
 | **Butler** | polish / dedupe / diary / gap-sweep — server-side, 7×24 |
@@ -332,12 +332,14 @@ One user, one modest cloud instance (4 vCPU), 7×24:
 
 | Metric | Value |
 |---|---|
-| Memories | **31,953** |
-| Catalog cards | **3,499** — 97.8% with archive no, 100% with vectors |
-| Average card length | 337 characters (from transcripts averaging ~33,000) |
+| Memories | **32,383** (snapshot: 2026-11-04) |
+| Catalog cards | **3,524** — 97.4% with archive no, 100% with vectors |
+| Average card length | 376 characters (from transcripts averaging ~33,000) |
 | Recall@10 — general set | **9/10 (90%)** |
 | Recall@10 — anti-overfit set | **9/10 (90%)** |
 | Recall latency | 100–400 ms (four channels, fused) |
+
+> Numbers above are a **snapshot** (date in the table). For live values: `GET /api/v1/memory-os/stats?user_id=default`.
 | Diary entries | every day, including days with no conversation |
 
 **Neither eval script ships with the repo** — the labels point at the author's real memories, so they can't be
@@ -395,6 +397,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.14](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.14) | 2026-11-04 | Front-page numbers are snapshots now · diary doc states its jobs are not in this repo |
 | [v9.0.13](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.13) | 2026-11-04 | Caught by CI: demo corpus de-identified + local privacy gate learns the internal-domain rule |
 | [v9.0.12](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.12) | 2026-11-04 | **Evidence in the repo**: 40 cards + 12 questions in `evals/`, two measured runs (92% / 100%), one command to reproduce |
 | [v9.0.11](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.11) | 2026-11-04 | **Card Spec v1** + spec checker + card-builder reference + `make eval` — the criteria ship with the repo |

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.13-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.14-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -318,12 +318,14 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 指标 | 数值 |
 |---|---|
-| 记忆总量 | **31,953** |
-| 著录卡 | **3,499 张** —— 97.8% 有档号，100% 有向量 |
-| 平均卡长 | 337 字（原始对话平均 ~33,000 字） |
+| 记忆总量 | **32,383**（快照：2026-11-04） |
+| 著录卡 | **3,524 张** —— 97.4% 有档号，100% 有向量 |
+| 平均卡长 | 376 字（原始对话平均 ~33,000 字） |
 | recall@10（通用集） | **9/10（90%）** |
 | recall@10（防过拟合集） | **9/10（90%）** |
 | 召回延迟 | 100–400 ms（四通道融合） |
+
+> 表内是**快照**（日期见表）。要看实时值：`GET /api/v1/memory-os/stats?user_id=default`。
 | 日记 | 每天一条，含没有对话的日子 |
 
 两个评测集各 10 条中文长对话问题 + 人工标注的期望档号（判据 = 期望卡是否进前 10）。**这两个脚本目前不在公开仓**：
@@ -380,6 +382,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.14](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.14) | 2026-11-04 | 首页数字改为快照并标日期 · 日记文档标清「作业不在仓库」 |
 | [v9.0.13](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.13) | 2026-11-04 | CI 抓漏修复：演示语料脱敏 + 本地隐私门禁补「内部域名」规则 |
 | [v9.0.12](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.12) | 2026-11-04 | **证据进仓库**：`evals/` 40 卡 12 题 + 两组实测 92%/100% + `make demo && make eval` 一条命令复现 |
 | [v9.0.11](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.11) | 2026-11-04 | **Card Spec v1** + 规范校验器 + 卡片生成参考实现 + `make eval` 召回评测 —— 招牌能力的判据交出去 |
