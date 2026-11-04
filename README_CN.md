@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.7-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.8-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -193,6 +193,9 @@ Hermes 记忆提供者（改一行配置，14 个工具自动出现）、REST AP
 
 ## 快速开始
 
+> **要把仓库丢给 AI 去部署？** 让它读 [`DEPLOY-FOR-AI.md`](DEPLOY-FOR-AI.md) —— 每条命令、每步的通过判据、
+> 以及「做到哪就该停」的边界都写好了。然后一条命令干活：`bash scripts/bootstrap.sh`。
+
 **前置**：PostgreSQL 16+ + `pgvector ≥ 0.7`（v7.8 起不需要 Apache AGE）、Python 3.11+、8G 内存、
 一个 OpenAI 兼容的 LLM + embedding 端点。
 
@@ -368,6 +371,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.8](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.8) | 2026-11-04 | 面向 AI 的部署包：`DEPLOY-FOR-AI.md` + 一条命令 `scripts/bootstrap.sh` |
 | [v9.0.7](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.7) | 2026-11-04 | doctor 误报修复（.env 逐键比对 · 端口自检） |
 | [v9.0.6](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.6) | 2026-11-04 | 上手三件套：`doctor.py` 部署自检 + `seed_demo.py` 示例数据 |
 | [v9.0.5](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.5) | 2026-11-04 | 开源可用性修复：.env 真正生效、schema 重建（23 表 / 51 索引）、去掉 AGE 要求 |

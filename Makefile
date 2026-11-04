@@ -21,6 +21,10 @@ lint:
 	  [ast.parse(p.read_text(encoding='utf-8')) for p in [pathlib.Path('main.py')]+sorted(pathlib.Path('api').glob('*.py'))]; \
 	  print('lint OK: main.py + api/*.py')"
 
+## bootstrap: 一条命令从零到可验收（建库/导 schema/建角色/装依赖/doctor）
+bootstrap:
+	bash scripts/bootstrap.sh
+
 ## doctor: 部署前置自检（Python/依赖/.env/PG/pgvector/schema/模型 key/端口）
 doctor:
 	$(PY) scripts/doctor.py
