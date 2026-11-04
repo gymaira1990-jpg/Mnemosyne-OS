@@ -18,7 +18,7 @@ tmt_tree=$(curl -s --max-time 10 "$API_BASE/api/v1/tmt/tree/$USER_ID" 2>/dev/nul
 l3_count=$(echo "$tmt_tree" | python3 -c "import sys,json;print(json.load(sys.stdin)['levels']['L3']['count'])" 2>/dev/null || echo "0")
 
 # 最后 L3 日期 (直接查 PostgreSQL)
-last_l3_date=$(sudo -u postgres psql -d mnemosyne -t -c "SELECT date FROM ag_catalog.tmt_daily WHERE user_id='default' ORDER BY date DESC LIMIT 1;" 2>/dev/null | xargs)
+last_l3_date=$(sudo -u postgres psql -d mnemosyne -t -c "SELECT date FROM tmt_daily WHERE user_id='default' ORDER BY date DESC LIMIT 1;" 2>/dev/null | xargs)
 
 # ── 3. 记忆库状态 ──
 stats=$(curl -s --max-time 10 "$API_BASE/api/v1/memories/stats?user_id=$USER_ID" 2>/dev/null)

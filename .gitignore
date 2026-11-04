@@ -45,3 +45,6 @@ skill_manifest.json
 .coverage.*
 htmlcov/
 .ruff_cache/
+
+# 9.0.10: backup.sh 默认输出目录（别把库导出的备份提交进仓库）
+backups/

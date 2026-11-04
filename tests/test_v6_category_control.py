@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 提取 normalize_category（不触发 main.py 完整导入副作用）
-SRC = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py")).read()
+SRC = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py"), encoding="utf-8").read()
 _NS = {}
 exec(SRC[SRC.index("CATEGORY_WHITELIST"):SRC.index("# ── v5.0: 模块化导入")], _NS)
 normalize_category = _NS["normalize_category"]

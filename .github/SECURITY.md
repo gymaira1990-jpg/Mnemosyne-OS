@@ -1,5 +1,7 @@
 # 安全政策
 
+> 当前版本: v9.0.10
+
 ## 报告漏洞
 
 请勿公开报告。请在 GitHub 上创建 [Security Advisory](https://github.com/gymaira1990-jpg/Mnemosyne-OS/security/advisories) 私下报告，或发送邮件至仓库主页显示的联系方式。
@@ -8,9 +10,9 @@
 
 | 版本 | 支持 |
 |------|------|
-| v7.x | ✅ 当前 |
-| v6.x | ⚠️ 仅安全修复 |
-| < v6 | ❌ |
+| v9.0.x | ✅ 当前 |
+| v8.x | ⚠️ 仅安全修复 |
+| < v8 | ❌ |
 
 ## 安全措施
 

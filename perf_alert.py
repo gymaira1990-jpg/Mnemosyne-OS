@@ -23,7 +23,7 @@ def main():
     alerts = []
     # 内存
     try:
-        with open("/proc/meminfo") as f:
+        with open("/proc/meminfo", encoding="utf-8", errors="ignore") as f:
             d = {}
             for line in f:
                 k, v = line.split(":")
@@ -60,13 +60,13 @@ def main():
         STATE = "/tmp/perf_alert.state"
         core = msg.split("]", 1)[1] if "]" in msg else msg
         try:
-            last_core = open(STATE).read().strip()
+            last_core = open(STATE, encoding="utf-8", errors="ignore").read().strip()
         except FileNotFoundError:
             last_core = ""
         if core != last_core:
-            with open(ALERT_LOG, "a") as f:
+            with open(ALERT_LOG, "a", encoding="utf-8") as f:
                 f.write(msg + "\n")
-            with open(STATE, "w") as f:
+            with open(STATE, "w", encoding="utf-8") as f:
                 f.write(core)
             print(msg)
     else:

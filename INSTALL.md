@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.9 | 更新: 2026-11-04
+> 版本: v9.0.10 | 更新: 2026-11-04
 
 ---
 
@@ -121,9 +121,9 @@ cd Mnemosyne-OS
 # schema.sql 自带 CREATE EXTENSION（vector / pg_trgm），导入即自动建扩展
 sudo -u postgres psql -d mnemosyne -f docs/schema.sql
 
-# 导入后把权限交给应用用户
-sudo -u postgres psql -d mnemosyne -c "GRANT ALL ON ALL TABLES IN SCHEMA public, ag_catalog, mnemosyne_graph TO mnemosyne;"
-sudo -u postgres psql -d mnemosyne -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public, ag_catalog, mnemosyne_graph TO mnemosyne;"
+# 导入后把权限交给应用用户（只需要 public —— 9.0 起不再有 ag_catalog / mnemosyne_graph）
+sudo -u postgres psql -d mnemosyne -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO mnemosyne;"
+sudo -u postgres psql -d mnemosyne -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO mnemosyne;"
 
 # 验证表结构
 PGPASSWORD=your-strong-password psql -h 127.0.0.1 -U mnemosyne -d mnemosyne -c "\dt"
@@ -302,10 +302,12 @@ A: 多半是 pgvector 未安装。Ubuntu: `sudo apt install postgresql-16-pgvect
 A: 模型 API 密钥未配置或无效。检查 `.env` 中 `ARK_API_KEY` / `OPENAI_API_KEY`，并 `curl` 验证端点可达。
 
 **Q: 可以用纯本地模型吗？**
-A: 可以，任何 OpenAI 兼容端点都行（如 vLLM / Ollama 的 /v1 接口），设置 `MODEL_BACKEND=openai` + `OPENAI_BASE_URL=http://localhost:8000/v1` 即可。
+A: 可以，任何 OpenAI 兼容端点都行（如 vLLM / Ollama 的 /v1 接口），设置 `MODEL_BACKEND=openai` + `OPENAI_BASE_URL=http://localhost:8000/v1` + `OPENAI_EMBED_MODEL=<你的模型>` 即可。
+**⚠️ 维度必须对上**：库里的向量列固定是 `vector(1024)`，所以要么选原生 1024 维的模型，要么用支持 `dimensions=1024` 的模型（OpenAI 的 text-embedding-3-* 支持）。维度不一致时写入会直接报错，不会静默截断。
 
 **Q: 多用户支持？**
-A: 通过 `user_id` 字段天然隔离（如 `user_id=alice` / `user_id=bob`），记忆互不可见。
+A: **不。9.0 是单租户**，没有账号体系、没有权限隔离。`user_id` 只是**逻辑分组**参数，由调用方自报 —— 谁能访问 8010 端口，谁就能传任意 `user_id` 读写任何数据。
+鉴权只做在**反向代理层**（见 `docs/DEPLOY-PRIVATE.md`：外层套 nginx + Token 或登录墙），应用本身不校验身份。所以：**只监听 127.0.0.1 / 内网，不要裸暴露公网**。多租户与权限体系是 9.1 的事。
 
 **Q: 数据备份？**
 A: 标准 pg_dump 即可：`pg_dump -U mnemosyne -d mnemosyne -Fc > backup.dump`。

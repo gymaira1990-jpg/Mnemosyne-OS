@@ -41,7 +41,7 @@ SHORT_SESSION = 5            # 低于此数叫"短会话": 入库但打 [短] �
 # 项目关键词 (从配置文件加载, 不存在返回空)
 KEYWORDS_FILE = os.path.join(os.path.dirname(__file__), "project_keywords.json")
 try:
-    with open(KEYWORDS_FILE) as f:
+    with open(KEYWORDS_FILE, encoding="utf-8") as f:
         PROJECT_KEYWORDS = json.load(f)
     # 去掉注释键
     PROJECT_KEYWORDS = {k: v for k, v in PROJECT_KEYWORDS.items() if not k.startswith("_")}
@@ -267,7 +267,7 @@ def list_sessions(db_path: str, limit: int = 10) -> list:
 def load_archived() -> set:
     """加载已归档的会话ID集合"""
     try:
-        with open(TRACKING_FILE) as f:
+        with open(TRACKING_FILE, encoding="utf-8") as f:
             return set(json.load(f))
     except (FileNotFoundError, json.JSONDecodeError):
         return set()
@@ -275,7 +275,7 @@ def load_archived() -> set:
 
 def save_archived(archived: set):
     """保存已归档会话ID"""
-    with open(TRACKING_FILE, 'w') as f:
+    with open(TRACKING_FILE, 'w', encoding="utf-8") as f:
         json.dump(list(archived), f)
 
 

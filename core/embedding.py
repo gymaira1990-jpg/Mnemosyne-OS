@@ -26,10 +26,10 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Tuple
 
 try:
-    from .config import ARK_API_KEY, EMBED_MODEL, EMBED_DIM, EMBED_URL
+    from .config import ARK_API_KEY, EMBED_MODEL, EMBED_DIM, EMBED_URL, EMBED_API_KEY, EMBED_PAYLOAD_STYLE
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from config import ARK_API_KEY, EMBED_MODEL, EMBED_DIM, EMBED_URL
+    from config import ARK_API_KEY, EMBED_MODEL, EMBED_DIM, EMBED_URL, EMBED_API_KEY, EMBED_PAYLOAD_STYLE
 
 # ── 配置 (环境变量可覆盖) ──
 MAX_CONCURRENT = int(os.environ.get("EMBED_MAX_CONCURRENT", "8"))
@@ -94,17 +94,23 @@ def _cache_key(text: str) -> str:
 
 
 def _call_ark_single(text: str) -> List[float]:
-    """单条调用 ARK API (带重试) — 实测该模型不支持批量 input, 逐条并发"""
-    payload = json.dumps({
-        "model": EMBED_MODEL,
-        "input": [{"type": "text", "text": text}],
-        "dimensions": EMBED_DIM,
-    }).encode()
+    """单条调用 embedding API (带重试) — 实测 ARK 模型不支持批量 input, 逐条并发
+
+    9.0.10 起支持两种请求体：ark（多模态 [{type,text}]）/ openai（纯文本字符串）。
+    由 config.EMBED_PAYLOAD_STYLE 决定，切换后端不需要改代码。
+    """
+    if EMBED_PAYLOAD_STYLE == "openai":
+        body = {"model": EMBED_MODEL, "input": text, "dimensions": EMBED_DIM}
+    else:
+        body = {"model": EMBED_MODEL,
+                "input": [{"type": "text", "text": text}],
+                "dimensions": EMBED_DIM}
+    payload = json.dumps(body).encode()
     req = urllib.request.Request(
         EMBED_URL,
         data=payload,
         headers={"Content-Type": "application/json",
-                 "Authorization": f"Bearer {ARK_API_KEY}"}
+                 "Authorization": f"Bearer {EMBED_API_KEY or ARK_API_KEY}"}
     )
     last_err = None
     for attempt in range(MAX_RETRIES):

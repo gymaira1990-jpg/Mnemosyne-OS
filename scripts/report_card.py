@@ -144,7 +144,7 @@ def card_text(card: dict) -> str:
 
 def load_index() -> dict:
     try:
-        with open(INDEX_FILE) as f:
+        with open(INDEX_FILE, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
@@ -152,13 +152,13 @@ def load_index() -> dict:
 
 def save_index(idx: dict):
     os.makedirs(REPORTS_DIR, exist_ok=True)
-    with open(INDEX_FILE, "w") as f:
+    with open(INDEX_FILE, "w", encoding="utf-8") as f:
         json.dump(idx, f, ensure_ascii=False, indent=1)
 
 
 def append_cards(cards: list):
     os.makedirs(REPORTS_DIR, exist_ok=True)
-    with open(CARDS_FILE, "a") as f:
+    with open(CARDS_FILE, "a", encoding="utf-8") as f:
         for c in cards:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
@@ -289,7 +289,7 @@ if __name__ == "__main__":
         if not os.path.exists(CARDS_FILE):
             print("(还没有卡)")
             sys.exit(0)
-        with open(CARDS_FILE) as f:
+        with open(CARDS_FILE, encoding="utf-8") as f:
             for line in f:
                 c = json.loads(line)
                 print(f"  msg#{c['msg_id']:<7} {c['time']}  {c['session_id'][:22]}  "

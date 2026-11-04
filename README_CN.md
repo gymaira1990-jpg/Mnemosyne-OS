@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.9-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.10-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -37,7 +37,7 @@
 | | |
 |---|---|
 | **记忆量** | 31,953 条（3,499 张著录卡，100% 有向量） |
-| **召回** | 四通道融合 · 两个独立评测集各 90% recall@10 |
+| **召回** | 四通道融合（服务端 E/C/T · 客户端 S）· 两个评测集各 90% recall@10（第一方自测，脚本不在公开仓） |
 | **追溯** | 档号 → 卡片 → `sid` → 原始对话 |
 | **管家** | 精修 / 判重 / 日记 / 漏卡巡检 —— 跑在服务器上，7×24 |
 | **小本本** | 每天一段人话，只写真实发生的事；没聊的日子也写 |
@@ -80,14 +80,18 @@
 
 模型只负责后续润色措辞，**禁止**碰档号、证据、实体行。**卡片是法律文书，不是摘要。**
 
-### 2. 找得回：四通道，一次调用
+### 2. 找得回：四通道（服务端一次出 E/C/T，S 由客户端叠加）
 
-| 通道 | 机制 | 权重 |
-|---|---|---|
-| **E** 精确 | 档号 / 台账号 / 提交 hash / 路径——先锚定行首，再全文兜底 | 100 |
-| **C** 关键词 | 多词 OR，按覆盖率打分（命中数 ÷ 词数，分母封顶 3） | 60 |
-| **T** 时间 | 最近窗口内、且主题词命中 | 45 |
-| **S** 语义 | 1024 维 pgvector HNSW | 40 |
+| 通道 | 机制 | 权重 | 跑在哪 |
+|---|---|---|---|
+| **E** 精确 | 档号 / 台账号 / 提交 hash / 路径——先锚定行首，再全文兜底 | 100 | 服务端 |
+| **C** 关键词 | 多词 OR，按覆盖率打分（命中数 ÷ 词数，分母封顶 3） | 60 | 服务端 |
+| **T** 时间 | 最近窗口内、且主题词命中 | 45 | 服务端 |
+| **S** 语义 | 1024 维 pgvector HNSW | 40 | 客户端叠加 |
+
+> **一句实话**：`/api/v1/memory-os/recall` 一次调用只出 **E/C/T** 三路（纯 SQL —— 同一个请求里再调 embedding，超时就从「可测」变成「不可控」）。
+> **S 由客户端取向量后与三路合并**，四通道融合发生在客户端，不是在一次 REST 调用里完成的。
+> 只要三路：直接调 `recall`；要四路：照 `integrations/` 的客户端接法叠一次向量检索再合并。
 
 通道内部按排名衰减（`K/(K+rank)`，K=10）。这条很关键：**把通道拍平成一个分数，等于把排序本身丢掉**——我们踩过这个坑（见「负结果」）。
 
@@ -322,8 +326,9 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 | 召回延迟 | 100–400 ms（四通道融合） |
 | 日记 | 每天一条，含没有对话的日子 |
 
-两个评测集都在仓库里（`eval_recall.py` / `eval_recall_b.py`），第二个故意绕开领域词典，
-所以「针对第一个调参」骗不过第二个。
+两个评测集各 10 条中文长对话问题 + 人工标注的期望档号（判据 = 期望卡是否进前 10）。**这两个脚本目前不在公开仓**：
+标注指向作者的真实记忆，没法脱敏放出，所以这个 90% 是**第一方自测**，不是你能直接复现的第二方证据。
+要自己验：`scripts/seed_demo.py` 灌一套演示数据，按同一判据（期望卡在前 10）自建评测集即可 —— 判据简单，不必信我们的数。
 
 ---
 
@@ -371,6 +376,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.10](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.10) | 2026-11-04 | 外部调研打脸版：INSTALL 装不下去的两条 GRANT · embedding 可换后端 · 版本落点扩到 12 处 · `backup.sh` 可验证备份 |
 | [v9.0.9](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.9) | 2026-11-04 | AGENTS.md 补部署入口指针（纯文档） |
 | [v9.0.8](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.8) | 2026-11-04 | 面向 AI 的部署包：`DEPLOY-FOR-AI.md` + 一条命令 `scripts/bootstrap.sh` |
 | [v9.0.7](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.7) | 2026-11-04 | doctor 误报修复（.env 逐键比对 · 端口自检） |

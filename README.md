@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.9-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.10-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -37,7 +37,7 @@
 | | |
 |---|---|
 | **Memories** | 31,953 (3,499 catalog cards, 100% embedded) |
-| **Recall** | 4 channels fused · 90% recall@10 on two independent eval sets |
+| **Recall** | 4 channels fused (server: E/C/T · client: S) · 90% recall@10 measured first-party |
 | **Trace** | archive no → card → `sid` → original transcript |
 | **Butler** | polish / dedupe / diary / gap-sweep — server-side, 7×24 |
 | **Diary** | one entry a day, written from real cards only — quiet days included |
@@ -82,14 +82,18 @@ version / path / URL / number-with-unit / date / project name), evidence by grad
 A model only improves the **wording** afterwards, and is forbidden from touching the archive number,
 evidence or entity lines. The card is a legal document, not a summary.
 
-### 2. Find it back — four channels, one call
+### 2. Find it back — four channels (server does E/C/T in one call, client adds S)
 
-| Channel | Mechanism | Weight |
-|---|---|---|
-| **E** exact | archive no / issue id / commit hash / path — anchored at line start first, full-text fallback | 100 |
-| **C** keyword | multi-term OR, scored by coverage (hits ÷ terms, denominator capped at 3) | 60 |
-| **T** time | hits inside a recent window, filtered by topic keywords | 45 |
-| **S** semantic | 1024-d pgvector HNSW | 40 |
+| Channel | Mechanism | Weight | Runs on |
+|---|---|---|---|
+| **E** exact | archive no / issue id / commit hash / path — anchored at line start first, full-text fallback | 100 | server |
+| **C** keyword | multi-term OR, scored by coverage (hits ÷ terms, denominator capped at 3) | 60 | server |
+| **T** time | hits inside a recent window, filtered by topic keywords | 45 | server |
+| **S** semantic | 1024-d pgvector HNSW | 40 | client |
+
+> **Straight answer**: `/api/v1/memory-os/recall` returns **E/C/T only** in one call — pure SQL, because embedding
+> inside the same request turns a measurable timeout into an uncontrollable one. **S is fetched by the client and
+> merged with the other three**, so the four-channel fusion happens client-side, not inside one REST call.
 
 Within each channel, score decays by rank (`K/(K+rank)`, K=10). This matters: flattening a channel into a
 single score destroys the ordering the ranking itself produced — we learned that the hard way (§Negative results).
@@ -336,7 +340,9 @@ One user, one modest cloud instance (4 vCPU), 7×24:
 | Recall latency | 100–400 ms (four channels, fused) |
 | Diary entries | every day, including days with no conversation |
 
-Both eval sets ship with the repo (`eval_recall.py`, `eval_recall_b.py`). The second one deliberately avoids the
+**Neither eval script ships with the repo** — the labels point at the author's real memories, so they can't be
+published. The 90% is a **first-party measurement**, not second-party evidence you can reproduce; verify it
+yourself with `scripts/seed_demo.py` and the same criterion (expected card within top 10). The second one deliberately avoids the
 domain lexicon, so tuning against the first cannot fake the second.
 
 ---
@@ -385,6 +391,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.10](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.10) | 2026-11-04 | External-review fixes: INSTALL no longer breaks on removed schemas · pluggable embedding backend · 12 version checkpoints · verifiable `backup.sh` |
 | [v9.0.9](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.9) | 2026-11-04 | AGENTS.md: pointer to DEPLOY-FOR-AI for deployment agents (docs only) |
 | [v9.0.8](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.8) | 2026-11-04 | Agent-first deployment: `DEPLOY-FOR-AI.md` + one-command `scripts/bootstrap.sh` |
 | [v9.0.7](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.7) | 2026-11-04 | `doctor` false-positive fixes (env-key comparison, self-port detection) |

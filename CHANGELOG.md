@@ -1,3 +1,29 @@
+## [9.0.10] — 2026-11-04 · 外部调研打脸版：把「说得比做得多」的地方补上
+
+> 一份第三方白盒调研（只读仓库、不装环境）把我们和 Mem0/Zep 放在一起量了一遍。它有几处误伤
+> （把「服务端只取数、S 由客户端叠加」读成「S 没实现」），也指出了几处真问题。**误伤不辩解，实伤全修。**
+> 这一版没有新功能，只做三件事：让文档不再撒谎、让外人装得下去、让备份可验证。
+
+- **INSTALL 装不下去（真 bug）**：9.0.5 去 AGE 时只删了安装章节，`GRANT ... IN SCHEMA public, ag_catalog, mnemosyne_graph`
+  两条原样留着 —— 两个 schema 都不存在，照文档执行直接 ERROR，连 `public` 的权限都没授上。
+  改为只授 `public`。（`bootstrap.sh` 那条路一直干净，坏的只有手装路线。）
+- **embedding 不再写死**：`config.py` 的 `EMBED_MODEL` / `EMBED_URL` 改读环境变量，支持 `MODEL_BACKEND=openai`
+  （OpenAI / vLLM / Ollama 皆可），请求体按 `ark`（多模态）/ `openai`（纯文本）两种形态自动切换。
+  不设变量时行为与 9.0.9 完全一致。⚠️ 维度必须与 `vector(1024)` 对齐 —— 写进 INSTALL 了，不一致会直接报错而不是静默截断。
+- **「四通道，一次调用」的说法纠正**：`/api/v1/memory-os/recall` 实际只出 E/C/T（纯 SQL），S 由客户端叠加后合并。
+  README 双语改成实话 —— 原来那句话会把只调 REST 的人误导成「S 坏了」。
+- **「两个评测集都在仓库里」是假的**：脚本在作者的私有工作区（标注指向真实记忆，无法脱敏）。
+  改成「第一方自测 + 怎么用 `seed_demo.py` 自己验」。
+- **版本落点 8 → 12 处**：`SECURITY.md` / `.github/SECURITY.md` / `PROJECT.md` / `DEPLOY-FOR-AI.md` 纳入机检；
+  同时把两张支持版本表从 8.0.x / v7.x 更新到 9.0.x。
+- **新增 `scripts/backup.sh`（`make backup`）**：dump → 立刻 `pg_restore --list` 验证可读 → 记 sha256 → 按保留数清理。
+  「没验证过的备份不算备份」：校验不过就非 0 退出，方便挂 cron 报警。
+- **跨平台编码**：测试与脚本里 14 处文本 `open()` 补 `encoding="utf-8"`，中文 Windows(GBK) 下不再解不出来。
+- **健康巡检查错了 schema**：`cron/mnemosyne-health-monitor.sh` 还在查 `ag_catalog.tmt_daily`（AGE 时代残留，
+  表早在 `public`），那条查询一直静默返回空。
+- **INSTALL「多用户通过 user_id 天然隔离」改成实话**：9.0 是**单租户**，`user_id` 只是调用方自报的逻辑分组；
+  鉴权只在反向代理层 —— 谁能连 8010，谁就能读全部数据。多租户与权限是 9.1 的事。
+
 ## [9.0.9] — 2026-11-04 · AGENTS.md 补「部署入口」指针（纯文档）
 
 > 9.0.8 的白皮书里写着「把仓库丢给 AI」，但改代码的 Agent 和来部署的 Agent 会先看到同一份 `AGENTS.md`

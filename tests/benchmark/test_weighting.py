@@ -50,7 +50,7 @@ def test_heat_boundaries():
 
 def test_reliability_heat_synergy():
     """高 reliability + 高 heat = 搜索时综合得分最高"""
-    with open("main.py", "r") as f:
+    with open("main.py", "r", encoding="utf-8") as f:
         content = f.read()
     
     # 验证五维搜索使用 reliability 和 heat

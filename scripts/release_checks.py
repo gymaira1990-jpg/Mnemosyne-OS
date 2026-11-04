@@ -55,6 +55,10 @@ PRIVACY_PATTERNS = [
     ("Windows 用户路径", r"[A-Za-z]:\\\\?Users\\\\?(gy_ma|g-cat|Administrator)"),
 ]
 
+# 占位符不算泄露：文档里 `REPLACE_WITH_SESSION_SECRET` 这种模板值本来就该出现在示例配置里。
+# 2026-11-04 实测误报两处（docs/DEPLOY-PRIVATE.md 的 authelia 示例）—— 假阳性会让真报警被忽略。
+PLACEHOLDER_HINT = re.compile(r"REPLACE_WITH|CHANGE_?ME|YOUR_|<[^>]*>|\.\.\.|EXAMPLE|dummy", re.I)
+
 
 def _tracked_files() -> list[str]:
     """只看 git 追踪的文件 —— 本地模拟 == CI 实际行为（治理标准里的踩坑教训）。
@@ -133,6 +137,12 @@ def check_version_consistency() -> int:
     grab("INSTALL.md", r"^>\s*版本[:：]\s*v([\d.]+)", "INSTALL 版本行")
     # ⑧ requirements.txt 头注释（2026-10-26 审计发现：这里也曾硬编码 v8.0.0 而无人管）
     grab("requirements.txt", r"^#\s*Mnemosyne OS v([\d.]+)", "requirements 头注释")
+    # ⑨ 9.0.10 补：DSH 外部调研（2026-11-04）指出 SECURITY / PROJECT / DEPLOY-FOR-AI 三个对外可见文件
+    #    不在机检范围内 —— 落点有多少个就查多少个，靠人记必漂移。
+    grab("SECURITY.md", r"^>\s*当前版本[:：]\s*v?([\d.]+)", "SECURITY 当前版本")
+    grab(".github/SECURITY.md", r"^>\s*当前版本[:：]\s*v?([\d.]+)", "GitHub SECURITY 当前版本")
+    grab("PROJECT.md", r"\*\*到哪了\*\*：v?([\d.]+)", "PROJECT 到哪了")
+    grab("DEPLOY-FOR-AI.md", r"^>\s*版本[:：]\s*v([\d.]+)", "DEPLOY-FOR-AI 版本")
 
     if problems:
         print("❌ 版本落点不一致（查了 %d 处）：" % len(checked))
@@ -154,6 +164,8 @@ def check_privacy() -> int:
                 for lineno, line in enumerate(f, 1):
                     for name, pat in PRIVACY_PATTERNS:
                         if re.search(pat, line):
+                            if name == "明文密钥赋值" and PLACEHOLDER_HINT.search(line):
+                                continue  # 模板占位符（REPLACE_WITH_...），不是真密钥
                             hits.append(f"{rel}:{lineno} [{name}] {line.strip()[:110]}")
         except (IsADirectoryError, PermissionError):
             continue

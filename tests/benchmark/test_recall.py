@@ -42,7 +42,7 @@ def test_five_dimension_weights_sum():
 
 def test_architecture_has_memory_hierarchy():
     """验证架构存在层级记忆结构"""
-    with open("main.py", "r") as f:
+    with open("main.py", "r", encoding="utf-8") as f:
         content = f.read()
     
     # TMT 层级

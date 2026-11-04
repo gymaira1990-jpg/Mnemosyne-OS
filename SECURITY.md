@@ -1,13 +1,15 @@
 # Security Policy
 
+> 当前版本: v9.0.10
+
 ## Supported Versions
 
 只有最新的次版本号接收安全修复：
 
 | Version | Supported |
 |---|---|
-| 8.0.x | ✅ |
-| 7.8.x 及更早 | ❌ |
+| 9.0.x | ✅ |
+| 8.0.x 及更早 | ❌ |
 
 ## Reporting a Vulnerability
 

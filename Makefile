@@ -9,7 +9,11 @@
 
 PY ?= python3
 
-.PHONY: verify lint test clean
+.PHONY: verify lint test clean backup
+
+## backup: 一次可验证的数据库备份（dump → pg_restore 校验 → 记 sha256 → 保留 KEEP 份）
+backup:
+	bash scripts/backup.sh
 
 ## verify: 语法 + 服务状态 + 端点实测（需要能 ssh gz）
 verify:
