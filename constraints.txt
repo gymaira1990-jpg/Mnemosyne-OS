@@ -1,0 +1,26 @@
+# constraints.txt —— 已验证可用的一套版本（“装上就跑得起来”的那一套）
+#
+# 用法：
+#   pip install -r requirements.txt -c constraints.txt
+#   bash scripts/bootstrap.sh   # bootstrap 已默认带 -c constraints.txt
+#
+# 为什么有它：requirements.txt 全是 `>=`（保证不把下游锁死），但 `>=` 意味着
+# 「今天装」和「三个月后装」可能不是同一套版本 —— 出问题时别人复现不了我们的环境，
+# 我们也复现不了他的。这份文件把**我们实测跑通**的版本钉住，可选、不强制。
+#
+# 更新方式：在干净 venv 里 `pip install -r requirements.txt` 跑通 294 项测试后，
+# 用 `pip freeze` 里对应包的版本更新本文件，并同步下一行的日期。
+# 快照日期：2026-11-04 ｜ 对应版本：9.0.15 ｜ 环境：Python 3.11.15
+#
+anyio==4.16.0
+asyncpg==0.32.0
+certifi==2026.10.23
+fastapi==0.162.0
+httpx==0.28.1
+jieba==0.42.1
+mcp==2.3.0
+numpy==2.4.6
+psutil==7.2.2
+pydantic==2.14.2
+python-dotenv==1.2.4
+uvicorn==0.52.4

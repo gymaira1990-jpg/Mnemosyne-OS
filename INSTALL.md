@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.14 | 更新: 2026-11-04
+> 版本: v9.0.15 | 更新: 2026-11-04
 
 ---
 
@@ -172,8 +172,11 @@ OPENAI_CHAT_MINI=gpt-4o-mini
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 ```
+
+> `requirements.txt` 全是 `>=`（不把下游锁死）；`constraints.txt` 钉的是**我们实测跑通的那一套**版本。
+> 想省事就带上 `-c`；想自己挑版本就不带。出问题时两边的环境能对得上，靠的就是这个文件。
 
 ### 5. 启动服务
 

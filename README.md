@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.14-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.15-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -397,6 +397,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.15](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.15) | 2026-11-04 | Conflicts are flagged, not auto-invalidated · optional `constraints.txt` |
 | [v9.0.14](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.14) | 2026-11-04 | Front-page numbers are snapshots now · diary doc states its jobs are not in this repo |
 | [v9.0.13](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.13) | 2026-11-04 | Caught by CI: demo corpus de-identified + local privacy gate learns the internal-domain rule |
 | [v9.0.12](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.12) | 2026-11-04 | **Evidence in the repo**: 40 cards + 12 questions in `evals/`, two measured runs (92% / 100%), one command to reproduce |

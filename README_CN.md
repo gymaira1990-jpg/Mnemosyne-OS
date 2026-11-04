@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.14-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.15-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -382,6 +382,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.15](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.15) | 2026-11-04 | 冲突只标记不裁决（人工闸门）· `constraints.txt` 可选锁版本 |
 | [v9.0.14](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.14) | 2026-11-04 | 首页数字改为快照并标日期 · 日记文档标清「作业不在仓库」 |
 | [v9.0.13](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.13) | 2026-11-04 | CI 抓漏修复：演示语料脱敏 + 本地隐私门禁补「内部域名」规则 |
 | [v9.0.12](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.12) | 2026-11-04 | **证据进仓库**：`evals/` 40 卡 12 题 + 两组实测 92%/100% + `make demo && make eval` 一条命令复现 |

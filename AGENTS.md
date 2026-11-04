@@ -7,20 +7,20 @@
 > 再跑 `bash scripts/bootstrap.sh`。这份 AGENTS.md 是给**改代码**的 Agent 看的。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v9.0.14（仓库 = 生产，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v9.0.15（仓库 = 生产，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 
 ```bash
 pip install -r requirements.txt
-pytest tests/          # 294 用例（服务端 + MCP 桥契约；契约用例需 Hermes 侧 mcp SDK，无则自动 skip）
+pytest tests/          # 296 用例（服务端 + MCP 桥契约 + 冲突人工闸门；契约用例需 Hermes 侧 mcp SDK，无则自动 skip）
 ```
 
 ## 9.0 端点速查（记忆操作系统）
 
 | 端点 | 用途 | 备注 |
 |---|---|---|
-| `POST /api/v1/memory-os/recall` | 四通道召回（E 精确 / C 关键词 / T 时间 / S 语义） | 返回 `channel_counts`，每条候选带命中通道 |
+| `POST /api/v1/memory-os/recall` | **三通道召回**（E 精确 / C 关键词 / T 时间） | 返回 `channel_counts`，每条候选带命中通道。**S 语义在客户端叠加**（服务端不做，避免同请求里调 embedding 把超时变不可控） |
 | `POST /api/v1/memory-os/exact` | 档号 / 台账号 / 提交 / 路径精确查 | 先锚定首行，再全文兜底 |
 | `POST /api/v1/memory-os/keywords` | 多词 OR + 覆盖率排序 | 不调 embedding，最便宜 |
 | `GET  /api/v1/memory-os/trace/{no}` | 档号 → 卡片 → `sid` → 原文 | 两级跳取证 |

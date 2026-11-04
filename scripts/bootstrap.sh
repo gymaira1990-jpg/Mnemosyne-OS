@@ -146,12 +146,17 @@ if [ ! -x .venv/bin/python3 ]; then
   fi
 fi
 if [ -x .venv/bin/python3 ]; then
+  # 9.0.15: 有 constraints.txt 就一起带上 —— requirements 是 `>=`（不锁下游），
+  # constraints 钉的是「我们实测跑通的那一套」。有则用，无则退化为纯 requirements。
+  CONS=""
+  [ -f constraints.txt ] && CONS="-c constraints.txt"
   if .venv/bin/python3 -c 'import fastapi,asyncpg,dotenv' 2>/dev/null; then
     ok "依赖已装"
   elif [ "$CHECK_ONLY" = "1" ]; then
-    warn "依赖不齐"; todo ".venv/bin/pip install -r requirements.txt"
+    warn "依赖不齐"; todo ".venv/bin/pip install -r requirements.txt $CONS"
   else
-    .venv/bin/pip install -q -r requirements.txt 2>&1 | tail -2
+    # shellcheck disable=SC2086
+    .venv/bin/pip install -q -r requirements.txt $CONS 2>&1 | tail -2
     .venv/bin/python3 -c 'import fastapi,asyncpg,dotenv' 2>/dev/null && ok "已安装依赖" || bad "依赖安装失败"
   fi
 fi

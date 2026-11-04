@@ -22,6 +22,8 @@
 | `/api/v1/memories/stats` | GET | 记忆库统计 |
 | `/api/v1/memories/tree` | GET | 记忆层级树 |
 | `/api/v1/memories/{id}/traces` | GET | 生命周期轨迹 |
+| `/api/v1/memories/conflicts` | GET | **待复核冲突**（9.0.15 起冲突只标记，不再自动作废旧条） |
+| `/api/v1/memories/conflicts/resolve` | POST | **人工裁决**：`keep_both`（都留） / `invalidate_old`（确认旧条过期） |
 | `/api/v1/memories/{id}/tiered` | GET | 三级读取（L5/L3/L1） |
 
 ### 宫殿（v7 核心）

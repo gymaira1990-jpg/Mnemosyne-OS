@@ -446,7 +446,13 @@ async def list_conflicts(user_id: str = "default", limit: int = 20):
                 "conflict_type": meta.get("conflict_type", "unknown"),
                 "created": str(r["created_at"])[:19],
             })
-        return {"conflicts": result, "total": len(result)}
+        pending = sum(1 for x in result if x["conflict_type"] == "pending_review")
+        out = {"conflicts": result, "total": len(result), "pending_review": pending}
+        if pending:
+            # 9.0.15：冲突只标记不作废 —— 待复核的必须给出裁决入口，否则等于把问题丢给人不管
+            out["how_to_resolve"] = ("POST /api/v1/memories/conflicts/resolve "
+                                     "{user_id, new_id, action: keep_both|invalidate_old}")
+        return out
 
 
 
@@ -881,6 +887,7 @@ async def create_memory(mem: MemoryCreate):
                     dup["id"])
                 return {"status": "duplicate", "id": dup["id"], "action": "idempotent"}
             # 矛盾检测（v8.0.1: 按层分流 —— L0 日志层跳过，见 should_run_conflict_detection）
+            conflict_flagged = None
             if should_run_conflict_detection(_layer_info["layer"]):
                 conflict = await detect_conflict(conn, uid, mem.content, vec_str)
             else:
@@ -893,20 +900,22 @@ async def create_memory(mem: MemoryCreate):
                 )
                 return {"status": "merged", "id": conflict["id"], "action": "merged_with_existing"}
             elif conflict["action"] == "conflict":
-                # 冲突：旧记忆标记为过期，新记忆标记冲突来源
+                # ══════════ 9.0.15 行为变更：不再自动作废旧记忆 ══════════
+                # 原实现：直接 `valid_to=NOW()` 把旧条作废 —— 等于「语义相近 + 措辞差得多」
+                # 就判定旧事实过期。实测风险：同一主题下的两次不同结论（「端口是 8010」
+                # vs 「端口改成 8011 了」）确实该作废，但更多时候只是**两件不同的事恰好同主题**，
+                # 旧条被静默作废 ⇒ 知识库悄悄变少，而且没人知道少了什么。
+                # 新行为：只标记、不裁决。裁决权交回人（GET /memories/conflicts 看 → resolve 确认）。
                 old_id = conflict["id"]
                 await conn.execute(
-                    "UPDATE memories SET valid_to = NOW(), invalid_at = NOW() WHERE id = $1",
-                    old_id
-                )
-                await conn.execute(
-                    "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
+                    "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'conflict_flagged', $2)",
                     old_id, json.dumps({"new_content": mem.content[:200]})
                 )
-                # 新记忆标记冲突来源
+                # 新记忆标记冲突来源（待复核，旧条仍有效）
                 meta = dict(mem.metadata) if isinstance(mem.metadata, dict) else {}
                 meta["conflicts_with"] = old_id
-                meta["conflict_type"] = "superseded"
+                meta["conflict_type"] = "pending_review"
+                conflict_flagged = old_id
             # 正常存入（含valid_from）；v6.0: 原始碎片 tmt_level=1，tier 由 reflect 维护
             # v6.3: 写入 heat_score = 认知写入信号 (初始热度)
             # v7.2: 初始 S 由写入信号映射 (heat_init≥0.7→7 / ≥0.6→5 / 其他→3), R=S; 4维标记进 metadata
@@ -956,7 +965,15 @@ async def create_memory(mem: MemoryCreate):
                 await sync_entities(conn, mid, mem.entities, uid)
             # v7.8.1: 写入即分词 — 新记忆立即可被 BM25 检索 (消除当日失明窗口)
             await _tokenize_on_write(conn, mid, mem.content)
-    return {"status": "stored", "id": mid, "category": cat}
+    out = {"status": "stored", "id": mid, "category": cat}
+    if conflict_flagged:
+        # 9.0.15：冲突只标记不作废 —— 这里把「需要人看」这件事明确回给调用方
+        out["conflict"] = {
+            "pending_review": True,
+            "with_id": conflict_flagged,
+            "hint": "旧记忆未被作废。先 GET /api/v1/memories/conflicts?user_id=... 看，再 POST .../conflicts/resolve 裁决",
+        }
+    return out
 
 class MemorySearch(BaseModel):
     user_id: str
@@ -1195,6 +1212,74 @@ async def heat_top_memories(user_id: str, limit: int = 10, min_heat: float = 0.0
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT id, content, category, tier, heat_score, access_count, created_at FROM memories WHERE user_id=$1 AND is_deleted=FALSE AND (valid_to IS NULL OR valid_to > NOW()) AND heat_score>=$2 ORDER BY heat_score DESC LIMIT $3", user_id, min_heat, limit)
     return {"memories": [dict(r) for r in rows]}
+
+
+# ══════════ 9.0.15：冲突「只标记、不裁决」的人工闸门 ══════════
+# 说明：列表查询复用上面 8.x 就有的 GET /api/v1/memories/conflicts（已带 conflict_type），
+# 不再新增同名路由 —— 两个同路径实现只会让人不知道该看哪份（实测：新加的那份被老路由遮住，
+# 线上返回的还是老结构，等于白改）。
+class ConflictResolveReq(BaseModel):
+    user_id: str = "default"
+    new_id: int
+    action: str = "keep_both"          # keep_both | invalidate_old
+
+
+def _int_or_none(v):
+    """jsonb 里取出来的数字可能是 str/int/None；取不到就 None（不要抛到接口层）。"""
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_json_obj(v):
+    """asyncpg 默认把 jsonb 返回成 str，统一成 dict（两种输入都吃）。"""
+    if isinstance(v, dict):
+        return dict(v)
+    if isinstance(v, str) and v.strip():
+        try:
+            return json.loads(v)
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+@app.post("/api/v1/memories/conflicts/resolve")
+async def resolve_pending_conflict(req: ConflictResolveReq):
+    """人工裁决：keep_both（都留着，清标记）或 invalidate_old（确认旧条过期 —— 原来的自动行为）。"""
+    if req.action not in ("keep_both", "invalidate_old"):
+        raise HTTPException(status_code=422, detail="action 只能是 keep_both 或 invalidate_old")
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, metadata FROM memories WHERE id=$1 AND user_id=$2 AND is_deleted=FALSE",
+            req.new_id, req.user_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="new_id 不存在或不属于该 user_id")
+        meta = _as_json_obj(row["metadata"])
+        if meta.get("conflict_type") != "pending_review":
+            raise HTTPException(status_code=409, detail="这条不是待复核冲突（可能已裁决过）")
+        old_id = _int_or_none(meta.get("conflicts_with"))
+        if old_id is None:
+            raise HTTPException(status_code=409, detail="metadata.conflicts_with 缺失，无法裁决")
+
+        invalidated = False
+        if req.action == "invalidate_old":
+            await conn.execute(
+                "UPDATE memories SET valid_to=NOW(), invalid_at=NOW() WHERE id=$1 AND valid_to IS NULL",
+                old_id)
+            await conn.execute(
+                "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
+                old_id, json.dumps({"superseded_by": req.new_id, "by": "human_resolve"}))
+            invalidated = True
+
+        meta.pop("conflict_type", None)
+        meta["conflict_resolved_as"] = req.action
+        await conn.execute("UPDATE memories SET metadata=$1::jsonb WHERE id=$2",
+                           json.dumps(meta), req.new_id)
+    return {"ok": True, "new_id": req.new_id, "old_id": old_id,
+            "action": req.action, "old_invalidated": invalidated}
 
 @app.get("/api/v1/memories/stats")
 async def get_memory_stats(user_id: str = "default"):

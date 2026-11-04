@@ -1,3 +1,23 @@
+## [9.0.15] — 2026-11-04 · 冲突不再「静默作废」——裁决权交回人
+
+> 外部审阅里唯一一条**我们认了但还没改**的真风险：写入时把语义相近的旧记忆直接
+> `valid_to=NOW()` 作废。判据是「语义近 + 措辞差得远」—— 可两件不同的事很容易恰好同主题，
+> 旧条就这么没了，**而且没人知道少了什么**。这版把自动裁决撤掉。
+
+- **写入只标记、不裁决**：冲突时给新记忆打 `metadata.conflict_type=pending_review`，
+  旧记忆**保持有效**，同时在 `memory_traces` 留 `conflict_flagged`。
+  写入响应会带 `conflict.pending_review=true` 和 `with_id`，不再让调用方以为「已经处理好了」。
+- **新增两个接口**：`GET /api/v1/memories/conflicts`（看待复核，含旧条 still_valid）
+  + `POST /api/v1/memories/conflicts/resolve`（`keep_both` / `invalidate_old`）。
+  作废从「自动」变成「人工确认」—— `invalidate_old` 就是原来那个行为，只不过现在要人点。
+- **测试防回退**：源码契约（冲突分支里不许再出现 `valid_to = NOW()`）+ 真库行为
+  （`keep_both` 一个字段都不许动旧条；`invalidate_old` 才作废且留 trace）。
+- **`constraints.txt`（可选锁定）**：`requirements.txt` 全是 `>=`（不锁下游），新文件钉住
+  **我们实测跑通的那一套**；`bootstrap.sh` 检测到就用 `-c constraints.txt`，没有则退化。
+  为的是「出问题时两边环境对得上」。
+- **边界说明**：生产侧还有几个本机作业（`diary_daily.py`、`gcathub-health-monitor.sh` 等）
+  不进公开仓 —— 它们依赖真实语料与私有调度；文档已标清哪些能跑、哪些是契约。
+
 ## [9.0.14] — 2026-11-04 · 把「过时的数字」和「不存在的文件」一起修掉
 
 > 9.0.13 修的是泄露，这版修的是**首页在说旧话**。一份对外文档最伤信任的不是写得少，
