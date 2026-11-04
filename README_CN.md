@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.4-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.5-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -193,7 +193,7 @@ Hermes 记忆提供者（改一行配置，14 个工具自动出现）、REST AP
 
 ## 快速开始
 
-**前置**：PostgreSQL 16 + `pgvector ≥ 0.7`（实体图谱可选 Apache AGE ≥ 1.5）、Python 3.11+、8G 内存、
+**前置**：PostgreSQL 16+ + `pgvector ≥ 0.7`（v7.8 起不需要 Apache AGE）、Python 3.11+、8G 内存、
 一个 OpenAI 兼容的 LLM + embedding 端点。
 
 ```bash
@@ -217,6 +217,11 @@ python3 main.py                      # → http://127.0.0.1:8010
 curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 # → {"status":"ok","router":"memory-os","endpoints":5}
 ```
+
+**两条检索通道，别用错：**
+
+- `POST /api/v1/memories/search` — 搜**原始记忆**（向量 + 关键词）。存进去立刻能搜到。
+- `POST /api/v1/memory-os/recall` — 搜**著录卡**（`tome_cards`）。全新安装还没有卡，所以会返回 `candidates: []`，这是正常的、不是坏了；要用 `jobs/` 下的作业出卡，或者先用 `memories/search`。
 
 **Hermes 用户**走更短的路：`hermes config set memory.provider mnemosyne`，`/reset` 之后 14 个工具自动出现。
 
@@ -349,6 +354,7 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.5](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.5) | 2026-11-04 | 开源可用性修复：.env 真正生效、schema 重建（23 表 / 51 索引）、去掉 AGE 要求 |
 | [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | 依赖批量升级（fastapi 0.162 / pydantic 2.14）+ 一致性门禁 C8 |
 | [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | 私人部署文档：通行密钥登录墙 / 日记生产线 / 端口与页面 / 密钥管理 |
 | [v9.0.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.2) | 2026-11-03 | Doc consistency gate (`make consistency`) + stale-doc fixes |

@@ -1,3 +1,21 @@
+## [9.0.5] — 2026-11-04 · 开源可用性修复：外人 clone 下来真的能跑起来了
+
+> 起因：以「别人 clone 回去能不能自己部署」为标准做了一次完整演练 —— 真的从 GitHub 克隆到干净目录、
+> 建库、照 README 四步走。结论是**跑不起来**，而且失败点全在文档没覆盖到的地方。
+
+- **修复 `.env` 完全不生效（致命）**：全仓库此前没有任何 `load_dotenv()` ⇒ README 里「`cp .env.template .env`
+  填好后 `python3 main.py`」实际上读了 0 行 .env，配置全靠 systemd 的 `EnvironmentFile` 注入。对外表现为
+  「连到了意料之外的库」或「embedding 401」。现在 `config.py` 启动即加载 .env（`override=False`，systemd / 容器注入仍优先）。
+- **重建 `docs/schema.sql`（致命）**：旧文件比生产库少 **22 个索引**（含 `dedup_fingerprint` / `archive_no` 两个唯一索引），
+  照它导入后**存第一条记忆就 500**（`ON CONFLICT` 找不到唯一约束）。已按生产库 `pg_dump --schema-only` 重导：
+  **23 张表 / 51 个索引 / 2 个扩展**（vector、pg_trgm），不含任何数据。
+- **删掉 Apache AGE 的全部要求**：v7.8 起实体图谱已改走 `entities` / `memory_entities` / `wiki_entities` 普通表，
+  生产库也从未安装 AGE，但 INSTALL 仍保留「AGE 源码编译」整节 ⇒ 新人白折腾。同步把「PostgreSQL 16」
+  统一为 **16+（实测 18.6 通过）**、「30 张表」更正为 **23 张**。
+- **补「两条检索通道」说明**：`memories/search` 搜原始记忆（存完立刻可搜）；`memory-os/recall` 搜著录卡，
+  全新安装还没有卡 ⇒ 返回空属正常。此前没讲清，新人会误判为装坏了。
+- **`.env.template` 过时注释**：端口那行「硬编码 8010、MNEMOSYNE_PORT 未生效」已作废（实测端口配置有效）。
+
 ## [9.0.4] — 2026-11-04 · 依赖批量升级 + 一致性门禁 C8（治「发了 tag 忘了部署」）
 
 > 三笔均在 2026-11-04 完成，本地与生产两侧都已验证。

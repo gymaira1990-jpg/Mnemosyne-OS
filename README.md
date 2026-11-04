@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.4-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.5-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -215,7 +215,7 @@ The diary is a scheduled job, not a manual chore — it keeps running while your
 
 ## Quick Start
 
-**Prerequisites** — PostgreSQL 16 with `pgvector ≥ 0.7` (Apache AGE optional, for the entity graph),
+**Prerequisites** — PostgreSQL 16+ with `pgvector ≥ 0.7` (no Apache AGE needed since v7.8),
 Python 3.11+, 8 GB RAM, one OpenAI-compatible LLM + embedding endpoint.
 
 ```bash
@@ -239,6 +239,11 @@ python3 main.py                      # → http://127.0.0.1:8010
 curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 # → {"status":"ok","router":"memory-os","endpoints":5}
 ```
+
+**Two search paths — know which one you want:**
+
+- `POST /api/v1/memories/search` — searches your **raw memories** (vector + keyword). Works the moment you store something.
+- `POST /api/v1/memory-os/recall` — searches the **catalog cards** (`tome_cards`). A fresh install has no cards yet, so it returns `candidates: []` — that is expected, not a failure. Fill the cards with the jobs under `jobs/` (or just keep using `memories/search`).
 
 **Hermes users** get the shorter path: `hermes config set memory.provider mnemosyne` — 14 tools appear after `/reset`.
 
@@ -363,6 +368,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.5](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.5) | 2026-11-04 | Open-source usability: .env now actually loads, schema.sql rebuilt (23 tables / 51 indexes), AGE requirement removed |
 | [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | Dependency batch upgrade (fastapi 0.162 / pydantic 2.14) + consistency gate C8 |
 | [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | Private-deployment docs: passkey login wall, diary pipeline, ports & pages, secrets |
 | [v9.0.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.2) | 2026-11-03 | Doc consistency gate (`make consistency`) + stale-doc fixes |

@@ -4,6 +4,16 @@ Mnemosyne v5.0 — 统一配置中心
 """
 import os
 
+# .env 自动加载（2026-11-04 补）：README 让你 `cp .env.template .env` 填好后直接 `python3 main.py`，
+# 但此前全仓库没有任何 load_dotenv() —— .env 形同废纸，配置只能靠 systemd 的 EnvironmentFile 注入。
+# 外人照文档操作时所有 PG/密钥配置被静默忽略，表现为「连到了意料之外的库」或「embedding 401」。
+# override=False：已存在的环境变量优先，systemd / 容器注入的优先级不变。
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:  # 依赖未装时降级为纯环境变量，不阻塞启动
+    pass
+
 # ── 豆包 API (火山引擎 ARK) ──
 ARK_API_KEY = os.getenv("ARK_API_KEY", "")
 ARK_BASE = "https://ark.cn-beijing.volces.com/api/v3"

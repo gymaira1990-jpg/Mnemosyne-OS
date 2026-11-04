@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.4 | 更新: 2026-11-04
+> 版本: v9.0.5 | 更新: 2026-11-04
 
 ---
 
@@ -35,7 +35,7 @@
 | ② 独立部署 | 自托管 / 其他 Agent 框架 | ~15 分钟 | 完整服务，REST API + SDK |
 | ③ Python SDK | 想在自己代码里调用 | 依赖方式② | 在独立部署基础上加一行 import |
 
-> ⚠️ 三种方式都依赖一个 **PostgreSQL 16 数据库**（含 pgvector + Apache AGE 扩展）和至少一个 **LLM/Embedding API**（火山引擎 ARK / DeepSeek / 任意 OpenAI 兼容端点）。
+> ⚠️ 三种方式都依赖一个 **PostgreSQL 16+ 数据库**（含 pgvector；实测 18.6 同样可用）和至少一个 **LLM/Embedding API**（火山引擎 ARK / DeepSeek / 任意 OpenAI 兼容端点）。
 
 ---
 
@@ -45,7 +45,7 @@
 |------|------|
 | 操作系统 | Linux / macOS / Windows (WSL2) |
 | Python | 3.11+ |
-| PostgreSQL | 16.x（含 pgvector ≥ 0.7、Apache AGE ≥ 1.5） |
+| PostgreSQL | 16.x 或更高（实测 18.6 通过）· pgvector ≥ 0.7 |
 | 内存 | 8GB+（推荐） |
 | 模型 API | 任选其一：火山引擎 ARK（豆包）、DeepSeek、OpenAI 兼容端点 |
 | 磁盘 | 2GB+（不含数据库增长） |
@@ -84,7 +84,7 @@ ssh -L 18010:127.0.0.1:8010 your-server
 #### Ubuntu / Debian 24.04+
 
 ```bash
-# 安装 PostgreSQL 16 + 扩展（Apache AGE + pgvector）
+# 安装 PostgreSQL 16+ 与 pgvector
 sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
 
 # 启动服务
@@ -102,15 +102,6 @@ SQL
 ```bash
 brew install postgresql@16
 brew install pgvector
-# Apache AGE: 无 Homebrew 官方包，需源码编译（见下方"AGE 编译"）
-```
-
-**AGE 源码编译（macOS / 无 apt 包的环境）**：
-
-```bash
-git clone https://github.com/apache/age.git
-cd age && make PG_CONFIG=/usr/local/opt/postgresql@16/bin/pg_config
-sudo make install PG_CONFIG=/usr/local/opt/postgresql@16/bin/pg_config
 ```
 
 #### Windows (WSL2)
@@ -125,9 +116,9 @@ sudo make install PG_CONFIG=/usr/local/opt/postgresql@16/bin/pg_config
 git clone https://github.com/gymaira1990-jpg/Mnemosyne-OS.git
 cd Mnemosyne-OS
 
-# 导入完整表结构（30 张表，含宫殿/图谱/知识库）
+# 导入完整表结构（23 张表：记忆/卡片/分类树/实体/技能/日记）
 # ⚠️ 需用数据库超级用户（如 postgres）执行：CREATE EXTENSION 需要高权限
-# schema.sql 自带 CREATE EXTENSION（age/vector/pg_trgm），导入即自动建扩展
+# schema.sql 自带 CREATE EXTENSION（vector / pg_trgm），导入即自动建扩展
 sudo -u postgres psql -d mnemosyne -f docs/schema.sql
 
 # 导入后把权限交给应用用户
@@ -200,7 +191,7 @@ python main.py
 ```bash
 # 健康检查
 curl http://127.0.0.1:8010/api/v1/echo
-# → {"status":"ok","service":"Mnemosyne OS","version":"9.0.4"}
+# → {"status":"ok","service":"Mnemosyne OS","version":"9.0.5"}
 
 # 存入一条记忆
 curl -X POST http://127.0.0.1:8010/api/v1/memories \
@@ -265,7 +256,7 @@ m.search_by_hall("research")      # 待验证
 
 ### Ubuntu/Debian
 
-✅ 最省事路径（本指南实测环境）：apt 一条命令装齐 PG16+AGE+pgvector。
+✅ 最省事路径（本指南实测环境）：apt 装 PG + pgvector 两个包即可。
 
 ```bash
 sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
@@ -274,7 +265,7 @@ sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
 ### macOS
 
 - PostgreSQL 16 + pgvector：Homebrew 直接装。
-- Apache AGE：无官方包，需 [源码编译](#age-源码编译macos--无-apt-包的环境)（10 分钟，Makefile 一条命令）。
+- Apache AGE：**不再需要**。v7.8 起实体图谱改走 `entities` / `memory_entities` / `wiki_entities` 普通表，AGE 已移除。
 
 ### Windows (WSL2)
 
@@ -289,7 +280,7 @@ sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
 A: 数据库结构未导入。确认已执行 `psql -f docs/schema.sql`，且版本与仓库一致。
 
 **Q: 报 `extension "age" is not available`？**
-A: Apache AGE 未安装。Ubuntu: `sudo apt install postgresql-16-age`；macOS: 源码编译后 `CREATE EXTENSION`。
+A: 多半是 pgvector 未安装。Ubuntu: `sudo apt install postgresql-16-pgvector`；macOS: `brew install pgvector`，再 `CREATE EXTENSION vector;`。
 
 **Q: 搜索报 embedding 相关错误？**
 A: 模型 API 密钥未配置或无效。检查 `.env` 中 `ARK_API_KEY` / `OPENAI_API_KEY`，并 `curl` 验证端点可达。
