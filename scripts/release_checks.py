@@ -53,6 +53,9 @@ PRIVACY_PATTERNS = [
     # 收紧前实测被 tests 里的 `/home/u/proj/a.py` 夹具误报（那是通用占位符，零信息量）。
     ("本机账号路径", r"/home/(g-cat|ubuntu|gy_ma)/"),
     ("Windows 用户路径", r"[A-Za-z]:\\\\?Users\\\\?(gy_ma|g-cat|Administrator)"),
+    # 内部域名规则（2026-11-04 补）：CI 有这条、本地没有 ⇒ 9.0.12 把站点域名写进演示语料却本地全绿。
+    # 本地门禁与 CI 门禁不一致时，本地绿等于没绿。正则拆开写，避免扫描器自命中。
+    ("内部域名", r"g\-cat[.]c[nv]|meow@g"),
 ]
 
 # 占位符不算泄露：文档里 `REPLACE_WITH_SESSION_SECRET` 这种模板值本来就该出现在示例配置里。
