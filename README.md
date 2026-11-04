@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.10-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.11-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -382,6 +382,8 @@ We publish the regressions, not just the wins:
 | [INSTALL.md](INSTALL.md) | Installation (Linux / macOS / WSL2), model backends, FAQ |
 | [AGENTS.md](AGENTS.md) | Manual for AI agents: API surface, env vars, Hermes/MCP |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internals: layers, fusion, storage |
+| [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **Card Spec v1**: 7-line structure, archive numbers, evidence ranks, embedding rules |
+| [integrations/card-builder/](integrations/card-builder/) | Reference implementation: dialogue → card (stdlib only) · [`evals/`](evals/) recall cases |
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST reference · every environment variable |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | Design philosophy |
 | [docs/design/](docs/design/) · [docs/adr/](docs/adr/) | Design docs · architecture decision records |
@@ -391,6 +393,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.11](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.11) | 2026-11-04 | **Card Spec v1** + spec checker + card-builder reference + `make eval` — the criteria ship with the repo |
 | [v9.0.10](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.10) | 2026-11-04 | External-review fixes: INSTALL no longer breaks on removed schemas · pluggable embedding backend · 12 version checkpoints · verifiable `backup.sh` |
 | [v9.0.9](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.9) | 2026-11-04 | AGENTS.md: pointer to DEPLOY-FOR-AI for deployment agents (docs only) |
 | [v9.0.8](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.8) | 2026-11-04 | Agent-first deployment: `DEPLOY-FOR-AI.md` + one-command `scripts/bootstrap.sh` |

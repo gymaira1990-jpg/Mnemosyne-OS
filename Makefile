@@ -9,7 +9,20 @@
 
 PY ?= python3
 
-.PHONY: verify lint test clean backup
+.PHONY: verify lint test clean backup card-check eval eval-selftest
+
+## card-check: 著录卡规范校验（Card Spec v1，内置正反例自检）
+card-check:
+	$(PY) scripts/card_check.py --selftest
+	$(PY) integrations/card-builder/build_cards.py --selftest
+
+## eval: 召回评测 recall@k（需要服务在跑 + `make demo` 灌过演示数据）
+eval:
+	$(PY) scripts/eval_recall.py
+
+## eval-selftest: 只验判据逻辑，不联网
+eval-selftest:
+	$(PY) scripts/eval_recall.py --selftest
 
 ## backup: 一次可验证的数据库备份（dump → pg_restore 校验 → 记 sha256 → 保留 KEEP 份）
 backup:
@@ -41,10 +54,13 @@ demo:
 consistency:
 	$(PY) scripts/consistency_check.py
 
-## test: 单元测试全量 + 文档一致性
+## test: 单元测试全量 + 文档一致性 + 规范自检
 test:
 	.venv/bin/python3 -m pytest tests/ -q -p no:warnings
 	$(PY) scripts/consistency_check.py
+	$(PY) scripts/card_check.py --selftest
+	$(PY) integrations/card-builder/build_cards.py --selftest
+	$(PY) scripts/eval_recall.py --selftest
 
 clean:
 	@find . -name '__pycache__' -type d -not -path '*/node_modules/*' -exec rm -rf {} + 2>/dev/null || true

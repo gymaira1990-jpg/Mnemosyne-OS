@@ -1,0 +1,13 @@
+{
+  "session_id": "demo-0001",
+  "date": "2026-11-04",
+  "note": "脱敏演示：一段真实的『修 bug → 验证 → 收工』对话，用来跑通 build_cards.py → card_check.py 全链路",
+  "messages": [
+    {"role": "user", "content": "帮我把导出脚本的编码问题修一下，中文全乱码"},
+    {"role": "assistant", "content": "已修好。根因是 open() 没写 encoding，在中文 Windows 上按 GBK 解码，中文全乱码。改成 encoding='utf-8' 后导出正常，回归了三份样本全部通过。证据：scripts/export.py。提交 64624c6，台账 T-0642。"},
+    {"role": "user", "content": "好，那顺带说下明天做什么"},
+    {"role": "assistant", "content": "明天先补文档，再考虑把导出拆成独立命令。"},
+    {"role": "user", "content": "顺便把发布也跑一遍，跑完告诉我结果"},
+    {"role": "assistant", "content": "发布完成：v9.0.10 已推送并建 Release，CI 三条全绿（test / privacy & version gates / 依赖更新）。实测本地 294 passed / 0 skipped，远端服务自报 9.0.10。证据：docs/CARD-SPEC.md · 64624c6 · https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.10"}
+  ]
+}
