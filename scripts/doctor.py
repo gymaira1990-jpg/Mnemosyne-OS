@@ -78,11 +78,23 @@ def check_env_file() -> None:
         bad("项目根目录没有 .env", "cp .env.template .env，然后填进你的 key 与数据库口令")
         return
     ok(".env 存在")
-    # .env 是否真的被读进来了（9.0.5 之前这里是空的：全仓库没有 load_dotenv）
-    if os.getenv("PGDATABASE"):
-        ok(f".env 已生效（PGDATABASE={os.getenv('PGDATABASE')}）")
+    # .env 是否真的被读进来了（9.0.5 之前全仓库没有 load_dotenv，配置形同废纸）
+    try:
+        from dotenv import dotenv_values
+        pairs = {k: v for k, v in dotenv_values(envf).items() if v and not k.startswith("#")}
+    except Exception:  # noqa: BLE001
+        pairs = {}
+    loaded = [k for k, v in pairs.items() if os.getenv(k) == v]
+    if pairs and not loaded:
+        bad(".env 里配了值，但一个都没进入进程环境",
+            "确认 config.py 里 load_dotenv() 存在；或 `set -a; . ./.env; set +a` 后重跑")
+    elif loaded:
+        ok(f".env 已生效（{len(loaded)}/{len(pairs)} 个键已读入，如 {loaded[0]}）")
     else:
-        bad(".env 存在但配置没被读进来", "确认 config.py 里 load_dotenv() 存在；或 source .env 后重跑")
+        warn(".env 里没有可读的键（可能全为空或全是注释）", "按 .env.template 填入你的 key")
+
+    if not os.getenv("PGDATABASE"):
+        print("      ℹ️  未配置 PGDATABASE（将用默认 127.0.0.1:5432/mnemosyne + 当前系统用户）")
 
 
 # ── 4. 数据库连接 ──
@@ -198,12 +210,24 @@ def check_port() -> None:
     s.settimeout(1)
     try:
         s.bind((host, port))
-        ok(f"{host}:{port} 可用")
+        ok(f"{host}:{port} 可用（服务还没起）")
+        return
     except OSError:
-        warn(f"{host}:{port} 已被占用",
-             "改 .env 里的 MNEMOSYNE_PORT，或先停掉占用它的进程（lsof -i :%d）" % port)
+        pass
     finally:
         s.close()
+    # 被占用：先问一句「是不是 Mnemosyne 自己已经在跑」，别把正常状态报成冲突
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://{host}:{port}/", timeout=2) as resp:
+            body = resp.read(200).decode("utf-8", "ignore")
+        if "Mnemosyne" in body:
+            ok(f"{host}:{port} 已有 Mnemosyne 在运行（{body.split(chr(34))[3:4] or ['']}）")
+            return
+    except Exception:  # noqa: BLE001
+        pass
+    warn(f"{host}:{port} 被其它进程占用",
+         "改 .env 里的 MNEMOSYNE_PORT，或先停掉占用它的进程（lsof -i :%d）" % port)
 
 
 async def main_async(full: bool) -> int:

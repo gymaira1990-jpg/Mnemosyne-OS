@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.6-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.7-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -382,6 +382,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.7](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.7) | 2026-11-04 | `doctor` false-positive fixes (env-key comparison, self-port detection) |
 | [v9.0.6](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.6) | 2026-11-04 | Onboarding: `scripts/doctor.py` deployment self-check + `scripts/seed_demo.py` demo data |
 | [v9.0.5](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.5) | 2026-11-04 | Open-source usability: .env now actually loads, schema.sql rebuilt (23 tables / 51 indexes), AGE requirement removed |
 | [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | Dependency batch upgrade (fastapi 0.162 / pydantic 2.14) + consistency gate C8 |
