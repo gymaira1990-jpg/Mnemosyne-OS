@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.11 | 更新: 2026-11-04
+> 版本: v9.0.12 | 更新: 2026-11-04
 
 ---
 
@@ -304,6 +304,11 @@ A: 模型 API 密钥未配置或无效。检查 `.env` 中 `ARK_API_KEY` / `OPEN
 **Q: 可以用纯本地模型吗？**
 A: 可以，任何 OpenAI 兼容端点都行（如 vLLM / Ollama 的 /v1 接口），设置 `MODEL_BACKEND=openai` + `OPENAI_BASE_URL=http://localhost:8000/v1` + `OPENAI_EMBED_MODEL=<你的模型>` 即可。
 **⚠️ 维度必须对上**：库里的向量列固定是 `vector(1024)`，所以要么选原生 1024 维的模型，要么用支持 `dimensions=1024` 的模型（OpenAI 的 text-embedding-3-* 支持）。维度不一致时写入会直接报错，不会静默截断。
+
+**Q: `/memory-os/recall` 返回 0 条，是装坏了吗？**
+A: 多半不是。它只查 `content LIKE '[结果卡]%'` —— **裸记忆它不捞**（而且不报错）。
+想看到效果：`make demo` 灌 40 张演示卡，再 `make eval`；查裸记忆请用 `POST /api/v1/memories/search`。
+这是设计：这套 API 服务的是**著录卡**，不是裸文本。细节见 [docs/VERIFICATION.md](docs/VERIFICATION.md)。
 
 **Q: 多用户支持？**
 A: **不。9.0 是单租户**，没有账号体系、没有权限隔离。`user_id` 只是**逻辑分组**参数，由调用方自报 —— 谁能访问 8010 端口，谁就能传任意 `user_id` 读写任何数据。

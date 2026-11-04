@@ -7,9 +7,14 @@
   不会污染你的真实数据：写入的每条都带 metadata.demo=true，--clean 可以一键删掉。
 
 用法：
-    python3 scripts/seed_demo.py            # 写入示例 + 跑一次检索演示
+    python3 scripts/seed_demo.py            # 写入 5 条示例记忆 + 跑一次检索演示
     python3 scripts/seed_demo.py --clean    # 删掉所有示例数据
     python3 scripts/seed_demo.py --user me  # 指定 user_id（默认 demo）
+    make demo                               # 写 40 张「著录卡」（= --cards evals/demo_cards.jsonl）
+
+🔴 关键区别（第一次装最容易踩）：
+   5 条示例记忆是**裸记忆**，`/memory-os/recall` **不捞它们**（它只查 `content LIKE '[结果卡]%'`）。
+   想验证四通道召回，要用 `--cards` 灌卡片 —— 或者直接 `make demo && make eval`。
 """
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import pathlib
 
@@ -48,7 +54,7 @@ def to_pg_vector(vec) -> str:
     return "[" + ",".join(f"{float(x):.6f}" for x in vec) + "]"
 
 
-async def run(user: str, clean: bool) -> int:
+async def run(user: str, clean: bool, cards: str | None = None) -> int:
     conn = await connect()
     try:
         if clean:
@@ -61,6 +67,33 @@ async def run(user: str, clean: bool) -> int:
             "select count(*) from memories where user_id=$1 and metadata->>'demo'='true'", user)
         if exist:
             print(f"已有 {exist} 条示例数据（user_id={user}）。要重来先跑 --clean")
+            return 0
+
+        # ── 卡片模式：写「著录卡」，能让 /memory-os/recall（四通道）捞到 ──
+        if cards:
+            path = pathlib.Path(cards)
+            if not path.exists():
+                print(f"❌ 找不到卡片文件 {path}")
+                return 2
+            items = [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            from core.embedding import get_embedding
+
+            print(f"正在生成向量（真调 embedding，{len(items)} 张卡）…")
+            vecs = get_embedding([c["content"] for c in items])
+            for c, v in zip(items, vecs):
+                v = v[2] if isinstance(v, tuple) else v
+                m = re.search(r"档号：(K·[^\s]+)", c["content"])
+                await conn.execute(
+                    """insert into memories
+                         (user_id, content, category, embedding, tier, heat_score, metadata, archive_no)
+                       values ($1, $2, 'session', $3::vector, 'L2', 0.6, $4::jsonb, $5)""",
+                    user, c["content"], to_pg_vector(v),
+                    json.dumps({"demo": "true", "card": "true"}),
+                    m.group(1) if m else None)
+            total = await conn.fetchval(
+                "select count(*) from memories where user_id=$1 and content like '[结果卡]%'", user)
+            print(f"✅ 已写入 {len(items)} 张卡（user_id={user}，库里该用户共 {total} 张卡）")
+            print("下一步：make eval    # 跑 12 道题，看 recall@10（E/C/T 与叠加 S 两组）")
             return 0
 
         from core.embedding import get_embedding  # 真调 embedding，和正式写入同一条链路
@@ -99,6 +132,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="写入/清理示例记忆")
     ap.add_argument("--user", default="demo", help="user_id，默认 demo")
     ap.add_argument("--clean", action="store_true", help="删除示例数据")
+    ap.add_argument("--cards", metavar="FILE",
+                    help="从 JSONL 灌著录卡（每行需含 content 字段）；recall 只捞卡，想验证四通道就用这个")
     a = ap.parse_args()
     try:
         from dotenv import load_dotenv
@@ -106,7 +141,7 @@ def main() -> int:
     except ImportError:
         pass
     try:
-        return asyncio.run(run(a.user, a.clean))
+        return asyncio.run(run(a.user, a.clean, a.cards))
     except Exception as e:  # noqa: BLE001
         print(f"❌ 失败：{type(e).__name__}: {e}")
         print("   先跑 `python3 scripts/doctor.py` 看看环境缺什么。")

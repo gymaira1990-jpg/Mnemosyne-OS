@@ -143,6 +143,7 @@ def check_version_consistency() -> int:
     grab(".github/SECURITY.md", r"^>\s*当前版本[:：]\s*v?([\d.]+)", "GitHub SECURITY 当前版本")
     grab("PROJECT.md", r"\*\*到哪了\*\*：v?([\d.]+)", "PROJECT 到哪了")
     grab("DEPLOY-FOR-AI.md", r"^>\s*版本[:：]\s*v([\d.]+)", "DEPLOY-FOR-AI 版本")
+    grab("docs/VERIFICATION.md", r"^>\s*版本[:：]\s*v([\d.]+)", "VERIFICATION 版本")
 
     if problems:
         print("❌ 版本落点不一致（查了 %d 处）：" % len(checked))

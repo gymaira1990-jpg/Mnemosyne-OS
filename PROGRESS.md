@@ -1,6 +1,6 @@
 # Mnemosyne OS 状态
 
-## 当前版本: 9.0.11 — Card Spec v1 · 规范校验器 · 生成参考实现 · make eval
+## 当前版本: 9.0.12 — 证据进仓库：evals/ + make demo && make eval + 两组实测
 
 ## 状态
 - 本地：14 项客户端自检 + 9 项服务端端到端全绿

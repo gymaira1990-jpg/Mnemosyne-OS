@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.11-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.12-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -383,6 +383,8 @@ We publish the regressions, not just the wins:
 | [AGENTS.md](AGENTS.md) | Manual for AI agents: API surface, env vars, Hermes/MCP |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internals: layers, fusion, storage |
 | [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **Card Spec v1**: 7-line structure, archive numbers, evidence ranks, embedding rules |
+| [docs/VERIFICATION.md](docs/VERIFICATION.md) | **Verify it yourself**: `make demo && make eval` · two measured runs (92% / 100%) and the two traps |
+| [evals/](evals/) | 40 demo cards + 12 questions + raw outputs (reproducible) |
 | [integrations/card-builder/](integrations/card-builder/) | Reference implementation: dialogue → card (stdlib only) · [`evals/`](evals/) recall cases |
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST reference · every environment variable |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | Design philosophy |
@@ -393,6 +395,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.12](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.12) | 2026-11-04 | **Evidence in the repo**: 40 cards + 12 questions in `evals/`, two measured runs (92% / 100%), one command to reproduce |
 | [v9.0.11](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.11) | 2026-11-04 | **Card Spec v1** + spec checker + card-builder reference + `make eval` — the criteria ship with the repo |
 | [v9.0.10](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.10) | 2026-11-04 | External-review fixes: INSTALL no longer breaks on removed schemas · pluggable embedding backend · 12 version checkpoints · verifiable `backup.sh` |
 | [v9.0.9](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.9) | 2026-11-04 | AGENTS.md: pointer to DEPLOY-FOR-AI for deployment agents (docs only) |

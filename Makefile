@@ -8,17 +8,27 @@
 # make verify    = 语法 → 服务状态 → 端点实测（需要能连生产）
 
 PY ?= python3
+BASE ?= http://127.0.0.1:8010
+K ?= 10
 
-.PHONY: verify lint test clean backup card-check eval eval-selftest
+.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-selftest
 
 ## card-check: 著录卡规范校验（Card Spec v1，内置正反例自检）
 card-check:
 	$(PY) scripts/card_check.py --selftest
 	$(PY) integrations/card-builder/build_cards.py --selftest
 
-## eval: 召回评测 recall@k（需要服务在跑 + `make demo` 灌过演示数据）
+## demo: 灌 40 张演示卡（recall 只捞卡，裸记忆它看不到 —— 想看效果用这个）
+demo:
+	$(PY) scripts/seed_demo.py --cards evals/demo_cards.jsonl --user demo
+
+## eval: 召回评测 recall@k（需要服务在跑 + 已 `make demo`）
 eval:
-	$(PY) scripts/eval_recall.py
+	$(PY) scripts/eval_recall.py --cases evals/demo_cases.jsonl --user demo --base-url $(BASE) --k $(K)
+
+## eval-semantic: 同上，叠加 S 语义通道（四通道）
+eval-semantic:
+	$(PY) scripts/eval_recall.py --cases evals/demo_cases.jsonl --user demo --base-url $(BASE) --k $(K) --semantic
 
 ## eval-selftest: 只验判据逻辑，不联网
 eval-selftest:

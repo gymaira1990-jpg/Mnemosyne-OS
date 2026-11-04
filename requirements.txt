@@ -1,4 +1,4 @@
-# Mnemosyne OS v9.0.11 — 生产依赖
+# Mnemosyne OS v9.0.12 — 生产依赖
 # 零本地模型依赖 (全 API 驱动)
 
 fastapi>=0.162.0

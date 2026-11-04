@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.11-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.12-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -368,6 +368,8 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 | [AGENTS.md](AGENTS.md) | 给 AI Agent 的手册：API 面、环境变量、Hermes/MCP |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 内部结构：分层、融合、存储 |
 | [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **著录卡规范 v1**：7 行结构 · 档号规则 · 证据分级 · 向量化口径 |
+| [docs/VERIFICATION.md](docs/VERIFICATION.md) | **自己验**：`make demo && make eval` · 两组实测（92% / 100%）与两个必踩的坑 |
+| [evals/](evals/) | 40 张演示卡 + 12 道题 + 原始跑分输出（可复现） |
 | [integrations/card-builder/](integrations/card-builder/) | 参考实现：对话 → 卡（纯标准库，可跑通）· [`evals/`](evals/) 召回评测用例 |
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST 参考 · 全部环境变量 |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | 设计哲学 |
@@ -378,6 +380,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.12](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.12) | 2026-11-04 | **证据进仓库**：`evals/` 40 卡 12 题 + 两组实测 92%/100% + `make demo && make eval` 一条命令复现 |
 | [v9.0.11](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.11) | 2026-11-04 | **Card Spec v1** + 规范校验器 + 卡片生成参考实现 + `make eval` 召回评测 —— 招牌能力的判据交出去 |
 | [v9.0.10](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.10) | 2026-11-04 | 外部调研打脸版：INSTALL 装不下去的两条 GRANT · embedding 可换后端 · 版本落点扩到 12 处 · `backup.sh` 可验证备份 |
 | [v9.0.9](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.9) | 2026-11-04 | AGENTS.md 补部署入口指针（纯文档） |
