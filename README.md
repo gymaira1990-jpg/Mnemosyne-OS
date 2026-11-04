@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.3-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.4-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -363,6 +363,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | Dependency batch upgrade (fastapi 0.162 / pydantic 2.14) + consistency gate C8 |
 | [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | Private-deployment docs: passkey login wall, diary pipeline, ports & pages, secrets |
 | [v9.0.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.2) | 2026-11-03 | Doc consistency gate (`make consistency`) + stale-doc fixes |
 | [v9.0.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.1) | 2026-11-03 | Docs revision: usage & remix guide, diary walkthrough with annotated UI, deploy shapes, issue templates |

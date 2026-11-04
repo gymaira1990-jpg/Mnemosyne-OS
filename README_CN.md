@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.3-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.4-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -349,6 +349,7 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | 依赖批量升级（fastapi 0.162 / pydantic 2.14）+ 一致性门禁 C8 |
 | [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | 私人部署文档：通行密钥登录墙 / 日记生产线 / 端口与页面 / 密钥管理 |
 | [v9.0.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.2) | 2026-11-03 | Doc consistency gate (`make consistency`) + stale-doc fixes |
 | [v9.0.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.1) | 2026-11-03 | Docs revision: usage & remix guide, diary walkthrough with annotated UI, deploy shapes, issue templates |
