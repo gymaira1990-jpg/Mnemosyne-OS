@@ -3,8 +3,11 @@
 > 给 AI 编码助手的操作手册。**保持瘦**：细节在 `docs/`，能力真相在 `openspec/specs/`，历史在 `CHANGELOG.md`。
 > **目标**：任何 Agent（Hermes / Claude Code / Cursor / Codex）5 分钟完成对接。
 
+> **你是来「部署」的，不是来「改代码」的？** 先读 [DEPLOY-FOR-AI.md](DEPLOY-FOR-AI.md)（命令 + 判据 + 边界），
+> 再跑 `bash scripts/bootstrap.sh`。这份 AGENTS.md 是给**改代码**的 Agent 看的。
+
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v9.0.8（仓库 = 生产，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v9.0.9（仓库 = 生产，`GET /` 自报一致） ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 

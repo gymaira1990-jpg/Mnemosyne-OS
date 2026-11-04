@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.8-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.9-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -385,6 +385,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.9](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.9) | 2026-11-04 | AGENTS.md: pointer to DEPLOY-FOR-AI for deployment agents (docs only) |
 | [v9.0.8](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.8) | 2026-11-04 | Agent-first deployment: `DEPLOY-FOR-AI.md` + one-command `scripts/bootstrap.sh` |
 | [v9.0.7](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.7) | 2026-11-04 | `doctor` false-positive fixes (env-key comparison, self-port detection) |
 | [v9.0.6](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.6) | 2026-11-04 | Onboarding: `scripts/doctor.py` deployment self-check + `scripts/seed_demo.py` demo data |

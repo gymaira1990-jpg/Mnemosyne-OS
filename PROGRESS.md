@@ -1,6 +1,6 @@
 # Mnemosyne OS 状态
 
-## 当前版本: 9.0.8 — 面向 AI 的部署包（bootstrap + DEPLOY-FOR-AI）
+## 当前版本: 9.0.9 — 面向 AI 的部署包 + AGENTS 分流指针
 
 ## 状态
 - 本地：14 项客户端自检 + 9 项服务端端到端全绿
