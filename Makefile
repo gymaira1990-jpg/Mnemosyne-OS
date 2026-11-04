@@ -21,6 +21,14 @@ lint:
 	  [ast.parse(p.read_text(encoding='utf-8')) for p in [pathlib.Path('main.py')]+sorted(pathlib.Path('api').glob('*.py'))]; \
 	  print('lint OK: main.py + api/*.py')"
 
+## doctor: 部署前置自检（Python/依赖/.env/PG/pgvector/schema/模型 key/端口）
+doctor:
+	$(PY) scripts/doctor.py
+
+## demo: 写入 5 条示例记忆并演示一次检索（真调 embedding，--clean 可删）
+demo:
+	$(PY) scripts/seed_demo.py
+
 ## consistency: 文档一致性（版本落点/用例数/落点数/待部署/链接）
 consistency:
 	$(PY) scripts/consistency_check.py

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.5-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.6-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -225,7 +225,21 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 
 **Hermes 用户**走更短的路：`hermes config set memory.provider mnemosyne`，`/reset` 之后 14 个工具自动出现。
 
-完整步骤（权限、模型后端、macOS/Windows、FAQ）见 [INSTALL.md](INSTALL.md)。
+**跑不起来？让仓库自己告诉缺什么：**
+
+```bash
+python3 scripts/doctor.py      # 逐项查 Python / 依赖 / .env / PG / pgvector / 表结构 / 模型 key / 端口
+```
+
+每条检查一行输出，失败项直接给修复命令，不用猜。
+
+```bash
+python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一次检索
+```
+
+示例数据用的是真 embedding，每条都带 `metadata.demo=true` 标记，`--clean` 可一键删除。
+
+完整安装手册（权限、模型后端、macOS/Windows、FAQ）：[INSTALL.md](INSTALL.md)。
 
 ---
 
@@ -354,6 +368,7 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.6](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.6) | 2026-11-04 | 上手三件套：`doctor.py` 部署自检 + `seed_demo.py` 示例数据 |
 | [v9.0.5](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.5) | 2026-11-04 | 开源可用性修复：.env 真正生效、schema 重建（23 表 / 51 索引）、去掉 AGE 要求 |
 | [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | 依赖批量升级（fastapi 0.162 / pydantic 2.14）+ 一致性门禁 C8 |
 | [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | 私人部署文档：通行密钥登录墙 / 日记生产线 / 端口与页面 / 密钥管理 |

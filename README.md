@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.5-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.6-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -247,6 +247,20 @@ curl -s http://127.0.0.1:8010/api/v1/memory-os/health
 
 **Hermes users** get the shorter path: `hermes config set memory.provider mnemosyne` — 14 tools appear after `/reset`.
 
+**Something not working? Let the repo tell you what's missing:**
+
+```bash
+python3 scripts/doctor.py      # checks Python, deps, .env, PostgreSQL, pgvector, schema, model keys, port
+```
+
+It prints one line per check and the exact command to fix each failure, so you don't have to guess.
+
+```bash
+python3 scripts/seed_demo.py   # optional: write 5 demo memories and run a real search
+```
+
+`seed_demo` writes real embeddings, tags every row with `metadata.demo=true`, and `--clean` removes them.
+
 Full walkthrough (permissions, model backends, macOS/Windows, FAQ): [INSTALL.md](INSTALL.md).
 
 ---
@@ -368,6 +382,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.6](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.6) | 2026-11-04 | Onboarding: `scripts/doctor.py` deployment self-check + `scripts/seed_demo.py` demo data |
 | [v9.0.5](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.5) | 2026-11-04 | Open-source usability: .env now actually loads, schema.sql rebuilt (23 tables / 51 indexes), AGE requirement removed |
 | [v9.0.4](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.4) | 2026-11-04 | Dependency batch upgrade (fastapi 0.162 / pydantic 2.14) + consistency gate C8 |
 | [v9.0.3](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.3) | 2026-11-04 | Private-deployment docs: passkey login wall, diary pipeline, ports & pages, secrets |

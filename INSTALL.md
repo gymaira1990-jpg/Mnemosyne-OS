@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.5 | 更新: 2026-11-04
+> 版本: v9.0.6 | 更新: 2026-11-04
 
 ---
 
@@ -186,12 +186,28 @@ python main.py
 
 > 生产环境建议用 systemd 或进程管理器。参考 [deploy/mnemosyne.service](deploy/mnemosyne.service)（uvicorn 双 worker）。
 
-### 6. 验证安装
+### 6. 自检：缺什么，直接告诉你
+
+```bash
+python3 scripts/doctor.py
+```
+
+逐项检查 Python 版本、依赖、`.env` 是否真的被读进来、PostgreSQL 连接、pgvector / pg_trgm 扩展、
+表结构是否导全（含 `dedup_fingerprint_key` 这类关键唯一索引）、模型 key、端口占用。
+每项一行输出，失败项**直接给修复命令**。
+
+想马上看到效果，再跑：
+
+```bash
+python3 scripts/seed_demo.py     # 写入 5 条示例记忆并演示一次检索（--clean 可删）
+```
+
+### 7. 验证安装
 
 ```bash
 # 健康检查
 curl http://127.0.0.1:8010/api/v1/echo
-# → {"status":"ok","service":"Mnemosyne OS","version":"9.0.5"}
+# → {"status":"ok","service":"Mnemosyne OS","version":"9.0.6"}
 
 # 存入一条记忆
 curl -X POST http://127.0.0.1:8010/api/v1/memories \
@@ -209,7 +225,7 @@ curl "http://127.0.0.1:8010/api/v1/palace/summon?q=测试&user_id=default&top_k=
 
 ---
 
-### 6. 验证 9.0 记忆操作系统（推荐）
+### 8. 验证 9.0 记忆操作系统（推荐）
 
 ```bash
 # 子系统自检
