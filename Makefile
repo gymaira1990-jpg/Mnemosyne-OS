@@ -19,8 +19,13 @@ card-check:
 	$(PY) integrations/card-builder/build_cards.py --selftest
 
 ## demo: 灌 40 张演示卡（recall 只捞卡，裸记忆它看不到 —— 想看效果用这个）
+## 旧版「5 条裸记忆」保留为 demo-basic（它进不了 recall，只适合看写入链路）
 demo:
 	$(PY) scripts/seed_demo.py --cards evals/demo_cards.jsonl --user demo
+
+## demo-basic: 写入 5 条示例裸记忆并演示一次语义检索（真调 embedding，--clean 可删）
+demo-basic:
+	$(PY) scripts/seed_demo.py
 
 ## eval: 召回评测 recall@k（需要服务在跑 + 已 `make demo`）
 eval:
@@ -55,10 +60,6 @@ bootstrap:
 ## doctor: 部署前置自检（Python/依赖/.env/PG/pgvector/schema/模型 key/端口）
 doctor:
 	$(PY) scripts/doctor.py
-
-## demo: 写入 5 条示例记忆并演示一次检索（真调 embedding，--clean 可删）
-demo:
-	$(PY) scripts/seed_demo.py
 
 ## consistency: 文档一致性（版本落点/用例数/落点数/待部署/链接）
 consistency:
