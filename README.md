@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.23-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.24-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -401,6 +401,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.24](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.24) | 2026-11-07 | Human verdict write-back: labels reweight memories and become new eval cases (`labels_to_cases.py`) |
 | [v9.0.23](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.23) | 2026-11-07 | Ask instead of guessing: `confirm_margin` returns top candidates + a question when the match is ambiguous |
 | [v9.0.22](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.22) | 2026-11-07 | Abstention capability (off by default) — and the negative result proving a score threshold can't do it |
 | [v9.0.21](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.21) | 2026-11-07 | Recall scoped per user · semantic channel wired (measured: off by default, it scores worse) · `k` no longer ignored |

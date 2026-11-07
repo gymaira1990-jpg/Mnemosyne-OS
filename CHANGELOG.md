@@ -1,3 +1,34 @@
+## [9.0.24] — 2026-11-07 · 裁决回写 + 自动出题（「问人」闭环成型）
+
+> 9.0.23 让系统「拿不准就问」，但问完没有下文。这一版把下文接上：
+> 人的一次裁决 = 一次调权 + 一道新题。
+
+### Added
+
+- **`memory_labels` 表**（`docs/migrations/v9.0.24_memory_labels.sql`）：
+  记 user / query / 选中 id 与档号 / 当时的候选快照 / 求证阈值 / 来源 / 备注。
+  只记发生过的事实；被否的候选留在 `candidates` 里可复盘。
+- **`POST /api/v1/memory-os/label`**：写裁决。选中 ⇒ `heat_score +0.05`（封顶 1.0）、`access_count +1`；
+  选「都不是」（`chosen_id=null`）也落记录 —— 这是「库里确实没有」的正面证据。
+  ⚠️ 必须匹配 `user_id`：拿别人的 id 也改不动别人的热度（有测试锁）。
+- **`GET /api/v1/memory-os/labels`**：最近裁决，供复盘/导出。
+- **`scripts/labels_to_cases.py`**：把裁决**变成评测用例**（query + 正确档号）。
+  判据：只取「人选了某条」的、同 query 只留最新一条、拿不到可判定锚点就跳过 —— 宁可少出题，不出错题。
+
+### Verified（生产端到端，user=demo）
+
+```
+recall(confirm_margin=10, q="周报怎么写")
+  → confirm.options = [K·DEMO·2026-0029 (77.6), K·DEMO·2026-0025 (76.3)]
+label(chosen_id=43246)
+  → {"label_id": 2, "chosen_no": "K·DEMO·2026-0029", "heat_bumped": true}
+labels_to_cases --user demo
+  → {"q": "周报怎么写", "expect": ["K·DEMO·2026-0029"], "note": "来自人工裁决"}
+```
+
+⇒ 闭环成立：**问 → 裁 → 调权 → 出新题 → 下次用同一把尺子量**。
+这也正是主人说的「像早期 AI 数据标注员一样，持续优化自己」。
+
 ## [9.0.23] — 2026-11-07 · 拿不准就问人（求证机制）+ 人工裁决闭环的入口
 
 > 召回不可能 100%。与其硬给一个答案，不如把最像的几条摆出来让人裁 —— 裁完的回写就是标注数据。

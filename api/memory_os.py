@@ -24,6 +24,7 @@
 """
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, List, Optional
 
@@ -367,6 +368,66 @@ async def recall(body: RecallIn = Body(...)):
                         for c in out[:3]],
         }
     return resp
+
+
+class LabelIn(BaseModel):
+    """人做的裁决（求证回写）。chosen_id=None 表示「都不是」——这也是有效信号。"""
+    user_id: str = "default"
+    query: str
+    chosen_id: int | None = None
+    selected_no: str | None = None
+    candidates: List[dict] = []
+    margin: float | None = None
+    source: str = "confirm"
+    note: str | None = None
+
+
+@router.post("/label")
+async def record_label(body: LabelIn = Body(...)):
+    """把人的裁决记下来 —— 「问人」之后必须有这一步，否则问完就散了。
+
+    一份数据两个用途：① 选中项 heat/access 上升（调权的燃料）；
+    ② 直接就是一条评测题（query + 正确档号），可用 scripts/labels_to_cases.py 导出。
+    """
+    cands = body.candidates or []
+    chosen_no = body.selected_no
+    if not chosen_no and body.chosen_id is not None:
+        chosen_no = next((str(c.get("no") or "") or None for c in cands
+                          if str(c.get("id")) == str(body.chosen_id)), None)
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """INSERT INTO memory_labels
+                       (user_id, query, chosen_id, chosen_no, candidates, margin, source, note)
+                   VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8)
+                   RETURNING id, created_at""",
+                body.user_id or "default", body.query, body.chosen_id, chosen_no,
+                json.dumps(cands, ensure_ascii=False), body.margin, body.source, body.note)
+            bumped = False
+            if body.chosen_id is not None:
+                # 选中 = 强正信号：热度 +0.05（封顶 1.0）、访问次数 +1
+                res = await conn.execute(
+                    """UPDATE memories SET
+                           heat_score = LEAST(1.0, COALESCE(heat_score, 0.5) + 0.05),
+                           access_count = COALESCE(access_count, 0) + 1
+                       WHERE id=$1 AND user_id=$2""",
+                    body.chosen_id, body.user_id or "default")
+                bumped = res.endswith(" 1")
+    return {"label_id": row["id"], "created_at": row["created_at"].isoformat(timespec="seconds"),
+            "chosen_id": body.chosen_id, "chosen_no": chosen_no, "heat_bumped": bumped}
+
+
+@router.get("/labels")
+async def list_labels(user_id: str = "default", limit: int = 20):
+    """最近的人工裁决（复盘/导出用）。"""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, query, chosen_id, chosen_no, margin, source, note, created_at
+                 FROM memory_labels WHERE user_id=$1 ORDER BY id DESC LIMIT $2""",
+            user_id, max(1, min(int(limit), 200)))
+    return {"user_id": user_id, "count": len(rows),
+            "labels": [{**dict(r), "created_at": r["created_at"].isoformat(timespec="seconds")}
+                       for r in rows]}
 
 
 class ExactIn(BaseModel):

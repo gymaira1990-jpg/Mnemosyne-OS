@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.23-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.24-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -386,6 +386,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.24](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.24) | 2026-11-07 | 裁决回写：人选的调权，且自动变成新评测题 |
 | [v9.0.23](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.23) | 2026-11-07 | 拿不准就问人：`confirm_margin` 返回候选 + 疑问，交人裁决 |
 | [v9.0.22](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.22) | 2026-11-07 | 弃权能力（默认关）+ 否定结论：分数阈值做不了弃权判据 |
 | [v9.0.21](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.21) | 2026-11-07 | 召回按用户隔离 · 语义通道接通（实测开着更差，默认关）· `k` 不再被忽略 |

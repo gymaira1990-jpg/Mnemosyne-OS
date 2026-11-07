@@ -30,6 +30,7 @@
     "scripts/card_check.py",
     "scripts/doctor.py",
     "scripts/eval_recall.py",
+    "scripts/labels_to_cases.py",
     "scripts/prod_smoke.py",
     "scripts/register_projects.py",
     "scripts/release_checks.py",
