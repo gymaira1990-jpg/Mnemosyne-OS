@@ -64,3 +64,33 @@ def test_min_run_guard_is_alive():
              {"no": "B", "head": "保留最近 5 份，存于 /var/backups"}]
     assert detect_conflicts(items, min_run=999) == []
     assert detect_conflicts(items, min_run=1) != [], "正常阈值下必须还能报出来"
+
+
+def test_templated_metadata_does_not_create_false_conflict():
+    """真实数据教训：模板尾部（证据/路径/URL）大量重复，数字撞车纯属格式巧合。
+
+    实测过：不设主题约束时 3000 张卡报 5 对，人工看完 5/5 全假阳性
+    （「2.2G 僵尸占用」vs「1.53 GMV 代币」、「22KB 帧」vs「158KB 帧」）。
+    """
+    items = [
+        {"no": "C", "head": "[结果卡] 档号：K·C 题名：GZ 僵尸清理前先摸清 2.2G 占用 "
+                            "摘要：先摸清 2.2G 里哪些是僵尸 证据：~/.hermes/scripts/ · 2.2G"},
+        {"no": "D", "head": "[结果卡] 档号：K·D 题名：待铸 1.53 GMV 首铸验证 "
+                            "摘要：约到 1.53 G 时执行 证据：~/.hermes/scripts/ · 1.53 G"},
+    ]
+    assert detect_conflicts(items) == [], "主题不同，光靠模板撞车不能算冲突"
+
+
+def test_same_topic_different_value_still_flagged():
+    """加了主题约束后，真冲突（同题名不同值）必须还能报出来。"""
+    items = [
+        {"no": "A", "head": "[结果卡] 档号：K·A 题名：数据库备份保留份数 摘要：保留最近 8 份 证据：无"},
+        {"no": "B", "head": "[结果卡] 档号：K·B 题名：数据库备份保留份数 摘要：保留最近 5 份 证据：无"},
+    ]
+    cs = detect_conflicts(items)
+    assert len(cs) == 1 and cs[0]["topic_overlap"] >= 0.4
+
+
+def test_topic_of_extracts_title():
+    from core.conflict import topic_of
+    assert topic_of("[结果卡] 档号：K·X 题名：双经济体方案v6交付件 摘要：含 8 张图") == "双经济体方案v6交付件"

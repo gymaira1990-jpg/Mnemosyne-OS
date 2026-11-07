@@ -46,6 +46,27 @@ def extract_facts(text: str) -> list[dict]:
     return out
 
 
+def topic_of(text: str) -> str:
+    """取「题名」当作主题；没有就用正文前 40 字。
+
+    为什么必须要主题：结果卡是模板化的（档号/题名/摘要/证据/标签/实体），
+    尾部字段（路径、URL、标签）大量重复，数字常落在这些重复区域 ——
+    光看「数字相邻的字符」会把「2.2G 僵尸占用」和「1.53 G 代币」当成同一件事。
+    """
+    m = re.search(r"题名[：:]\s*(.+?)\s*(?:摘要|证据|标签|实体|来源|$)", text or "", re.S)
+    return (m.group(1) if m else (text or "")[:40]).strip()
+
+
+def _body_only(text: str) -> str:
+    """只保留「题名 + 摘要」正文，砍掉证据/标签/来源/实体这些元数据段。"""
+    cut = len(text or "")
+    for marker in ("证据：", "证据:", "标签：", "来源：", "实体："):
+        i = (text or "").find(marker)
+        if i > 0:
+            cut = min(cut, i)
+    return (text or "")[:cut]
+
+
 def _ctx_overlap(a: str, b: str) -> float:
     ba, bb = _bigrams(a), _bigrams(b)
     if not ba or not bb:
@@ -60,11 +81,18 @@ def _longest_common_run(a: str, b: str) -> int:
 
 
 def detect_conflicts(items: Iterable[dict], min_overlap: float = MIN_CTX_OVERLAP,
-                     min_run: int = MIN_COMMON_RUN) -> list[dict]:
-    """items: [{"id"/"no": ..., "head"/"content": 文本}]，返回疑似冲突对。"""
+                     min_run: int = MIN_COMMON_RUN, min_topic_overlap: float = 0.4) -> list[dict]:
+    """items: [{"id"/"no": ..., "head"/"content": 文本}]，返回疑似冲突对。
+
+    min_topic_overlap：两条记忆的**题名**必须相似到这个程度，才值得比数字。
+    2026-11-07 实测：不做主题约束时，3000 张卡报 5 对，人工看完 **5/5 全是假阳性** ——
+    模板化结果卡的「证据/标签」段大量重复，数字撞在一起纯属格式巧合。
+    """
     items = [{"key": i.get("no") or i.get("id"), "text": i.get("head") or i.get("content") or ""}
              for i in items]
-    facts = [(it["key"], f) for it in items for f in extract_facts(it["text"])]
+    topics = {it["key"]: _bigrams(topic_of(it["text"])) for it in items}
+    bodies = {it["key"]: _body_only(it["text"]) for it in items}
+    facts = [(it["key"], f) for it in items for f in extract_facts(bodies[it["key"]])]
 
     conflicts = []
     for i in range(len(facts)):
@@ -75,6 +103,10 @@ def detect_conflicts(items: Iterable[dict], min_overlap: float = MIN_CTX_OVERLAP
                 continue
             if f1["value"] == f2["value"]:
                 continue
+            ta, tb = topics.get(k1) or set(), topics.get(k2) or set()
+            topic_ov = (len(ta & tb) / min(len(ta), len(tb))) if ta and tb else 0.0
+            if topic_ov < min_topic_overlap:
+                continue          # 说的根本不是同一个主题
             ov = _ctx_overlap(f1["context"], f2["context"])
             if ov < min_overlap:
                 continue
@@ -88,7 +120,8 @@ def detect_conflicts(items: Iterable[dict], min_overlap: float = MIN_CTX_OVERLAP
                       "context": f2["context"]},
                 "context_overlap": round(ov, 2),
                 "common_run": run,
-            })
+                "topic_overlap": round(topic_ov, 2),
+                })
     # 同一条记忆内部的自我矛盾也报（常见于「目标 200ms，实测 340ms」这种，不是冲突，需人眼看）
     return conflicts
 

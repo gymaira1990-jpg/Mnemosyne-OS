@@ -378,8 +378,9 @@ class LabelIn(BaseModel):
     selected_no: str | None = None
     candidates: List[dict] = []
     margin: float | None = None
-    source: str = "confirm"
+    source: str = "confirm"          # confirm = 召回求证；conflict = 冲突裁决
     note: str | None = None
+    rejected_ids: List[int] = []     # 人明确说「这条不对」的卡（仅 conflict 用）
 
 
 @router.post("/label")
@@ -404,17 +405,39 @@ async def record_label(body: LabelIn = Body(...)):
                 body.user_id or "default", body.query, body.chosen_id, chosen_no,
                 json.dumps(cands, ensure_ascii=False), body.margin, body.source, body.note)
             bumped = False
+            adjusted = {}
             if body.chosen_id is not None:
-                # 选中 = 强正信号：热度 +0.05（封顶 1.0）、访问次数 +1
+                # 选中 = 人确认这条可信：
+                #   · reliability +0.10（可信度，排序里权重 0.10）—— 这是「对不对」的载体
+                #   · access_count +1（被用过一次）
+                #   · 求证来源额外 heat +0.05（热度=使用频率，不拿来表达对错）
+                heat_expr = ("LEAST(1.0, COALESCE(heat_score, 0.5) + 0.05)"
+                             if body.source == "confirm" else "COALESCE(heat_score, 0.5)")
                 res = await conn.execute(
-                    """UPDATE memories SET
-                           heat_score = LEAST(1.0, COALESCE(heat_score, 0.5) + 0.05),
-                           access_count = COALESCE(access_count, 0) + 1
-                       WHERE id=$1 AND user_id=$2""",
+                    f"""UPDATE memories SET
+                            reliability = LEAST(1.0, COALESCE(reliability, 0.5) + 0.10),
+                            heat_score = {heat_expr},
+                            access_count = COALESCE(access_count, 0) + 1
+                        WHERE id=$1 AND user_id=$2""",
                     body.chosen_id, body.user_id or "default")
                 bumped = res.endswith(" 1")
+                adjusted["chosen"] = {"id": body.chosen_id, "reliability_delta": 0.10,
+                                      "heat_delta": 0.05 if body.source == "confirm" else 0.0}
+
+            rejected = []
+            if body.rejected_ids:
+                # 人明确否掉的卡：可信度 -0.10（下限 0）。不删、不改内容、可回滚。
+                res = await conn.execute(
+                    """UPDATE memories SET
+                           reliability = GREATEST(0.0, COALESCE(reliability, 0.5) - 0.10)
+                       WHERE id = ANY($1::bigint[]) AND user_id=$2""",
+                    body.rejected_ids, body.user_id or "default")
+                rejected = body.rejected_ids
+                adjusted["rejected"] = {"ids": rejected, "reliability_delta": -0.10,
+                                        "rows": int(res.split()[-1]) if res.split() else 0}
     return {"label_id": row["id"], "created_at": row["created_at"].isoformat(timespec="seconds"),
-            "chosen_id": body.chosen_id, "chosen_no": chosen_no, "heat_bumped": bumped}
+            "chosen_id": body.chosen_id, "chosen_no": chosen_no,
+            "heat_bumped": bumped, "adjusted": adjusted}
 
 
 @router.get("/labels")

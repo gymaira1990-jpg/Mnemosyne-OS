@@ -142,3 +142,48 @@ def test_label_can_be_exported_as_case(db):
     out = _run(go())
     assert out["count"] >= 1
     assert any(lab["chosen_no"] == "K·IT·L1" for lab in out["labels"]), out["labels"]
+
+
+# ── 冲突裁决（2026-11-07 加）：动的是 reliability，不是 heat ──
+
+def _rel(uid):
+    async def go():
+        c = await _connect()
+        try:
+            return await c.fetchrow(
+                "SELECT reliability, heat_score FROM memories WHERE user_id=$1 ORDER BY id DESC LIMIT 1",
+                uid)
+        finally:
+            await c.close()
+    return _run(go())
+
+
+def test_conflict_verdict_moves_reliability_not_heat(db):
+    """冲突裁决表达的是「对不对」，所以动 reliability；heat 是使用频率，不动。"""
+    mid = _mid(USER)
+    before = _rel(USER)
+    res = _label({"user_id": USER, "query": "备份保留几份", "chosen_id": mid,
+                  "source": "conflict", "candidates": [{"id": mid, "no": "K·IT·L1"}]})
+    after = _rel(USER)
+    assert res["heat_bumped"] is True
+    assert after["reliability"] == pytest.approx(float(before["reliability"]) + 0.10, abs=1e-6)
+    assert after["heat_score"] == before["heat_score"], "conflict 裁决不该改热度"
+
+
+def test_rejected_card_loses_reliability(db):
+    mid = _mid(USER)
+    before = _rel(USER)
+    res = _label({"user_id": USER, "query": "哪个值对", "source": "conflict",
+                  "rejected_ids": [mid]})
+    after = _rel(USER)
+    assert res["adjusted"]["rejected"]["rows"] == 1
+    assert after["reliability"] == pytest.approx(float(before["reliability"]) - 0.10, abs=1e-6)
+
+
+def test_reliability_has_floor(db):
+    """连否十次也不能把可信度压成负数 —— 下限 0。"""
+    mid = _mid(USER)
+    for _ in range(12):
+        _label({"user_id": USER, "query": "反复否决", "source": "conflict",
+                "rejected_ids": [mid]})
+    assert float(_rel(USER)["reliability"]) >= 0.0

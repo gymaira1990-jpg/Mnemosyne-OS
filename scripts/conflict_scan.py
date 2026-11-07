@@ -36,7 +36,7 @@ async def connect():
     )
 
 
-async def run(user: str, limit: int, min_overlap: float, min_run: int) -> list[tuple[dict, list[dict]]]:
+async def run(user: str, limit: int, min_overlap: float, min_run: int):
     conn = await connect()
     try:
         rows = await conn.fetch(
@@ -49,16 +49,18 @@ async def run(user: str, limit: int, min_overlap: float, min_run: int) -> list[t
 
     # 按 category 分桶比对：跨类别的数字（比如「3 天」在部署和日记里各说一次）多半不是冲突
     buckets: dict[str, list[dict]] = {}
+    full: dict[str, str] = {}
     for r in rows:
-        buckets.setdefault(r["category"] or "-", []).append(
-            {"no": r["archive_no"] or r["id"], "head": r["head"]})
+        key = r["archive_no"] or r["id"]
+        buckets.setdefault(r["category"] or "-", []).append({"no": key, "head": r["head"]})
+        full[str(key)] = r["head"]
 
     out = []
     for cat, items in buckets.items():
         cs = detect_conflicts(items, min_overlap=min_overlap, min_run=min_run)
         if cs:
             out.append(({"category": cat, "cards": len(items), "pairs": len(cs)}, cs))
-    return out
+    return out, full
 
 
 def main() -> int:
@@ -68,9 +70,10 @@ def main() -> int:
     ap.add_argument("--show", type=int, default=0, help="打印前 N 对（含正文片段，注意隐私）")
     ap.add_argument("--min-overlap", type=float, default=MIN_CTX_OVERLAP)
     ap.add_argument("--min-run", type=int, default=MIN_COMMON_RUN)
+    ap.add_argument("--detail", action="store_true", help="打印每对两侧的完整上下文（供人裁决）")
     a = ap.parse_args()
 
-    results = asyncio.run(run(a.user, a.limit, a.min_overlap, a.min_run))
+    results, full = asyncio.run(run(a.user, a.limit, a.min_overlap, a.min_run))
     total = sum(b["pairs"] for b, _ in results)
     print(f"user={a.user} limit={a.limit} ⇒ 命中 {len(results)} 个分类，疑似冲突 {total} 对")
     for stat, cs in results:
@@ -79,6 +82,19 @@ def main() -> int:
         for c in cs[:a.show]:
             print(f"    {c['a']['key']}: …{c['a']['raw']}…  ||  {c['b']['key']}: …{c['b']['raw']}…"
                   f"  (语境重合 {c['context_overlap']})")
+
+    # --detail：把两边的完整上下文摆出来，供人裁决（这是他裁『哪条对』需要看到的）
+    if a.detail:
+        n = 0
+        for _stat, cs in results:
+            for c in cs:
+                n += 1
+                print(f"\n[{n}] 重合 {c['context_overlap']} / 公共片段 {c['common_run']} 字")
+                for side in ("a", "b"):
+                    key = c[side]["key"]
+                    print(f"  ({side.upper()}) {key} 值={c[side]['raw']}")
+                    print(f"       语境：{c[side]['context'].strip()}")
+                    print(f"       原文：{(full.get(str(key)) or '')[:220].replace(chr(10), ' ')}")
     return 0 if total == 0 else 1
 
 
