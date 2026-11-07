@@ -66,10 +66,10 @@ def test_dedup_merge_sql_works(pool):
     async def _run_test():
         async with _conn() as conn:
             old_id = await conn.fetchval(
-                "INSERT INTO memories (content, category) VALUES ($1,'knowledge') RETURNING id",
+                "INSERT INTO memories (user_id, content, category) VALUES ('default', $1,'knowledge') RETURNING id",
                 "检查下记忆宫殿是否正常运行的旧记忆")
             new_id = await conn.fetchval(
-                "INSERT INTO memories (content, category) VALUES ($1,'knowledge') RETURNING id",
+                "INSERT INTO memories (user_id, content, category) VALUES ('default', $1,'knowledge') RETURNING id",
                 "重新全面检查记忆宫殿使用情况的记忆")
             # 合并到旧记忆(生产 SQL, 修复后)
             await conn.execute("""
@@ -100,7 +100,7 @@ def test_dedup_merge_sql_works(pool):
             assert old_md["merged_from"] == [new_id]
             # 二次合并: merged_from 应追加而非覆盖(保留合并链)
             third = await conn.fetchval(
-                "INSERT INTO memories (content, category) VALUES ('第三条相似记忆','knowledge') RETURNING id")
+                "INSERT INTO memories (user_id, content, category) VALUES ('default', '第三条相似记忆','knowledge') RETURNING id")
             await conn.execute("""
                 UPDATE memories SET
                   content = $1, heat_score = 0.9, access_count = 3,
@@ -121,7 +121,7 @@ def test_dedup_old_syntax_raises(pool):
     async def _run_test():
         async with _conn() as conn:
             mid = await conn.fetchval(
-                "INSERT INTO memories (content) VALUES ('回归测试记忆') RETURNING id")
+                "INSERT INTO memories (user_id, content) VALUES ('default', '回归测试记忆') RETURNING id")
             with pytest.raises(Exception) as exc:
                 await conn.execute(
                     "UPDATE memories SET metadata = COALESCE(metadata,'{}'::jsonb) || "
@@ -136,7 +136,7 @@ def test_bm25_keyword_score(pool):
     async def _run_test():
         async with _conn() as conn:
             mid = await conn.fetchval(
-                "INSERT INTO memories (content, category) VALUES ('代理架构 xray 配置优化','knowledge') RETURNING id")
+                "INSERT INTO memories (user_id, content, category) VALUES ('default', '代理架构 xray 配置优化','knowledge') RETURNING id")
             await conn.executemany(
                 "INSERT INTO memory_keywords (memory_id, token, freq) VALUES ($1,$2,$3)",
                 [(mid, "代理", 2.0), (mid, "架构", 1.0), (mid, "xray", 1.0)])
@@ -159,7 +159,7 @@ def test_bm25_no_match_zero(pool):
     async def _run_test():
         async with _conn() as conn:
             mid = await conn.fetchval(
-                "INSERT INTO memories (content) VALUES ('完全无关的测试记忆') RETURNING id")
+                "INSERT INTO memories (user_id, content) VALUES ('default', '完全无关的测试记忆') RETURNING id")
             score = await conn.fetchval(
                 "SELECT (SELECT LEAST(1.0, COALESCE(SUM(k.freq),0)/4.0) FROM memory_keywords k "
                 "WHERE k.memory_id = m.id AND k.token = ANY($2::text[])) "
@@ -173,7 +173,7 @@ def test_change_filter_noop(pool):
     async def _run_test():
         async with _conn() as conn:
             await conn.fetchval(
-                "INSERT INTO memories (content, time_drawer) VALUES ('时间抽屉测试','recent') RETURNING id")
+                "INSERT INTO memories (user_id, content, time_drawer) VALUES ('default', '时间抽屉测试','recent') RETURNING id")
             r = await conn.execute("""
                 UPDATE memories SET time_drawer = CASE
                     WHEN COALESCE(last_accessed, created_at) > NOW() - INTERVAL '30 days' THEN 'recent'

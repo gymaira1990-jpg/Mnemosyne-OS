@@ -1068,30 +1068,44 @@ async def search_memories(req: MemorySearch):
         # v7.3 区域化检索: 先在高 Rank 区(hot+normal)检索 → 不足再全库 (frozen 默认排除)
         # v7.3 评审修复: include_frozen 可选开关 (用户要搜冷记忆时可开)
         region_filter = "AND m.temp_drawer IN ('hot','normal','cool') " if not req.include_frozen else ""
+        # 2026-11-07 修：category_filter / tier_filter 原来只在 sort=created_at 分支实现，
+        # 默认 hybrid 分支根本没拼这个条件 —— 于是「按分类过滤」静默失效（实测过滤前后结果完全一样）。
+        _params = [req.user_id, q_str, req.top_k]
+        if q_tokens:
+            _params.append(q_tokens)          # $4 = bm25 的 token 数组
+        _nxt = len(_params) + 1
+        extra_filter = ""
+        if req.category_filter:
+            extra_filter += f"AND m.category = ${_nxt} "
+            _params.append(req.category_filter); _nxt += 1
+        if req.tier_filter:
+            extra_filter += f"AND m.tier = ${_nxt} "
+            _params.append(req.tier_filter); _nxt += 1
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
-            + region_filter +
+            + region_filter + extra_filter +
             "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
             "  + 0.15 * (" + bm25_sql + ") "
             "  + 0.15 * (" + temporal_sql + ") "
             "  + 0.10 * m.reliability "
             "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
             "LIMIT $3",
-            req.user_id, q_str, req.top_k, q_tokens
+            *_params
         )
         if len(rows) < req.top_k:
             # 兜底: 全库 (含 frozen) — 区域不足时扩展
             fallback = await conn.fetch(
                 "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
                 "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
+                + extra_filter +
                 "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
                 "  + 0.15 * (" + bm25_sql + ") "
                 "  + 0.15 * (" + temporal_sql + ") "
                 "  + 0.10 * m.reliability "
                 "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
                 "LIMIT $3",
-                req.user_id, q_str, req.top_k, q_tokens
+                *_params
             )
             seen = {r["id"] for r in rows}
             rows = list(rows) + [r for r in fallback if r["id"] not in seen][:req.top_k - len(rows)]

@@ -94,7 +94,7 @@ async def list_tools(ctx, params) -> types.ListToolsResult:
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "记忆内容"},
-                    "category": {"type": "string", "description": "分类: fact|experience|belief|chat|work|note|test", "default": "fact"},
+                    "category": {"type": "string", "description": "受控分类(10类): knowledge|pitfall|reference|project|ops|deploy|preference|session|worklog|temp。旧英文别名(fact/chat/note/work/experience/belief)服务端会自动归一", "default": "knowledge"},
                     "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "importance": {"type": "number", "description": "重要性 0-1", "default": 0.5},
                 },
@@ -110,7 +110,7 @@ async def list_tools(ctx, params) -> types.ListToolsResult:
                     "query": {"type": "string", "description": "搜索关键词"},
                     "user_id": {"type": "string", "description": "用户 ID (实际数据库用 default)", "default": "default"},
                     "top_k": {"type": "integer", "description": "返回条数", "default": 5},
-                    "category": {"type": "string", "description": "可选：按分类过滤"},
+                    "category": {"type": "string", "description": "可选：按分类过滤（受控10类；服务端字段是 category_filter）"},
                     "mode": {"type": "string", "description": "hybrid|semantic|fulltext", "default": "hybrid"},
                 },
                 "required": ["query"],
@@ -285,22 +285,29 @@ async def _dispatch(name: str, arguments: dict) -> list[types.TextContent]:
 
     try:
         if name == "store_memory":
+            # importance 不是 MemoryCreate 的字段（服务端会静默忽略）⇒ 放进 metadata 才是真的存下来
+            meta = {"importance": arguments.get("importance", 0.5)}
             data = _call("POST", "/memories", json={
                 "user_id": user_id,
                 "content": arguments["content"],
-                "category": arguments.get("category", "fact"),
-                "importance": arguments.get("importance", 0.5),
+                "category": arguments.get("category", "knowledge"),
+                "metadata": meta,
+                "source": "hermes-mcp",
             })
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "search_memories":
-            data = _call("POST", "/memories/search", json={
+            # 服务端 MemorySearch 的字段是 category_filter / sort；
+            # 发 category / mode 会被 Pydantic 静默忽略（实测：分类过滤从来没生效过）
+            payload = {
                 "user_id": user_id,
                 "query": arguments["query"],
                 "top_k": arguments.get("top_k", 5),
-                "category": arguments.get("category"),
-                "mode": arguments.get("mode", "hybrid"),
-            })
+                "sort": arguments.get("mode", "hybrid"),
+            }
+            if arguments.get("category"):
+                payload["category_filter"] = arguments["category"]
+            data = _call("POST", "/memories/search", json=payload)
             return [types.TextContent(type="text", text=json.dumps(data, ensure_ascii=False))]
 
         elif name == "dialectic_search":

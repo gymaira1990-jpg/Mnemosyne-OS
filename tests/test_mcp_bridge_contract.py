@@ -91,3 +91,31 @@ class TestBodyContractRegression:
         req = calls[-1]
         assert req["path"] == "/memories/search"
         assert req["kwargs"]["json"]["query"] == "契约"
+
+
+class TestSearchFieldContract:
+    """字段名契约：发错名字不会报错，只会静默失效 —— 所以必须锁。
+
+    2026-11-07 实测：桥发 category / mode，服务端 MemorySearch 的字段是 category_filter / sort，
+    Pydantic 忽略多余字段 ⇒ 「按分类查」永远等于没过滤（过滤前后结果一模一样，且零报错）。
+    """
+
+    def test_search_uses_category_filter_not_category(self, bridge, calls):
+        _dispatch(bridge, "search_memories", {"query": "部署", "category": "deploy"})
+        body = calls[-1]["kwargs"]["json"]
+        assert body["category_filter"] == "deploy"
+        assert "category" not in body, "服务端没有 category 字段，发了就是静默丢弃"
+        assert body["sort"] == "hybrid"
+        assert "mode" not in body
+
+    def test_search_omits_filter_when_not_given(self, bridge, calls):
+        _dispatch(bridge, "search_memories", {"query": "部署"})
+        body = calls[-1]["kwargs"]["json"]
+        assert "category_filter" not in body, "没给分类就不该塞空条件"
+
+    def test_store_keeps_importance_in_metadata(self, bridge, calls):
+        _dispatch(bridge, "store_memory", {"content": "x", "category": "knowledge", "importance": 0.9})
+        body = calls[-1]["kwargs"]["json"]
+        assert body["metadata"]["importance"] == 0.9, "importance 不是 MemoryCreate 字段，必须落到 metadata 才不丢"
+        assert "importance" not in body
+        assert body["source"] == "hermes-mcp"

@@ -26,6 +26,26 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
+    # 2026-11-07：以前 CI 没库 ⇒ 17 个 DB 用例静默 skip，绿的是「没跑」。
+    # 现在起真库：pgvector 镜像 + 建两个测试库 + 导 docs/schema.sql。
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      MNEMOSYNE_V8TEST_DSN: postgresql://postgres:postgres@127.0.0.1:5432/mnemosyne_v8test
+      MNEMOSYNE_ITEST_DSN: postgresql://postgres:postgres@127.0.0.1:5432/mnemosyne_itest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -35,6 +55,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio
+          # mcp / httpx 只给 MCP 桥的契约测试用；不装的话那几个用例会 skip，
+          # 而契约错误（发错字段名）本身是「零报错静默失效」，skip 等于放行。
+          pip install pytest pytest-asyncio mcp httpx
+      - name: Create test databases + schema
+        run: |
+          for db in mnemosyne_v8test mnemosyne_itest; do
+            psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE $db;"
+            psql -h 127.0.0.1 -U postgres -d "$db" -v ON_ERROR_STOP=1 -q -f docs/schema.sql
+          done
+      - name: Verify DB fixtures are real (not skipped)
+        run: |
+          psql -h 127.0.0.1 -U postgres -d mnemosyne_v8test -tAc \
+            "select count(*) from information_schema.tables where table_name='gc_log'"
       - name: Run tests
         run: python -m pytest tests/ -v
