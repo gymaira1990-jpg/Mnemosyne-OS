@@ -77,9 +77,18 @@ clean:
 	@find . -name '__pycache__' -type d -not -path '*/node_modules/*' -exec rm -rf {} + 2>/dev/null || true
 	@echo cleaned
 
-## release-check: 版本三件套是否齐全（VERSION ↔ tag ↔ Release ↔ 已推送）
+## prod-diff: 仓库 ↔ 生产 内容级对拍（部署指纹；只比 deploy 清单里的运行面）
+prod-diff:
+	$(PY) scripts/prod_diff.py
+
+## numbers-check: README 双语数据数字自洽 + 快照未过期 + 口径已写（默认阈值 90 天）
+numbers-check:
+	$(PY) scripts/release_checks.py numbers-consistency
+
+## release-check: 版本三件套是否齐全（VERSION ↔ tag ↔ Release ↔ 已推送）+ 数据数字自洽
 release-check:
 	$(PY) scripts/release.py verify
+	$(PY) scripts/release_checks.py numbers-consistency
 
 ## release: 一条命令发版（建 tag → 推 tag → 建 Release → 复验）
 release:

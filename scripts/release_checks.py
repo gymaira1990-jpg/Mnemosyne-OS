@@ -300,16 +300,117 @@ def check_version_history() -> int:
     return 0
 
 
+def _grab(pattern: str, text: str):
+    m = re.search(pattern, text, re.M)
+    return (m.group(1), m.group(2)) if m and m.lastindex and m.lastindex >= 2 else (
+        (m.group(1), None) if m else (None, None))
+
+
+def check_numbers_consistency(max_age_days: int = 90) -> int:
+    """P5 判据：README 双语的数据数字必须自洽、带快照日期、写明口径。
+
+    为什么做成命令（2026-11-07 实测教训）：
+    同一份 README 里 EN 写 32,383/3,524、CN 首屏写 31,953/3,499、CN 详表又写 32,383/3,524
+    —— 三个数字互不相同，而**全套发布门禁全绿**（没有任何一条查数据数字）。
+    更贵的一层：数字本身没错，是**口径没写**（3,524 指「结果卡 K·」，而 tome_cards 全表 34,073 行），
+    外人拿 SQL 一对就是 10 倍差，只会得出「作者造假」的结论。
+
+    判据三条：① 双语同指标同值 ② 每个数带快照日期且不过期 ③ 口径说明必须在文档里。
+    """
+    import datetime as _dt
+
+    checks = [
+        # (人类名, 文件, 首页正则, 详表正则)
+        ("记忆总量", "README.md", r"\*\*Memories\*\* \| ([\d,]+) ", r"\| Memories \| \*\*([\d,]+)\*\*"),
+        ("记忆总量", "README_CN.md", r"\*\*记忆量\*\* \| ([\d,]+) 条", r"\| 记忆总量 \| \*\*([\d,]+)\*\*"),
+        ("著录卡", "README.md", r"\(([\d,]+) catalog cards", r"\| Catalog cards \| \*\*([\d,]+)\*\*"),
+        ("著录卡", "README_CN.md", r"（([\d,]+) 张著录卡", r"\| 著录卡 \| \*\*([\d,]+) 张\*\*"),
+    ]
+    vals: dict[str, dict[str, str]] = {}
+    problems: list[str] = []
+    for name, fname, home_pat, tbl_pat in checks:
+        path = os.path.join(ROOT, fname)
+        if not os.path.exists(path):
+            problems.append(f"{fname} 不存在")
+            continue
+        txt = open(path, encoding="utf-8").read()
+        home = re.search(home_pat, txt)
+        tbl = re.search(tbl_pat, txt)
+        if not home:
+            problems.append(f"{fname} 找不到「{name}」首页数字（正则没对上排版 = 检查形同虚设）")
+            continue
+        if not tbl:
+            problems.append(f"{fname} 找不到「{name}」详表数字")
+            continue
+        if home.group(1).replace(",", "") != tbl.group(1).replace(",", ""):
+            problems.append(f"{fname} 首页与详表的「{name}」不一致：{home.group(1)} vs {tbl.group(1)}")
+        vals.setdefault(name, {})[fname] = tbl.group(1)
+
+    for name, per_file in vals.items():
+        uniq = {v.replace(",", "") for v in per_file.values()}
+        if len(uniq) > 1:
+            detail = ", ".join(f"{k}={v}" for k, v in per_file.items())
+            problems.append(f"双语「{name}」不一致：{detail}")
+
+    # 快照新鲜度 + 口径说明
+    snap_dates = re.findall(r"快照[：:]\s*(\d{4}-\d{2}-\d{2})", " ".join(
+        open(os.path.join(ROOT, f), encoding="utf-8").read()
+        for f in ("README.md", "README_CN.md") if os.path.exists(os.path.join(ROOT, f))))
+    snap_dates += re.findall(r"snapshot:\s*(\d{4}-\d{2}-\d{2})", " ".join(
+        open(os.path.join(ROOT, f), encoding="utf-8").read()
+        for f in ("README.md", "README_CN.md") if os.path.exists(os.path.join(ROOT, f))))
+    stale = []
+    if snap_dates:
+        today = _dt.date.today()
+        for d in set(snap_dates):
+            try:
+                age = (today - _dt.date.fromisoformat(d)).days
+            except ValueError:
+                problems.append(f"快照日期格式不对：{d}")
+                continue
+            if age > max_age_days:
+                stale.append(f"{d}（{age} 天前）")
+    else:
+        problems.append("没有任何快照日期（数字必须带日期，否则读者当现状）")
+
+    for fname, kw in (("README.md", 'Scope of "Catalog cards"'),
+                      ("README_CN.md", "「著录卡」的口径")):
+        path = os.path.join(ROOT, fname)
+        if os.path.exists(path) and kw not in open(path, encoding="utf-8").read():
+            problems.append(f"{fname} 缺口径说明（{kw}）—— 不写口径，外人拿全表行数一对就是 10 倍差")
+
+    if problems:
+        print("❌ numbers-consistency：")
+        for p_ in problems:
+            print(f"   - {p_}")
+        return 1
+    summary = " / ".join(f"{k}=" + ",".join(v.values()) for k, v in vals.items())
+    if stale:
+        print(f"❌ numbers-consistency：双语自洽、口径齐备，但快照过期（阈值 {max_age_days} 天）：{', '.join(stale)}")
+        print("   数字会随使用增长 —— 带日期的旧数字是历史，不带日期的旧数字是错话。请按 docs/VERIFICATION.md §7 复算后更新。")
+        return 1
+    print(f"✅ numbers-consistency：{summary}（快照 {max(snap_dates)}，阈值 {max_age_days} 天）")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="v8.0 发布门禁检查项")
     ap.add_argument("check", choices=["version-consistency", "version-history", "privacy",
-                                      "service-version", "changelog", "artifact", "plan"])
+                                      "service-version", "changelog", "artifact", "plan",
+                                      "numbers-consistency"])
     ap.add_argument("arg", nargs="?", default=None)
     a = ap.parse_args()
     if a.check == "version-consistency":
         return check_version_consistency()
     if a.check == "version-history":
         return check_version_history()
+    if a.check == "numbers-consistency":
+        try:
+            days = int(a.arg) if a.arg else 90
+        except ValueError:
+            print("参数应是天数，如 numbers-consistency 30", file=sys.stderr)
+            return 2
+        return check_numbers_consistency(days)
     if a.check == "privacy":
         return check_privacy()
     if a.check == "service-version":

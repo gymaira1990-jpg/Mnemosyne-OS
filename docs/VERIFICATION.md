@@ -109,3 +109,28 @@ README 里那句「两个评测集各 90%」是**第一方自测**，脚本在�
 | `scripts/eval_recall.py` | 评测器（`--semantic` 叠 S 通道，`--selftest` 验判据） |
 | `scripts/seed_demo.py --cards` | 灌卡（recall 只认卡，见坑 ①） |
 | `docs/CARD-SPEC.md` | 卡片规范 v1 |
+
+---
+
+## 7. 数字口径：README 里那两个数各自怎么算
+
+对外写的「记忆总量」与「著录卡」是两个**不同口径**的数，必须按下面 SQL 复算才能对上。
+口径不写清时，第三方拿 `tome_cards` 全表行数去比，会得出「差 10 倍 = 数字造假」的错误结论。
+
+```sql
+-- ① 记忆总量（README 的 Memories / 记忆总量）
+SELECT count(*) FROM memories;
+
+-- ② 著录卡 = 结果卡：标题带 [结果卡] 且必有 K· 档号（README 的 Catalog cards / 著录卡）
+SELECT count(*) FROM tome_cards WHERE title LIKE '%结果卡%';
+
+-- ③ tome_cards 全表（含汇报卡 / 问答卡 / 导入卡）—— 与 ② 不是一个东西
+SELECT count(*) FROM tome_cards;
+
+-- ④ 向量覆盖（分母用 ①）
+SELECT count(*) FROM memories WHERE embedding IS NOT NULL;
+```
+
+**约定**：README 与 README_CN 的同一个指标必须同值、带快照日期、写清口径；
+`python3 scripts/release_checks.py numbers-consistency` 会校验双语自洽与新鲜度，发版前必跑。
+数字会随使用增长 —— **带日期的旧数字是历史，不带日期的旧数字是错话**。

@@ -36,7 +36,7 @@
 
 | | |
 |---|---|
-| **Memories** | 32,383 (3,524 catalog cards, 100% embedded) — snapshot 2026-11-04 |
+| **Memories** | 38,507 (3,863 catalog cards) — snapshot 2026-11-07 |
 | **Recall** | 4 channels fused (server: E/C/T · client: S) · 90% recall@10 measured first-party |
 | **Trace** | archive no → card → `sid` → original transcript |
 | **Butler** | polish / dedupe / diary / gap-sweep — server-side, 7×24 |
@@ -332,15 +332,19 @@ One user, one modest cloud instance (4 vCPU), 7×24:
 
 | Metric | Value |
 |---|---|
-| Memories | **32,383** (snapshot: 2026-11-04) |
-| Catalog cards | **3,524** — 97.4% with archive no, 100% with vectors |
+| Memories | **38,507** (snapshot: 2026-11-07) |
+| Catalog cards | **3,863** — 100% with archive no, 99.97% with vectors |
 | Average card length | 376 characters (from transcripts averaging ~33,000) |
 | Recall@10 — general set | **9/10 (90%)** |
 | Recall@10 — anti-overfit set | **9/10 (90%)** |
 | Recall latency | 100–400 ms (four channels, fused) |
+| Diary entries | every day, including days with no conversation |
 
 > Numbers above are a **snapshot** (date in the table). For live values: `GET /api/v1/memory-os/stats?user_id=default`.
-| Diary entries | every day, including days with no conversation |
+>
+> **Scope of "Catalog cards"**: only cards carrying a `K·…` archive number (result cards, i.e. `tome_cards` rows titled `[结果卡]`).
+> The `tome_cards` table also holds report / Q&A / import cards (34,073 rows in total). Comparing that raw count against this
+> number is an apples-to-oranges mistake, not a discrepancy — the SQL to recompute either figure is in `docs/VERIFICATION.md`.
 
 **Neither eval script ships with the repo** — the labels point at the author's real memories, so they can't be
 published. The 90% is a **first-party measurement**, not second-party evidence you can reproduce; verify it

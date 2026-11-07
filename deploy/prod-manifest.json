@@ -1,0 +1,157 @@
+{
+  "_comment": "部署指纹清单。deploy=运行面必须一致；prod_only=生产合法独有；known_diff=已知欠账(必须 why+until)。改这张表 = 改判据，别为了变绿而加条目。",
+  "remote": "gz",
+  "path": "/opt/mnemosyne",
+  "deploy": [
+    "main.py",
+    "config.py",
+    "VERSION",
+    "constraints.txt",
+    "requirements.txt",
+    "palace.py",
+    "reflector.py",
+    "drawer_pipeline.py",
+    "drawer_report.py",
+    "perf_alert.py",
+    "memory_tokenize.py",
+    "skill_tokenize.py",
+    "skill_sync.py",
+    "api/*.py",
+    "core/*.py",
+    "tmt/*.py",
+    "wiki/*.py",
+    "jobs/*.py",
+    "security/*.py",
+    "integrations/*.py",
+    "integrations/hermes-mcp/*.py",
+    "integrations/hermes-client/*.py",
+    "scripts/archive_session.py",
+    "scripts/report_card.py",
+    "scripts/backup.sh",
+    "scripts/card_check.py",
+    "scripts/doctor.py",
+    "scripts/eval_recall.py",
+    "scripts/prod_smoke.py",
+    "scripts/release_checks.py",
+    "scripts/seed_demo.py",
+    "scripts/bootstrap.sh",
+    "scripts/version-scan.sh",
+    "cron/*.sh",
+    "deploy/mnemosyne.service",
+    "docs/schema.sql",
+    "sync/*.py",
+    "scripts/register_projects.py"
+  ],
+  "prod_only": [
+    {
+      "glob": "diary_daily.py",
+      "why": "日记生成作业：源头在 diary-book 私有仓，不上公开仓"
+    },
+    {
+      "glob": "jobs/backfill_entities.py",
+      "why": "私有回灌作业：源头在 diary-book 仓"
+    },
+    {
+      "glob": "jobs/export_diary_data.py",
+      "why": "私有导出作业：源头在 diary-book 仓"
+    },
+    {
+      "glob": "jobs/forget_report.py",
+      "why": "私有漏卡巡检：源头在 diary-book 仓"
+    },
+    {
+      "glob": "jobs/steward_dedupe.py",
+      "why": "私有判重作业：源头在 diary-book 仓"
+    },
+    {
+      "glob": "jobs/steward_polish.py",
+      "why": "私有精修作业：源头在 diary-book 仓"
+    },
+    {
+      "glob": "__init__.py",
+      "why": "生产根目录包标记（历史遗留，无副作用）"
+    },
+    {
+      "glob": "*.sh",
+      "why": "生产根目录的调度脚本：源头在仓库 cron/，但历史布局落在根目录（见 known_diff 的 same-path 欠账）"
+    },
+    {
+      "glob": ".pre-deploy-*/*",
+      "why": "部署前快照副本（回滚用），不是运行代码"
+    },
+    {
+      "glob": ".stage-*/*",
+      "why": "部署暂存副本，不是运行代码"
+    },
+    {
+      "glob": "scripts/lme-eval-pilot*.py",
+      "why": "一次性评测试验脚本，未入库"
+    },
+    {
+      "glob": "tests/*.py",
+      "why": "生产上保留少量旧测试副本（历史部署残留），非运行代码；仓库 tests/ 才是权威"
+    }
+  ],
+  "known_diff": [
+    {
+      "path": "tmt/router.py",
+      "why": "生产是旧版：L2/L3 回灌失败时 except: pass 静默吞异常；仓库版有 log.warning。需部署窗口 + 重启",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "security/purifier.py",
+      "why": "生产是旧版：except → except Exception（可观测性收口）；需重启才生效",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "security/audit.py",
+      "why": "同上：except 收口 + 注释",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "perf_alert.py",
+      "why": "生产缺 encoding='utf-8'（本地事件流写入）；需重启才生效",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "drawer_pipeline.py",
+      "why": "仅一处注释措辞（issue T-0199 → 台账 T-0199），无功能差异",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "wiki/wiki_eval.py",
+      "why": "评测脚本外壳差异，不影响运行路径",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "scripts/archive_session.py",
+      "why": "生产版带本地路径/环境差异；待部署窗口统一",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "scripts/report_card.py",
+      "why": "生产版与仓库版有字段差异；待部署窗口统一",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "scripts/backup.sh",
+      "why": "生产版含实配（备份目标路径），仓库版是模板",
+      "until": "长期（实配 vs 模板，非欠账）"
+    },
+    {
+      "path": "scripts/release_checks.py",
+      "why": "本机新增 numbers-consistency 检查，尚未部署（不影响生产运行）",
+      "until": "2026-11-30"
+    },
+    {
+      "path": "deploy/mnemosyne.service",
+      "why": "仓库是模板（YOUR_USER / /path/to），生产是实例化值；只比字段名不比取值",
+      "until": "长期（模板 vs 实例，非欠账）"
+    },
+    {
+      "path": "cron/*.sh",
+      "why": "生产从 /opt/mnemosyne 根目录调度（历史布局），仓库放在 cron/ —— 同一文件两个路径，待部署窗口统一布局",
+      "until": "2026-12-31"
+    }
+  ]
+}
