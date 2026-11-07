@@ -208,6 +208,32 @@ def _should_abstain(ranked: List[dict], threshold: float) -> bool:
         return False
 
 
+def _needs_confirmation(ranked: List[dict], margin: float) -> bool:
+    """求证判据：**拿不准就问**，而不是硬给一个答案（margin<=0 表示关闭）。
+
+    两种「拿不准」（2026-11-07 主人定：召回不可能 100%，宁可多给候选让人裁）：
+      1. 并列：top1 与 top2 分数差 < margin —— 两条都像，选谁都是猜；
+      2. 单条微弱：只有 1 条候选且分数低（< margin），孤证不立。
+    分数高且明显领先时不打扰人。
+    """
+    if margin <= 0 or not ranked:
+        return False
+    raw = ranked[0].get("score")
+    if raw is None:
+        return False          # 分数缺失 = 判不了，别拿缺数据去打扰人
+    try:
+        top = float(raw)
+    except (TypeError, ValueError):
+        return False
+    if len(ranked) == 1:
+        return top < float(margin)
+    try:
+        second = float(ranked[1].get("score") or 0)
+    except (TypeError, ValueError):
+        return False
+    return (top - second) < float(margin)
+
+
 async def _semantic(q: str, user_id: str = "default", limit: int = 30,
                     sim_floor: float = 0.45) -> List[dict]:
     """语义通道（S）：2026-11-07 新增。
@@ -255,7 +281,8 @@ class RecallIn(BaseModel):
     days: int = 0
     semantic: bool = True        # 2026-11-07 实测：配 sim_floor=0.40 时 94% vs 只有字面通道 88%
     sim_floor: float = 0.40      # 语义相似度下限。无门槛=81%（近似项挤掉正确答案），0.40=94%
-    abstain_below: float = 0.0   # 弃权阈值：最高分低于它就直接说「没找到」，别硬凑（0=关闭）
+    abstain_below: float = 0.0   # 弃权阈值：最高分低于它就直接说「没找到」（0=关闭；分数阈值已证否，见 9.0.22）
+    confirm_margin: float = 0.0  # 求证阈值：top1-top2 差小于它 ⇒ 回候选+疑问让人裁（0=关闭）
 
 
 @router.post("/recall")
@@ -326,9 +353,20 @@ async def recall(body: RecallIn = Body(...)):
                 "abstain_reason": f"最高分 {float(out[0].get('score') or 0):.1f} < 阈值 {body.abstain_below:.1f}",
                 "suppressed": len(out)}
 
-    return {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,
+    resp = {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,
             "channel_counts": {k: len(v) for k, v in chans.items()},
             "candidates": out[:limit]}
+    if _needs_confirmation(out, body.confirm_margin):
+        # 不装懂：把最像的 3 条摆出来，请人来判；判完的结果由调用方回写（access/heat/label）
+        resp["confirm"] = {
+            "reason": "top1 与 top2 分数接近（或孤证分数偏低）",
+            "margin": body.confirm_margin,
+            "question": f"「{q}」在记忆里有 {len(out[:3])} 条都沾边，你能确认是哪一个吗？",
+            "options": [{"id": c.get("id"), "no": c.get("no"), "head": c.get("head"),
+                         "score": c.get("score"), "channels": c.get("channels")}
+                        for c in out[:3]],
+        }
+    return resp
 
 
 class ExactIn(BaseModel):
