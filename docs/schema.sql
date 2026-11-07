@@ -21,7 +21,10 @@
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
-SET transaction_timeout = 0;
+-- transaction_timeout 是 PG17+ 才有；仓库声明支持 PG16+，硬 SET 会让整个导入在 16 上直接失败
+-- （2026-11-07 CI 实测：unrecognized configuration parameter）。用异常兜住，16/17/18 都能导。
+DO $$ BEGIN PERFORM set_config('transaction_timeout', '0', false);
+EXCEPTION WHEN others THEN NULL; END $$;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
