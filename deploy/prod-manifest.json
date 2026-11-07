@@ -28,6 +28,7 @@
     "scripts/backup.sh",
     "scripts/bootstrap.sh",
     "scripts/card_check.py",
+    "scripts/context_pack.py",
     "scripts/doctor.py",
     "scripts/eval_recall.py",
     "scripts/labels_to_cases.py",

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.25-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.26-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -401,6 +401,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.26](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.26) | 2026-11-07 | Three-stage sampling (`context_pack.py`): prior history → current session → output constraints, with a computed "context sufficient?" verdict |
 | [v9.0.25](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.25) | 2026-11-07 | `make eval-live` — human verdicts merge into the eval baseline (usage becomes training data) |
 | [v9.0.24](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.24) | 2026-11-07 | Human verdict write-back: labels reweight memories and become new eval cases (`labels_to_cases.py`) |
 | [v9.0.23](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.23) | 2026-11-07 | Ask instead of guessing: `confirm_margin` returns top candidates + a question when the match is ambiguous |
