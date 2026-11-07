@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.27-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.28-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -386,6 +386,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | 冲突检测器：先抓真实样本，再定裁决规则 |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | 话题漂移判定 + 上下文不足时自动回捞历史会话 |
 | [v9.0.26](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.26) | 2026-11-07 | 三段式采样（前/中/后）落地：`context_pack.py`，含「上下文够不够」的可计算判定 |
 | [v9.0.25](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.25) | 2026-11-07 | `make eval-live`：裁决题自动并入评测基线（使用即训练） |

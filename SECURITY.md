@@ -1,6 +1,6 @@
 # Security Policy
 
-> 当前版本: v9.0.27
+> 当前版本: v9.0.28
 
 ## Supported Versions
 
