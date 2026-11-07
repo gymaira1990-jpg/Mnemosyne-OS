@@ -1,3 +1,31 @@
+## [9.0.18] — 2026-11-07 · 三处「静默失效」：分类过滤 / 归档用户 / 建库脚本
+
+> 这一版修的都是**不报错的错**：功能在那儿、接口 200、日志干净，但实际什么也没做。
+> 三个都是先有判据才发现的 —— 不是读代码读出来的。
+
+### Fixed
+
+- **检索的分类过滤从来没生效**：`category_filter` / `tier_filter` 只在 `sort=created_at` 分支拼进 SQL，
+  默认 hybrid 分支完全忽略 ⇒ 带不带分类结果一模一样，且零报错。两个分支 + 兜底查询现在都带条件。
+  反证：同 query 带 / 不带分类各查一次，结果集必须不同（deploy / pitfall / preference 三组实测各返同类）。
+- **归档只认 `default` 用户**：`init_palace` 硬编码 `user_id='default'` ⇒ dsh-* / nen-* / catnest-agent
+  等 Agent 写入的记忆永远不建卡；`except Exception: pass` 让这件事连报错都没有。
+  改为不按用户过滤 + 失败计数回传（`failed` / `errors`）。生产实测：未删除记忆 33,038 条，无卡 0 条。
+- **`docs/schema.sql` 在 PG16 上根本导不进去**：dump 带 `SET transaction_timeout`（PG17+ 才有），
+  而对外写的是「PostgreSQL 16+」。CI 一上真库就抓到。改用异常兜底，16/17/18 均可导入。
+- **测试依赖本地私有库状态**：`test_sql_integration` 的 INSERT 漏 `user_id`，靠本地库私加 DEFAULT 才能过，
+  换新库必挂。补上 `user_id`，改用干净库也能跑。
+
+### Changed
+
+- **CI 上真库**：pgvector/pg16 服务 + 建两个测试库 + 导 schema，并装 `mcp`/`httpx` 让桥接契约测试真跑。
+  判据从「296 含 17 个 skip」变成 **299 passed / 0 skipped** —— 绿的终于是「跑过了」，不是「跳过了」。
+- **分类收口**：生产 1,254 条历史别名归一（chat→session / note→worklog / fact·pattern·belief→knowledge /
+  experience→pitfall / research→reference / healthcheck→ops），备份表 `cat_backfill_20261107`；
+  生产补上 `chk_memories_category`（原来只有建库脚本里有，线上没有），越界分类现在会被拒。
+- 首页数据按实测更新：38,514 条（未删除 33,038）/ 结果卡 3,897 张（100% 有档号、99.97% 有向量）。
+- `numbers-consistency` 的首页正则改为不绑括号位置 —— 绑排版的话，文案一改检查就变成「假装在跑」。
+
 ## [9.0.17] — 2026-11-07 · 部署一致性与数据数字：把「自证」换成「对拍」
 
 > 一次全量审计（2026-11-07）发现：生产自报 v9.0.16、`release_checks version-consistency` 15/15 全绿，
