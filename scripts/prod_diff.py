@@ -143,20 +143,28 @@ def main() -> int:
         print("❌ deploy 清单没有命中任何文件（模式写错了？）", file=sys.stderr)
         return 2
 
+    pm = m.get("path_map", {})
+    prod_names = sorted({pm.get(f, f) for f in deploy_set})
     try:
-        rh = remote_hashes(remote, path, deploy_set)
+        rh = remote_hashes(remote, path, prod_names)
         prod_code = remote_code_files(remote, path)
     except RuntimeError as e:
         print(f"❌ {e}", file=sys.stderr)
         return 2
 
-    missing, differ, known = [], [], []
+    path_map = m.get("path_map", {})
+    config_set = {c["path"] for c in m.get("prod_config", [])}
+    missing, differ, known, config = [], [], [], []
     for f in deploy_set:
+        if f in config_set:
+            # 实配/实例：生产是真相源，不比对（清单里必须写 why）
+            config.append(f)
+            continue
+        prod_name = path_map.get(f, f)
         e = find_entry(m.get("known_diff", []), f)
-        if f not in rh:
-            # 缺也得能登记：路径漂移（仓库 cron/x.sh vs 生产 /x.sh）就是「缺」的形态
+        if prod_name not in rh:
             (known if e else missing).append((f, e))
-        elif rh[f] != sha(os.path.join(ROOT, f)):
+        elif rh[prod_name] != sha(os.path.join(ROOT, f)):
             (known if e else differ).append((f, e))
 
     deploy_set_set = set(deploy_set)
@@ -176,12 +184,13 @@ def main() -> int:
             "differ": [f for f, _ in differ],
             "extra": [f for f, _ in extra_viol],
             "known_diff": [{"path": f, "until": (e or {}).get("until")} for f, e in known],
+            "prod_config": config,
             "violations": violations,
         }, ensure_ascii=False, indent=2))
         return 0 if violations == 0 else 1
 
     print(f"部署面 {len(deploy_set)} 个文件 ｜ 生产命中 {len(rh)} ｜ "
-          f"已登记欠账 {len(known)} ｜ 生产独有(合法) {len(prod_only_ok)}")
+          f"实配例外 {len(config)} ｜ 已登记欠账 {len(known)} ｜ 生产独有(合法) {len(prod_only_ok)}")
     if violations == 0:
         print("✅ prod-diff：部署面无未登记漂移")
         if known:
