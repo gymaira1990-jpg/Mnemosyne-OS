@@ -26,6 +26,7 @@
     "reflector.py",
     "requirements.txt",
     "scripts/archive_session.py",
+    "scripts/backfill_embeddings.py",
     "scripts/backup.sh",
     "scripts/bootstrap.sh",
     "scripts/card_check.py",
