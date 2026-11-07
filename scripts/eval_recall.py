@@ -53,7 +53,7 @@ def post(url: str, payload: dict, timeout: int = 30) -> dict:
 
 
 def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
-                     sim_floor: float = 0.40) -> list[str]:
+                     sim_floor: float = 0.40, abstain_below: float = 0.0) -> list[str]:
     """返回候选正文列表（按服务端排序）。
 
     2026-11-07 修两个坑：
@@ -64,7 +64,8 @@ def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
     try:
         d = post(f"{base.rstrip('/')}/api/v1/memory-os/recall",
                  {"user_id": user, "query": q, "limit": k,
-                  "semantic": semantic, "sim_floor": sim_floor})
+                  "semantic": semantic, "sim_floor": sim_floor,
+                  "abstain_below": abstain_below})
     except urllib.error.URLError as e:
         raise SystemExit(f"❌ 连不上服务 {base}：{e}\n   先跑 `bash scripts/bootstrap.sh` 或确认 BASE_URL")
     out: list[str] = []
@@ -106,10 +107,10 @@ def _score(cases: list[dict], results: dict[int, list[str]], k: int) -> tuple[fl
 
 
 def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: bool,
-        strict: bool = False, sim_floor: float = 0.40) -> int:
+        strict: bool = False, sim_floor: float = 0.40, abstain_below: float = 0.0) -> int:
     results: dict[int, list[str]] = {}
     for i, c in enumerate(cases):
-        results[i] = fetch_candidates(base, c["q"], user, k, semantic, sim_floor)
+        results[i] = fetch_candidates(base, c["q"], user, k, semantic, sim_floor, abstain_below)
 
     rate, hits = _score(cases, results, k)
     tight_rate, tight_hits = _score(cases, results, min(TIGHT_K, k))
@@ -193,6 +194,7 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true", help="区分度不足或零命中时返回非零（CI 用）")
     ap.add_argument("--sim-floor", type=float, default=0.40, help="语义通道相似度下限（仅 --semantic 生效）")
+    ap.add_argument("--abstain-below", type=float, default=0.0, help="弃权阈值：最高分低于它就返回空（0=关闭）")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
 
@@ -207,11 +209,11 @@ def main() -> int:
         import contextlib, io
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = run(cases, a.base_url, a.user, a.k, a.semantic, True, a.strict, a.sim_floor)
+            rc = run(cases, a.base_url, a.user, a.k, a.semantic, True, a.strict, a.sim_floor, a.abstain_below)
         print(json.dumps({"cases": len(cases), "rc": rc, "detail": buf.getvalue().strip()},
                          ensure_ascii=False))
         return rc
-    return run(cases, a.base_url, a.user, a.k, a.semantic, a.quiet, a.strict, a.sim_floor)
+    return run(cases, a.base_url, a.user, a.k, a.semantic, a.quiet, a.strict, a.sim_floor, a.abstain_below)
 
 
 if __name__ == "__main__":

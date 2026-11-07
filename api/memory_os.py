@@ -190,6 +190,24 @@ async def _recent(days: int, kws: List[str], user_id: str = "default", limit: in
     return [dict(r) for r in rows]
 
 
+def _should_abstain(ranked: List[dict], threshold: float) -> bool:
+    """弃权判据：最高分低于阈值就返回空（threshold<=0 表示关闭）。
+
+    ⚠️ 实测（2026-11-07，16 题）：**分数阈值不足以做弃权判据** ——
+    正样本最低 16.2 低于负样本 20.0，任何阈值都会误伤。参数先留着，
+    等找到更有区分度的信号（关键词覆盖度 / 问题类型 vs 卡片结构）再定默认值。
+    """
+    if threshold <= 0 or not ranked:
+        return False
+    raw = ranked[0].get("score")
+    if raw is None:
+        return False          # 分数缺失 = 判不了，宁可不弃权也别误吞结果
+    try:
+        return float(raw) < float(threshold)
+    except (TypeError, ValueError):
+        return False
+
+
 async def _semantic(q: str, user_id: str = "default", limit: int = 30,
                     sim_floor: float = 0.45) -> List[dict]:
     """语义通道（S）：2026-11-07 新增。
@@ -237,6 +255,7 @@ class RecallIn(BaseModel):
     days: int = 0
     semantic: bool = True        # 2026-11-07 实测：配 sim_floor=0.40 时 94% vs 只有字面通道 88%
     sim_floor: float = 0.40      # 语义相似度下限。无门槛=81%（近似项挤掉正确答案），0.40=94%
+    abstain_below: float = 0.0   # 弃权阈值：最高分低于它就直接说「没找到」，别硬凑（0=关闭）
 
 
 @router.post("/recall")
@@ -299,6 +318,14 @@ async def recall(body: RecallIn = Body(...)):
                  key=lambda x: (-x["score"],
                                 0 if str(x.get("head") or "").startswith(CARD_PREFIX) else 1,
                                 str(x.get("id") or "")))
+    # 弃权（2026-11-07）：以前无论多不相干都硬返 top-k，负样本必然被污染。
+    if _should_abstain(out, body.abstain_below):
+        return {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,
+                "channel_counts": {k: len(v) for k, v in chans.items()},
+                "candidates": [], "abstained": True,
+                "abstain_reason": f"最高分 {float(out[0].get('score') or 0):.1f} < 阈值 {body.abstain_below:.1f}",
+                "suppressed": len(out)}
+
     return {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,
             "channel_counts": {k: len(v) for k, v in chans.items()},
             "candidates": out[:limit]}
