@@ -50,6 +50,7 @@ echo "── 2/6 备份当前生产文件 + 打快照 ──"
 ssh "$HOST" "set -e
   cd $PROD_DIR
   sudo mkdir -p .backup-$TS
+  sudo chown -R ubuntu:ubuntu .backup-$TS   # 目录归 ubuntu，否则后面写子目录会 permission denied（实测踩过）
   for f in \$(git ls-files | head -400); do
     if [ -f \"\$f\" ]; then mkdir -p .backup-$TS/\$(dirname \$f); cp -p \"\$f\" .backup-$TS/\$f 2>/dev/null || true; fi
   done
