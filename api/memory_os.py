@@ -28,7 +28,7 @@ import json
 import re
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/memory-os", tags=["memory-os"])
@@ -390,6 +390,12 @@ async def record_label(body: LabelIn = Body(...)):
     一份数据两个用途：① 选中项 heat/access 上升（调权的燃料）；
     ② 直接就是一条评测题（query + 正确档号），可用 scripts/labels_to_cases.py 导出。
     """
+    # 脏输入必须挡在门口：前端缓存过期会提交不存在的卡 id，默认实现是 FK 报错 → 500。
+    # 500 对前端等于「系统挂了」，实际上是「这张卡已经没了」，该给 400 + 明确原因。
+    query_text = (body.query or "").strip()
+    if not query_text:
+        raise HTTPException(status_code=400, detail="query 不能为空")
+    uid = body.user_id or "default"
     cands = body.candidates or []
     chosen_no = body.selected_no
     if not chosen_no and body.chosen_id is not None:
@@ -397,12 +403,25 @@ async def record_label(body: LabelIn = Body(...)):
                           if str(c.get("id")) == str(body.chosen_id)), None)
     async with pool.acquire() as conn:
         async with conn.transaction():
+            if body.chosen_id is not None:
+                owned = await conn.fetchval(
+                    "SELECT 1 FROM memories WHERE id=$1 AND user_id=$2", body.chosen_id, uid)
+                if not owned:
+                    raise HTTPException(status_code=400,
+                                        detail=f"chosen_id={body.chosen_id} 不属于 {uid} 或已不存在")
+            rejected_ids = list(body.rejected_ids or [])
+            if rejected_ids:
+                owned_ids = await conn.fetch(
+                    "SELECT id FROM memories WHERE id = ANY($1::bigint[]) AND user_id=$2",
+                    rejected_ids, uid)
+                owned_set = {r["id"] for r in owned_ids}
+                rejected_ids = [i for i in rejected_ids if i in owned_set]
             row = await conn.fetchrow(
                 """INSERT INTO memory_labels
                        (user_id, query, chosen_id, chosen_no, candidates, margin, source, note)
                    VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8)
                    RETURNING id, created_at""",
-                body.user_id or "default", body.query, body.chosen_id, chosen_no,
+                uid, query_text, body.chosen_id, chosen_no,
                 json.dumps(cands, ensure_ascii=False), body.margin, body.source, body.note)
             bumped = False
             adjusted = {}
@@ -419,20 +438,20 @@ async def record_label(body: LabelIn = Body(...)):
                             heat_score = {heat_expr},
                             access_count = COALESCE(access_count, 0) + 1
                         WHERE id=$1 AND user_id=$2""",
-                    body.chosen_id, body.user_id or "default")
+                    body.chosen_id, uid)
                 bumped = res.endswith(" 1")
                 adjusted["chosen"] = {"id": body.chosen_id, "reliability_delta": 0.10,
                                       "heat_delta": 0.05 if body.source == "confirm" else 0.0}
 
             rejected = []
-            if body.rejected_ids:
+            if rejected_ids:
                 # 人明确否掉的卡：可信度 -0.10（下限 0）。不删、不改内容、可回滚。
                 res = await conn.execute(
                     """UPDATE memories SET
                            reliability = GREATEST(0.0, COALESCE(reliability, 0.5) - 0.10)
                        WHERE id = ANY($1::bigint[]) AND user_id=$2""",
-                    body.rejected_ids, body.user_id or "default")
-                rejected = body.rejected_ids
+                    rejected_ids, uid)
+                rejected = rejected_ids
                 adjusted["rejected"] = {"ids": rejected, "reliability_delta": -0.10,
                                         "rows": int(res.split()[-1]) if res.split() else 0}
     return {"label_id": row["id"], "created_at": row["created_at"].isoformat(timespec="seconds"),

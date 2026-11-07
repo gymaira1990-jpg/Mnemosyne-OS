@@ -304,6 +304,35 @@ ALTER SEQUENCE public.memories_id_seq OWNED BY public.memories.id;
 
 
 --
+-- Name: memory_labels; Type: TABLE; Schema: public; Owner: -
+--
+-- 人工裁决表（2026-11-07 起）：召回「拿不准就问人」与冲突裁决的落点。
+-- 一份数据两个用途：① 调权（选中 reliability/heat 上升、被否下降）
+--                   ② 出题（query + 正确档号 = 一条天然评测用例，见 scripts/labels_to_cases.py）
+-- 🔴 必须建在 schema.sql 里，不能只躺在 migrations/：否则新环境（含 CI 从零建库）缺表，
+--    相关测试会被 skip 掉，静默装绿 —— 2026-11-07 自检时就是这样发现的。
+--
+CREATE TABLE public.memory_labels (
+    id bigserial PRIMARY KEY,
+    user_id text NOT NULL DEFAULT 'default'::text,
+    query text NOT NULL,
+    chosen_id bigint,
+    chosen_no text,
+    candidates jsonb NOT NULL DEFAULT '[]'::jsonb,
+    margin double precision,
+    source text NOT NULL DEFAULT 'confirm'::text,
+    note text,
+    created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+ALTER SEQUENCE public.memory_labels_id_seq OWNED BY public.memory_labels.id;
+
+CREATE INDEX idx_memory_labels_user_created ON public.memory_labels USING btree (user_id, created_at DESC);
+CREATE INDEX idx_memory_labels_chosen ON public.memory_labels USING btree (chosen_id) WHERE (chosen_id IS NOT NULL);
+
+
+
+--
 -- Name: memories_archive; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -934,6 +963,16 @@ ALTER TABLE ONLY public.media_memories
 
 ALTER TABLE ONLY public.memories
     ADD CONSTRAINT memories_pkey PRIMARY KEY (id);
+
+--
+-- Name: memory_labels memory_labels_chosen_id_fkey; Type: FK CONSTRAINT
+--
+-- 外键必须在这里加，不能写在 CREATE TABLE 里：memories 的主键是上面这条 ALTER 才建的，
+-- 提前引用会报「no unique constraint matching given keys」（2026-11-07 从零建库实测）。
+--
+
+ALTER TABLE ONLY public.memory_labels
+    ADD CONSTRAINT memory_labels_chosen_id_fkey FOREIGN KEY (chosen_id) REFERENCES public.memories(id) ON DELETE SET NULL;
 
 
 --

@@ -32,12 +32,16 @@ def db():
         finally:
             await c.close()
 
+    ok = False
     try:
         ok = _run(probe())
     except Exception as e:  # pragma: no cover
         pytest.skip(f"测试库不可用: {e}")
-    if not ok:
-        pytest.skip("测试库缺 memory_labels 表（先跑 docs/migrations/v9.0.24_memory_labels.sql）")
+    # 🔴 缺表必须**失败**，不许 skip：schema.sql 本来就该建这张表，
+    # 缺了就说明「从零建库」路径是坏的（CI 正是这么建库的）。
+    # 以前这里写 skip ⇒ 表没建也全绿，等于测试没跑（2026-11-07 自检发现）。
+    assert ok, ("docs/schema.sql 必须建 memory_labels 表；"
+                "缺它说明从零建库路径坏了（CI 会一起绿着错）")
 
     async def seed():
         c = await _connect()
@@ -118,11 +122,18 @@ def test_none_choice_is_recorded_without_bumping(db):
 
 
 def test_cannot_bump_other_users_memory(db):
+    """越权选别人的卡：**明确拒绝（400）**，而不是静默不动。
+
+    2026-11-07 自检改的：静默不动的坏处是调用方以为写成功了，
+    而这里「什么都没发生」和「写失败」长得一模一样。拒绝更诚实。
+    """
+    from fastapi import HTTPException
     other_mid = _mid("itest-other")
     before = _state("itest-other")
-    res = _label({"user_id": USER, "query": "越权尝试", "chosen_id": other_mid})
+    with pytest.raises(HTTPException) as e:
+        _label({"user_id": USER, "query": "越权尝试", "chosen_id": other_mid})
+    assert e.value.status_code == 400
     after = _state("itest-other")
-    assert res["heat_bumped"] is False, "拿到别人的 id 也不该改别人热度"
     assert after["heat_score"] == before["heat_score"]
 
 
@@ -187,3 +198,39 @@ def test_reliability_has_floor(db):
         _label({"user_id": USER, "query": "反复否决", "source": "conflict",
                 "rejected_ids": [mid]})
     assert float(_rel(USER)["reliability"]) >= 0.0
+
+
+# ── 脏输入（2026-11-07 自检发现：这三条原本都会 500）──
+
+def test_empty_query_rejected(db):
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as e:
+        _label({"user_id": USER, "query": "   ", "chosen_id": None})
+    assert e.value.status_code == 400
+
+
+def test_unknown_chosen_id_rejected_not_500(db):
+    """前端缓存过期会提交已经不存在的卡 —— 该给 400，不该 500（500 等于「系统挂了」）。"""
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as e:
+        _label({"user_id": USER, "query": "不存在的卡", "chosen_id": 999999999})
+    assert e.value.status_code == 400
+
+
+def test_other_users_chosen_id_rejected(db):
+    from fastapi import HTTPException
+    other = _mid("itest-other")
+    with pytest.raises(HTTPException) as e:
+        _label({"user_id": USER, "query": "越权选卡", "chosen_id": other})
+    assert e.value.status_code == 400
+
+
+def test_rejected_ids_of_other_users_are_dropped_not_fatal(db):
+    """别人的 id 混进 rejected_ids：丢掉，不炸，也不该动别人的卡。"""
+    other = _mid("itest-other")
+    before = _state("itest-other")
+    res = _label({"user_id": USER, "query": "混合越权", "chosen_id": None,
+                  "rejected_ids": [other]})
+    after = _state("itest-other")
+    assert res["adjusted"] == {} or res.get("adjusted", {}).get("rejected") is None
+    assert after["heat_score"] == before["heat_score"]

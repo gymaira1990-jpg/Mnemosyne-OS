@@ -32,7 +32,7 @@ import urllib.request
 from datetime import datetime
 
 BASE = os.getenv("MEMOS_BASE", "http://127.0.0.1:8010")
-STATE_DB = os.path.expanduser("~/.hermes/state.db")
+STATE_DB = os.path.expanduser(os.getenv("HERMES_STATE_DB", "~/.hermes/state.db"))
 
 # 判定「上下文够不够」的阈值（都可用参数覆盖，别写死在脑子里）
 MIN_PRIOR_SCORE = 25.0     # 前段最高分低于它 ⇒ 历史资料不足
@@ -125,6 +125,8 @@ def widen_history(query: str, exclude_session: str, limit: int = 5) -> list[dict
     """
     if not os.path.exists(STATE_DB):
         return []
+    # FTS5 的 MATCH 是「查询语法」，用户问题里带引号/括号/星号会直接语法错误。
+    # 只留字母数字（含中文），别的当分隔符 —— 宁可能召回少，不许因为一个括号报错。
     words = "".join(ch if ch.isalnum() else " " for ch in query).split()
     toks = sorted({w for w in words if len(w) > 1})
     if not toks:
@@ -146,7 +148,9 @@ def widen_history(query: str, exclude_session: str, limit: int = 5) -> list[dict
                 (match, exclude_session or "", limit))
             return [{"session": r[0][:20], "role": r[1], "text": r[2], "at": r[3]}
                     for r in cur.fetchall()]
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as e:
+            if os.getenv("CTX_PACK_DEBUG"):
+                print(f"[widen_history] FTS 查询失败，按无结果处理: {e}", file=sys.stderr)
             return []          # FTS 不可用就当没有，不阻塞主流程
     finally:
         con.close()
