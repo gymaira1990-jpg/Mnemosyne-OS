@@ -53,3 +53,32 @@ def test_thresholds_are_configurable_not_magic():
     p, s = _prior(score=30.0), _sess(turns=3)
     assert verdict(p, s, min_score=25, min_turns=4)["sufficient"] is False
     assert verdict(p, s, min_score=25, min_turns=3)["sufficient"] is True
+
+
+# ── 话题漂移（2026-11-07 加）──
+
+def test_drift_is_unknown_without_substantive_history():
+    """最近的用户消息全是「继续推进」这类短指令 ⇒ 未知，不是「漂移」。"""
+    from scripts.context_pack import topic_drift
+    assert topic_drift("召回延迟多少", ["继续推进", "好", "OK"]) is None
+
+
+def test_drift_high_when_unrelated():
+    from scripts.context_pack import topic_drift
+    d = topic_drift("K8s 集群有几个节点",
+                    ["召回延迟的 P95 现在是 340 毫秒，比目标高不少"])
+    assert d is not None and d > 0.8, d
+
+
+def test_drift_low_when_same_topic():
+    from scripts.context_pack import topic_drift
+    d = topic_drift("召回延迟现在实测多少",
+                    ["召回延迟现在实测 P95 是 340ms，比目标 200ms 高"])
+    assert d is not None and d < 0.5, d
+
+
+def test_drift_flags_verdict():
+    """漂移高要能进 gaps —— 否则信号白算。"""
+    v = verdict(_prior(), _sess(), min_score=25, min_turns=4, drift=0.95, drift_limit=0.85)
+    assert v["sufficient"] is False
+    assert any("漂移" in g for g in v["gaps"])

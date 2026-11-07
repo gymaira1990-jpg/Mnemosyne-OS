@@ -90,7 +90,70 @@ def current_session(session: str, limit: int) -> dict:
     return {"session": session, "turns": total, "recent": recent}
 
 
-def verdict(p: dict, s: dict, min_score: float, min_turns: int) -> dict:
+def _bigrams(text: str) -> set[str]:
+    t = "".join(ch for ch in (text or "") if ch.isalnum())
+    return {t[i:i + 2] for i in range(len(t) - 1)} if len(t) > 1 else set()
+
+
+def topic_drift(query: str, recent_user_texts: list[str]) -> float:
+    """话题漂移度 0–1：当前问句与最近几条「用户消息」的字面重合越低，漂移越大。
+
+    为什么不用 embedding：这里要的是**便宜且可解释**的信号（0 依赖、0 调用），
+    判「是不是换话题了」不需要语义精度；语义留给召回那一层去做。
+    """
+    q = _bigrams(query)
+    # 只拿「有实质内容」的用户消息来比：「继续推进」「好」这类短指令不承载话题，
+    # 拿它们算重合度会让漂移恒等于 1.0（等于没信号）。
+    substantive = [t for t in recent_user_texts if len(t or "") >= 8 and len(_bigrams(t)) >= 4]
+    if not q or not substantive:
+        return None            # 无可比对象 ⇒ 未知，而不是「漂移」
+    # 用「问句被覆盖的比例」而不是 Jaccard：Jaccard 会被长消息稀释，
+    # 同一个话题也会算出 0.7 的「漂移」，那样阈值就没法设了。
+    best = 0.0
+    for t in substantive[-5:]:
+        tb = _bigrams(t)
+        if not tb:
+            continue
+        best = max(best, len(q & tb) / max(1, len(q)))
+    return round(1.0 - best, 3)
+
+
+def widen_history(query: str, exclude_session: str, limit: int = 5) -> list[dict]:
+    """往前捞：在当前会话之外的历史消息里按关键词找（FTS5，只读）。
+
+    这是「新会话上下文薄时主动回捞」的那只手 —— 记忆宫殿管卡片，这里管**对话原文**。
+    """
+    if not os.path.exists(STATE_DB):
+        return []
+    words = "".join(ch if ch.isalnum() else " " for ch in query).split()
+    toks = sorted({w for w in words if len(w) > 1})
+    if not toks:
+        return []
+    match = " OR ".join(toks[:6])
+    con = sqlite3.connect(f"file:{STATE_DB}?mode=ro", uri=True)
+    try:
+        cur = con.cursor()
+        try:
+            cur.execute(
+                """SELECT m.session_id, m.role, substr(replace(m.content,char(10),' '),1,120),
+                          datetime(m.timestamp,'unixepoch','localtime')
+                     FROM messages_fts f JOIN messages m ON m.id=f.rowid
+                    WHERE messages_fts MATCH ?
+                      AND m.role IN ('user','assistant')
+                      AND length(trim(coalesce(m.content,''))) > 20
+                      AND m.session_id <> ?
+                    ORDER BY m.id DESC LIMIT ?""",
+                (match, exclude_session or "", limit))
+            return [{"session": r[0][:20], "role": r[1], "text": r[2], "at": r[3]}
+                    for r in cur.fetchall()]
+        except sqlite3.OperationalError:
+            return []          # FTS 不可用就当没有，不阻塞主流程
+    finally:
+        con.close()
+
+
+def verdict(p: dict, s: dict, min_score: float, min_turns: int,
+            drift: float | None = None, drift_limit: float = 0.85) -> dict:
     """够不够，用可判定的信号说，而不是凭感觉。"""
     gaps = []
     if p["top_score"] < min_score:
@@ -99,7 +162,9 @@ def verdict(p: dict, s: dict, min_score: float, min_turns: int) -> dict:
         gaps.append("前段没有任何带档号的卡（无法追溯原文）")
     if s["turns"] < min_turns:
         gaps.append(f"当前会话仅 {s['turns']} 轮 < {min_turns}")
-    return {"sufficient": not gaps, "gaps": gaps}
+    if drift is not None and drift > drift_limit:
+        gaps.append(f"话题漂移 {drift:.2f} > {drift_limit}（和最近几轮几乎无重合）")
+    return {"sufficient": not gaps, "gaps": gaps, "drift": drift}
 
 
 def render(pack: dict, as_md: bool) -> str:
@@ -109,6 +174,8 @@ def render(pack: dict, as_md: bool) -> str:
     L = [f"## 三段式采样 · {pack['query']}", ""]
     L.append(f"**判定：{'上下文够' if v['sufficient'] else '上下文不足'}**"
              + ("" if v["sufficient"] else "（" + "；".join(v["gaps"]) + "）"))
+    if v.get("drift") is not None:
+        L.append(f"话题漂移度：{v['drift']:.2f}（0=接得上，1=完全换话题）")
     L += ["", f"### 前 · 历史资料（{len(p['candidates'])} 条，最高分 {p['top_score']}）"]
     for c in p["candidates"][:5]:
         L.append(f"- `{c['no'] or '无档号'}` ({c['score']}) {c['head'][:80]}")
@@ -117,6 +184,11 @@ def render(pack: dict, as_md: bool) -> str:
     L += ["", f"### 中 · 当前会话（{s['turns']} 轮，最近 {len(s['recent'])} 条）"]
     for m in s["recent"][-6:]:
         L.append(f"- {m['role']}: {m['text'][:70]}")
+    hist = pack.get("history") or []
+    if hist:
+        L += ["", f"### 补 · 回捞到的历史会话（{len(hist)} 条，当前会话之外）"]
+        for h in hist:
+            L.append(f"- `{h['session']}` {h['at']} {h['role']}: {h['text'][:80]}")
     L += ["", "### 后 · 输出要求",
           "- 结论先行；引用记忆必须带档号；不确定处标注 [UNCERTAIN] 并说明卡在哪里",
           "- 上下文不足时先说缺什么，再问一句，别硬编"]
@@ -133,16 +205,31 @@ def main() -> int:
     ap.add_argument("--min-score", type=float, default=MIN_PRIOR_SCORE)
     ap.add_argument("--min-turns", type=int, default=MIN_SESSION_TURNS)
     ap.add_argument("--md", action="store_true")
+    ap.add_argument("--widen", action="store_true", default=True,
+                    help="判「不足」时回捞历史会话原文（默认开）")
+    ap.add_argument("--no-widen", dest="widen", action="store_false")
+    ap.add_argument("--widen-limit", type=int, default=5)
+    ap.add_argument("--drift-limit", type=float, default=0.85,
+                    help="话题漂移阈值：0.85 表示与最近几轮几乎无重合")
     a = ap.parse_args()
+
+    sess = current_session(a.session, a.recent)
+    user_texts = [m["text"] for m in sess["recent"] if m["role"] == "user"]
+    drift = topic_drift(a.query, user_texts)
 
     pack = {
         "query": a.query,
         "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "user": a.user,
         "prior": prior(a.query, a.user, a.k),
-        "session": current_session(a.session, a.recent),
+        "session": sess,
+        "drift": drift,
     }
-    pack["verdict"] = verdict(pack["prior"], pack["session"], a.min_score, a.min_turns)
+    pack["verdict"] = verdict(pack["prior"], sess, a.min_score, a.min_turns,
+                              drift=drift, drift_limit=a.drift_limit)
+    # 判「不足」时主动回捞历史会话原文（主人：缺上下文就往前捞，别硬答）
+    if a.widen and not pack["verdict"]["sufficient"]:
+        pack["history"] = widen_history(a.query, sess["session"], limit=a.widen_limit)
     print(render(pack, a.md))
     return 0 if pack["verdict"]["sufficient"] else 1
 
