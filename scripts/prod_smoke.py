@@ -53,12 +53,34 @@ def req(method: str, path: str, body=None, timeout: int = 45):
         return 0, f"{type(e).__name__}: {e}"
 
 
+def check_db_reachable() -> tuple[bool, str]:
+    """S0：先把「库能不能连」问清楚。
+
+    2026-11-08 实测教训：MEMOS_DB 指到不存在的库时，S5 只是「查不到行」，
+    被归到 ⚠️ 无法核验 ⇒ 整轮仍然 exit 0、报「通过（5 项）」，守卫形同虚设。
+    库名写错是**配置错误**，必须硬失败，不能和「ssh 不可用」混为一谈。
+    """
+    p = subprocess.run(
+        ["ssh", "gz", f'sudo -u postgres psql -d {DB} -tAc "select 1"'],
+        capture_output=True, text=True, timeout=60)
+    ok = p.returncode == 0 and "1" in p.stdout
+    tail = [ln for ln in (p.stdout + p.stderr).strip().splitlines()
+            if ln.strip() and not any(k in ln for k in ("perl", "LANG", "LC_", "supported", "Falling"))]
+    return ok, (tail[-1] if tail else "无输出")
+
+
 def main() -> int:
     s, v = req("GET", "/", timeout=15)
     if s != 200 or not isinstance(v, dict):
         print(f"❌ 服务不可达: {s} {v}")
         return 2
     print(f"  服务自报: {json.dumps(v, ensure_ascii=False)}")
+    ok_db, why = check_db_reachable()
+    print(f"  目标库: {DB} —— {'可达' if ok_db else '不可达: ' + why}")
+    if not ok_db:
+        # 硬失败：库名错 / 库没建 / ssh 不通，都不许当成「验过了」
+        print(f"\n  ══ 冒烟中止：数据库 {DB} 不可达 ══")
+        return 2
 
     ts = time.strftime("%H%M%S")
     # 两段内容**刻意互不相似**，避免被语义合并干扰判据

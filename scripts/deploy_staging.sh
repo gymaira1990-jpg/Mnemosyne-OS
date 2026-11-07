@@ -43,6 +43,8 @@ echo "── 3/4 解包并重启 staging ──"
 ssh "$HOST" "set -e
   sudo tar -xzf /tmp/mne-staging.tar.gz -C $STAGING_DIR
   sudo chown -R ubuntu:ubuntu $STAGING_DIR
+  # 记录「预发布验过哪个 commit」——生产部署脚本会比对它，防止跳过预发布
+  echo '$HEAD_SHA' | sudo tee $STAGING_DIR/DEPLOYED_SHA >/dev/null
   sudo systemctl restart mnemosyne-staging
   for i in \$(seq 1 20); do
     if curl -sf -m 3 http://127.0.0.1:8020/api/v1/capabilities >/dev/null; then echo '   staging: active'; exit 0; fi

@@ -12,7 +12,7 @@ BASE ?= http://127.0.0.1:8010
 K ?= 10
 LABEL_USER ?= demo
 
-.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-live eval-selftest staging smoke
+.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-live eval-selftest staging deploy-prod smoke
 
 ## card-check: 著录卡规范校验（Card Spec v1，内置正反例自检）
 card-check:
@@ -51,6 +51,10 @@ eval-selftest:
 ## staging: 部署到预发布并冒烟（任何上线前必须走这一步，见 docs/STAGING.md）
 staging:
 	bash scripts/deploy_staging.sh
+
+## deploy-prod: 生产部署（唯一入口；要求该提交已在预发布验过）
+deploy-prod:
+	bash scripts/deploy_prod.sh
 
 ## smoke: 生产冒烟（库=生产库）
 smoke:
