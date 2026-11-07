@@ -48,3 +48,6 @@ htmlcov/
 
 # 9.0.10: backup.sh 默认输出目录（别把库导出的备份提交进仓库）
 backups/
+
+# 人工裁决导出的题（make eval-live 每次重建，不入库；demo 数据会变）
+evals/labels_cases.jsonl

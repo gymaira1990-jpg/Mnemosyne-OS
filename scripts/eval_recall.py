@@ -44,6 +44,26 @@ from pathlib import Path
 TIGHT_K = 3
 
 
+def load_cases(paths: list[str]) -> tuple[list[dict], dict[str, int]]:
+    """读多份用例并按 query 去重（后出现的覆盖先出现的）。
+
+    为什么要去重：人工裁决导出的题（labels_cases.jsonl）很可能和手写题库撞同一句问法。
+    不去重 = 同一道题算两次分，分数就虚高了 —— 这也是「尺子自己要先准」的一部分。
+    """
+    merged: dict[str, dict] = {}
+    per_file: dict[str, int] = {}
+    for raw in paths:
+        p = Path(raw)
+        if not p.exists():
+            per_file[raw] = -1          # -1 = 文件不存在（调用方决定是否报错）
+            continue
+        rows = [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        per_file[raw] = len(rows)
+        for c in rows:
+            merged[str(c.get("q") or "").strip()] = c     # 后者覆盖前者
+    return list(merged.values()), per_file
+
+
 def post(url: str, payload: dict, timeout: int = 30) -> dict:
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode(),
@@ -193,7 +213,8 @@ def selftest() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="召回评测 recall@k + 区分度自检")
-    ap.add_argument("--cases", default="evals/demo_cases.jsonl")
+    ap.add_argument("--cases", nargs="+", default=["evals/demo_cases.jsonl"],
+                    help="一份或多份用例文件（后者覆盖同 query 的前者）")
     ap.add_argument("--base-url", default="http://127.0.0.1:8010")
     ap.add_argument("--user", default="demo")
     ap.add_argument("--k", type=int, default=10)
@@ -209,11 +230,15 @@ def main() -> int:
 
     if a.selftest:
         return selftest()
-    p = Path(a.cases)
-    if not p.exists():
-        print(f"❌ 找不到用例文件 {p}（示例：evals/demo_cases.jsonl）")
+    cases, per_file = load_cases(a.cases)
+    missing = [f for f, n in per_file.items() if n < 0]
+    if missing:
+        print(f"❌ 找不到用例文件: {', '.join(missing)}（示例：evals/demo_cases.jsonl）")
         return 2
-    cases = [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    if any(n == 0 for n in per_file.values()):
+        print("⚠️ 有用例文件是空的（裁决导出的题可能还没生成），继续跑其余部分")
+    print("用例来源: " + " ｜ ".join(f"{Path(f).name}={n}" for f, n in per_file.items())
+              + f" ｜ 去重后 {len(cases)} 条", file=sys.stderr)
     if a.json:
         import contextlib, io
         buf = io.StringIO()

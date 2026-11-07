@@ -7,7 +7,7 @@
 > 再跑 `bash scripts/bootstrap.sh`。这份 AGENTS.md 是给**改代码**的 Agent 看的。
 
 **定位**：认知型记忆操作系统 —— 给 AI Agent 的长期记忆宫殿。**不是**向量数据库，**不是** RAG 管道。
-**当前版本**：v9.0.24 ｜ **生产** = `/opt/mnemosyne`；与仓库的差异由 `make prod-diff` 判定（部署清单驱动、逐文件 sha256）—— `VERSION` 自报版号只证明那个文本文件，**不证明代码已部署** ｜ 详见 [PROJECT.md](PROJECT.md)
+**当前版本**：v9.0.25 ｜ **生产** = `/opt/mnemosyne`；与仓库的差异由 `make prod-diff` 判定（部署清单驱动、逐文件 sha256）—— `VERSION` 自报版号只证明那个文本文件，**不证明代码已部署** ｜ 详见 [PROJECT.md](PROJECT.md)
 
 ## 怎么跑
 

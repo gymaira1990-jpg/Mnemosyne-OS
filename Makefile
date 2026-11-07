@@ -10,8 +10,9 @@
 PY ?= python3
 BASE ?= http://127.0.0.1:8010
 K ?= 10
+LABEL_USER ?= demo
 
-.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-selftest
+.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-live eval-selftest
 
 ## card-check: 著录卡规范校验（Card Spec v1，内置正反例自检）
 card-check:
@@ -34,6 +35,14 @@ eval:
 ## eval-semantic: 同上，叠加 S 语义通道（四通道）
 eval-semantic:
 	$(PY) scripts/eval_recall.py --cases evals/demo_cases.jsonl --user demo --base-url $(BASE) --k $(K) --semantic
+
+## eval-live: 先导出人工裁决的题，再跑「手写题库 + 裁决题」合并去重后的评测
+## 这就是「使用即训练」：人每裁一次 → 多一道题 → 下次用同一把尺子量
+LABELS_CASES ?= evals/labels_cases.jsonl
+eval-live:
+	-$(PY) scripts/labels_to_cases.py --user $(LABEL_USER) --out $(LABELS_CASES)
+	$(PY) scripts/eval_recall.py --cases evals/demo_cases.jsonl $(LABELS_CASES) \
+	  --user $(LABEL_USER) --base-url $(BASE) --k $(K) --semantic
 
 ## eval-selftest: 只验判据逻辑，不联网
 eval-selftest:
