@@ -65,6 +65,16 @@ doctor:
 consistency:
 	$(PY) scripts/consistency_check.py
 
+## test-db: 重建本地测试库（mnemosyne_itest / mne_ci_v8 / mne_ci_it）
+## 为什么要有：本地库若只用半张 schema，连库测试会**静默 skip**——绿色不代表跑过。
+test-db:
+	@for db in mnemosyne_itest mne_ci_v8 mne_ci_it; do \
+	  sudo -u postgres dropdb --if-exists $$db; \
+	  sudo -u postgres createdb -O "$$USER" $$db; \
+	  psql -q -d $$db -v ON_ERROR_STOP=1 -f docs/schema.sql >/dev/null || exit 1; \
+	  echo "  rebuilt: $$db"; \
+	done
+
 ## test: 单元测试全量 + 文档一致性 + 规范自检
 test:
 	.venv/bin/python3 -m pytest tests/ -q -p no:warnings
