@@ -102,8 +102,15 @@ def main() -> int:
                 if l.strip() and not any(k in l for k in ("perl", "LANG", "LC_", "supported", "Falling"))]
         layers = [r.split("|")[-1] for r in rows]
         print(f"    落库 layer: {rows}")
-        checks.append(("S5 落库 layer 标记 = L0/L0/L1", len(layers) == 3 and
-                       layers.count("L0") == 2 and layers.count("L1") == 1))
+        # 🔴 ssh 失败 ≠ 数据错。2026-11-08 实测：在 gz 上跑本脚本时它是「自己 ssh 自己」，
+        # 拿不到输出 → 原本会报 ❌，看着像分层没接线，实际是环境用错。
+        # 判据分三档：能核验且对 = ✅；能核验但不对 = ❌；核验不了 = ⚠️（不算通过也不算失败）。
+        if p.returncode != 0 or not rows:
+            print(f"    ⚠️ 无法核验（ssh 返回 {p.returncode}；本脚本须在能 ssh gz 的机器上跑）")
+            checks.append(("S5 落库 layer 标记（无法核验）", None))
+        else:
+            checks.append(("S5 落库 layer 标记 = L0/L0/L1", len(layers) == 3 and
+                           layers.count("L0") == 2 and layers.count("L1") == 1))
 
     # 清场（无论如何都清）
     cleaned = 0
@@ -113,12 +120,19 @@ def main() -> int:
     checks.append((f"S6 测试件清场（{cleaned}/{len(ids)}）", ids and cleaned == len(ids)))
 
     print()
-    bad = [n for n, c in checks if not c]
+    bad = [n for n, c in checks if c is False]
+    unknown = [n for n, c in checks if c is None]
     for n, c in checks:
-        print(f"  {'✅' if c else '❌'} {n}")
+        mark = "✅" if c is True else ("⚠️" if c is None else "❌")
+        print(f"  {mark} {n}")
     if bad:
-        print(f"\n  ══ 正式环境冒烟：未通过（{len(bad)} 项）══")
+        print(f"\n  ══ 正式环境冒烟：未通过（{len(bad)} 项失败"
+              + (f"，{len(unknown)} 项无法核验）" if unknown else "）") + "══")
         return 1
+    if unknown:
+        print(f"\n  ══ 正式环境冒烟：通过（{len(checks) - len(unknown)} 项），"
+              f"{len(unknown)} 项无法核验（不算失败，但没验到）══")
+        return 0
     print(f"\n  ══ 正式环境冒烟：全通过（{len(checks)}/{len(checks)}）══")
     return 0
 

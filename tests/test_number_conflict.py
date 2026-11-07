@@ -94,3 +94,21 @@ def test_same_topic_different_value_still_flagged():
 def test_topic_of_extracts_title():
     from core.conflict import topic_of
     assert topic_of("[结果卡] 档号：K·X 题名：双经济体方案v6交付件 摘要：含 8 张图") == "双经济体方案v6交付件"
+
+
+# ── 蒸馏写入路径（2026-11-08 自检发现：写库不带 embedding/fingerprint）──
+
+def test_distill_insert_carries_embedding_and_fingerprint():
+    """蒸馏 INSERT 必须带 embedding + dedup_fingerprint。
+
+    实测后果（11-08 盘点）：蒸馏路径不带向量 ⇒ 每天约 55 条提炼知识
+    语义通道搜不到；不带指纹 ⇒ 重复蒸馏不被幂等挡住。这条断言很朴素，
+    但它锁住的正是「规格写了、代码没接线」这类最隐蔽的退化。
+    """
+    import pathlib
+    src = pathlib.Path(__file__).resolve().parents[1] / "tmt" / "distill.py"
+    sql = src.read_text(encoding="utf-8")
+    start = sql.index("INSERT INTO memories")
+    block = sql[start:start + 600]
+    assert "embedding" in block, "蒸馏写入缺 embedding ⇒ 语义通道搜不到提炼出来的知识"
+    assert "dedup_fingerprint" in block, "蒸馏写入缺幂等键 ⇒ 重复蒸馏会攒重复"

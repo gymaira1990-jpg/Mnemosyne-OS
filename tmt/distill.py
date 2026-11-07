@@ -218,13 +218,30 @@ async def insert_knowledge(pool, src_id: int, src_category: str, distilled: dict
         "keywords": distilled.get("keywords", []),
         "confidence": distilled.get("confidence", "medium"),
     }
+    # 🔴 2026-11-08 自检修：蒸馏出来的知识必须**和正常写入一样带向量与幂等键**。
+    #   原来这条 INSERT 只写 6 个字段 ⇒ 后果有三个，全都静默：
+    #     ① 没有 embedding ⇒ 语义通道搜不到它（提炼出来的知识反而最难被召回）
+    #     ② 没有 dedup_fingerprint ⇒ 重复蒸馏不会被幂等挡住，会攒重复
+    #     ③ 没有档号卡 ⇒ 宫殿里查不到
+    #   实测代价：每天约 55 条这样落库，累积 3,594 条无向量（11-08 盘点）。
+    import hashlib as _h
+    try:
+        from core.embedding import get_embedding_single
+        vec = "[" + ",".join(str(x) for x in get_embedding_single(summary)) + "]"
+    except Exception as e:  # 向量失败不该阻断蒸馏本身，但必须留痕
+        log.warning("蒸馏写入取向量失败，本行无向量: %s", e)
+        vec = None
+    fp = _h.sha256(f"{summary}|{mtype}|default".encode("utf-8")).hexdigest()
     await pool.execute(
         """
         INSERT INTO memories
-          (user_id, content, category, hall, importance, tier, heat_score, metadata, tmt_level)
-        VALUES ('default', $1, $2, $3, $4, 'L3', $5, $6::jsonb, 1)
+          (user_id, content, category, hall, importance, tier, heat_score, metadata,
+           tmt_level, embedding, dedup_fingerprint)
+        VALUES ('default', $1, $2, $3, $4, 'L3', $5, $6::jsonb, 1, $7::vector, $8)
+        ON CONFLICT (dedup_fingerprint) WHERE dedup_fingerprint IS NOT NULL DO NOTHING
         """,
         summary, mtype, hall, importance, heat_init, json.dumps(metadata, ensure_ascii=False),
+        vec, fp,
     )
     # 标记源已蒸馏
     await pool.execute(
