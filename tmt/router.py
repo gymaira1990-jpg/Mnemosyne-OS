@@ -149,7 +149,7 @@ async def call_llm(prompt: str, temperature: float = 0.3, max_tokens: int = 1024
     v5.0: 不再依赖 WSL 本地 Qwen3.5-4B GPU 模型
     豆包 API 从生产服务器直连，7×24 可用
     """
-    result = call_llm_json(prompt, tier="lite")
+    result = await asyncio.to_thread(call_llm_json, prompt, tier="lite")
     if result.get("error"):
         raise HTTPException(status_code=502, detail=f"豆包 API 不可用: {result['error']}")
     return result.get("content", "")

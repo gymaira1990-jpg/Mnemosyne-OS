@@ -1,7 +1,7 @@
 # Mnemosyne OS · 安装指南
 
 > 从零到跑起来的完整手册。三种接入方式，按需选择。
-> 版本: v9.0.18 | 更新: 2026-11-07
+> 版本: v9.0.19 | 更新: 2026-11-07
 
 ---
 
@@ -85,7 +85,7 @@ ssh -L 18010:127.0.0.1:8010 your-server
 
 ```bash
 # 安装 PostgreSQL 16+ 与 pgvector
-sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
+sudo apt install postgresql-16 postgresql-16-pgvector
 
 # 启动服务
 sudo systemctl enable --now postgresql
@@ -278,7 +278,7 @@ m.search_by_hall("research")      # 待验证
 ✅ 最省事路径（本指南实测环境）：apt 装 PG + pgvector 两个包即可。
 
 ```bash
-sudo apt install postgresql-16 postgresql-16-age postgresql-16-pgvector
+sudo apt install postgresql-16 postgresql-16-pgvector
 ```
 
 ### macOS

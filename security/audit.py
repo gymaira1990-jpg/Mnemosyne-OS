@@ -7,6 +7,7 @@ Mnemosyne v5.0 — 异构竞争式审计引擎
 """
 from typing import Dict, Optional
 import json
+import asyncio
 
 
 async def audit_memory(conn, memory_id: int, content: str) -> Dict:
@@ -43,7 +44,7 @@ async def audit_memory(conn, memory_id: int, content: str) -> Dict:
     results = []
     
     # 审计 1: doubao-seed-2-0-lite (Tier 3)
-    r1 = call_llm_json(audit_prompt, tier=3)
+    r1 = await asyncio.to_thread(call_llm_json, audit_prompt, tier=3)
     try:
         d1 = json.loads(r1.get("content", "{}"))
         results.append({"model": "doubao-lite", "verdict": d1, "tier": r1.get("tier")})
@@ -52,7 +53,7 @@ async def audit_memory(conn, memory_id: int, content: str) -> Dict:
     
     # 审计 2: deepseek-v4-pro — 通过 Hermes 的 deepseek provider
     # (这里我们使用 doubao-code 作为替代，因为代码层无法直接调 Hermes)
-    r2 = call_llm_json(audit_prompt, tier=4)
+    r2 = await asyncio.to_thread(call_llm_json, audit_prompt, tier=4)
     try:
         d2 = json.loads(r2.get("content", "{}"))
         results.append({"model": "doubao-code", "verdict": d2, "tier": r2.get("tier")})

@@ -13,6 +13,7 @@ pool = None
 class DeleteRequest(BaseModel):
     memory_id: int
     reason: str = "user_request"
+    user_id: str = "default"   # 净化必须限定在自己的记忆范围内（多 Agent 时不越权）
 
 
 @router.post("/audit/run")
@@ -29,7 +30,7 @@ async def purify_memory(req: DeleteRequest):
     """哈希净化一条记忆 (不可逆删除)"""
     from security.purifier import soft_delete_memory
     async with pool.acquire() as conn:
-        result = await soft_delete_memory(conn, req.memory_id, req.reason)
+        result = await soft_delete_memory(conn, req.memory_id, req.reason, req.user_id)
         return result
 
 

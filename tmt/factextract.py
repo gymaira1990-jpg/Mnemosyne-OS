@@ -91,11 +91,12 @@ def is_skip(content: str) -> bool:
 
 async def extract_facts(content: str) -> tuple[list[str], str]:
     """非 json 提取 (tier3 lite)。返回 (facts, status): status in ('ok','no_facts','fail')"""
-    r = call_llm(extract_prompt(content), tier=3, temperature=0.1)
+    # 同步 urllib 不能在事件循环里直调：丢线程池，否则一个 60s 超时能拖住整个 worker
+    r = await asyncio.to_thread(call_llm, extract_prompt(content), tier=3, temperature=0.1)
     txt = (r.get("content") or "").strip()
     if not txt:
         # 超时/空 → 重试一次
-        r = call_llm(extract_prompt(content), tier=3, temperature=0.1)
+        r = await asyncio.to_thread(call_llm, extract_prompt(content), tier=3, temperature=0.1)
         txt = (r.get("content") or "").strip()
     if not txt:
         return [], "fail"

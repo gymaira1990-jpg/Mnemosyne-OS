@@ -12,6 +12,7 @@ import os
 import sys
 import re
 import json
+import asyncio
 from datetime import datetime
 
 # ── 翼 (Wing) 定义 — 对标中图法大类, 贴合个人知识体系 ──
@@ -407,7 +408,8 @@ async def refine_cards(pool, limit: int = 20) -> dict:
             "ORDER BY m.heat_score DESC NULLS LAST LIMIT $1", limit)
         for r in rows:
             try:
-                res = call_llm_json(refine_prompt(r["content"] or ""))
+                # 2026-11-07: 同步 urllib 调用在 async 路径里会卡死事件循环（timeout 60s）⇒ 丢线程池
+                res = await asyncio.to_thread(call_llm_json, refine_prompt(r["content"] or ""))
                 # json_mode 时 content 已是提取好的 JSON 字符串
                 raw = res.get("content", "") if isinstance(res, dict) else ""
                 if not raw:

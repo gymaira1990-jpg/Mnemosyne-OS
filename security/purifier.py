@@ -9,7 +9,9 @@ Mnemosyne v5.0 — 哈希净化与化石节点
 
 对应 白皮书 §5.6 合规与保真平衡
 """
+import asyncio
 import hashlib
+import json
 from datetime import datetime, timezone
 
 
@@ -27,7 +29,8 @@ def purify_content(content: str) -> str:
     return f"sha256:{h}"
 
 
-async def soft_delete_memory(conn, memory_id: int, reason: str = "user_request") -> dict:
+async def soft_delete_memory(conn, memory_id: int, reason: str = "user_request",
+                             user_id: str = "default") -> dict:
     """
     软删除 + 哈希净化
     
@@ -41,9 +44,11 @@ async def soft_delete_memory(conn, memory_id: int, reason: str = "user_request")
     Returns:
         {"memory_id": int, "status": "purified", "fossil": bool}
     """
+    # 2026-11-07: 原来只按 id 定位 —— 任何调用方都能净化别人的记忆（多 Agent 部署下是越权）。
+    # 加 user_id 范围；单用户系统行为不变（默认 'default'）。
     row = await conn.fetchrow(
-        "SELECT content FROM memories WHERE id=$1 AND is_deleted=FALSE",
-        memory_id
+        "SELECT content FROM memories WHERE id=$1 AND user_id=$2 AND is_deleted=FALSE",
+        memory_id, user_id
     )
     if not row:
         return {"error": "Memory not found or already deleted"}
@@ -55,11 +60,14 @@ async def soft_delete_memory(conn, memory_id: int, reason: str = "user_request")
            content=$1, is_deleted=TRUE, 
            metadata = COALESCE(metadata,'{}')::jsonb || $2::jsonb,
            updated_at=$3
-           WHERE id=$4""",
+           WHERE id=$4 AND user_id=$5""",
         purified,
-        f'{{"purified_at": "{datetime.now(timezone.utc).isoformat()}", "reason": "{reason}"}}',
+        # 原来用 f-string 拼 jsonb：reason 里一个双引号就能让 $2::jsonb 抛 22P02 → 500。
+        # 改成 json.dumps（转义由库负责）。
+        json.dumps({"purified_at": datetime.now(timezone.utc).isoformat(),
+                    "reason": reason}, ensure_ascii=False),
         datetime.now(timezone.utc),
-        memory_id
+        memory_id, user_id
     )
     
     return {

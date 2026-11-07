@@ -1,3 +1,32 @@
+## [9.0.19] — 2026-11-07 · 越权净化 / 事件循环阻塞 / 缓存串模型
+
+> 三条都是「平时跑不出问题」的那种：单用户、串行、不换模型时，一切正常。
+> 一旦多一个 Agent、多一个并发、换一次 embedding 模型，就变成不报错的错。
+
+### Fixed
+
+- **不可逆净化可以跨用户执行**：`POST /security/purify` 只按 `memory_id` 定位（内容被 SHA-256 替换，
+  不可逆）。多 Agent 部署下 = 任何调用方都能净化别人的记忆。现在按 `user_id` 限定；
+  反证：把范围条件去掉，`test_purify_rejects_other_users_memory` 立刻红。
+- **净化写 metadata 用 f-string 拼 jsonb**：`reason` 里一个双引号就让 `$2::jsonb` 抛 22P02（500）。
+  改用 `json.dumps` 转义，`reason` 原样保留。
+- **异步路径里直接调同步 HTTP（9 处）**：`core/llm.py` 是同步 `urllib`（timeout 60s），
+  却被 `palace.refine_cards` / `main.archive_session` / `security.audit_memory` / `wiki.extract_page` /
+  `tmt.distill_one` / `tmt.extract_facts` / `tmt/router.call_llm` 直接调用 ⇒ 一个慢请求能把整个
+  worker 的事件循环堵住（4 workers = 4 个并发就够）。统一改 `asyncio.to_thread`。
+- **embedding 缓存键没有命名空间**：裸 `md5(text)`，换 `EMBED_MODEL` / `EMBED_DIM` /
+  `EMBED_PAYLOAD_STYLE` 后旧缓存仍会命中 ⇒ 拿别的模型的向量去检索，召回质量静默退化。
+  键改成 `风格:模型:维度:text`。
+
+### Changed
+
+- `INSTALL.md`：去掉已移除的 `postgresql-16-age` 包（v7.8 起本项目不再需要 Apache AGE）。
+- `scripts/consistency_check.py`：用 `sys.executable` 代替写死的 `.venv/bin/python3`（跨平台）。
+
+### Tests
+
+- 新增 `tests/test_security_purify.py`：跨用户拒绝 / 同用户可净化 / reason 带引号不炸 jsonb（3 条，均连真库）。
+
 ## [9.0.18] — 2026-11-07 · 三处「静默失效」：分类过滤 / 归档用户 / 建库脚本
 
 > 这一版修的都是**不报错的错**：功能在那儿、接口 200、日志干净，但实际什么也没做。

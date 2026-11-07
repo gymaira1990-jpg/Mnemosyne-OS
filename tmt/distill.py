@@ -143,7 +143,7 @@ def build_tel(content: str) -> str:
 async def distill_one(content: str) -> dict | None:
     for attempt in range(MAX_RETRY):
         try:
-            res = call_llm_json(build_tel(content), tier=3)
+            res = await asyncio.to_thread(call_llm_json, build_tel(content), tier=3)
             raw = res.get("content", "")
             m = json.loads(raw) if raw else {}
             if not m or "type" not in m:

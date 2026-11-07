@@ -90,7 +90,11 @@ def _save_disk_cache() -> None:
 
 
 def _cache_key(text: str) -> str:
-    return hashlib.md5(text.encode("utf-8")).hexdigest()
+    # 2026-11-07 修：裸 md5(text) 没有模型/维度/请求体风格的命名空间 ——
+    # 换 EMBED_MODEL / EMBED_DIM / EMBED_PAYLOAD_STYLE 后，旧缓存仍会被命中，
+    # 拿别的模型的向量去检索 ⇒ 召回质量静默退化，且没有任何报错。
+    ns = f"{EMBED_PAYLOAD_STYLE}:{EMBED_MODEL}:{EMBED_DIM}:"
+    return hashlib.md5((ns + text).encode("utf-8")).hexdigest()
 
 
 def _call_ark_single(text: str) -> List[float]:

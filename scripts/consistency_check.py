@@ -45,7 +45,7 @@ def main() -> int:
     ver = (root / "VERSION").read_text(encoding="utf-8").strip()
 
     # C2 真实用例数
-    r = sh([".venv/bin/python3", "-m", "pytest", "tests/", "--collect-only", "-q", "-p", "no:warnings"], root)
+    r = sh([sys.executable, "-m", "pytest", "tests/", "--collect-only", "-q", "-p", "no:warnings"], root)
     out = r.stdout + r.stderr
     m = re.search(r"(\d+)\s+tests?\s+collected", out)
     if m:
@@ -72,7 +72,7 @@ def main() -> int:
                         fails.append(f"C2 {d} 写「{n} 用例」，实际收集 {real_cases}：{line.strip()[:60]}")
 
     # C3 落点数
-    r = sh([".venv/bin/python3", "scripts/release_checks.py", "version-consistency"], root)
+    r = sh([sys.executable, "scripts/release_checks.py", "version-consistency"], root)
     m = re.search(r"查了\s*(\d+)\s*处", r.stdout)
     real_spots = int(m.group(1)) if m else None
     if real_spots:

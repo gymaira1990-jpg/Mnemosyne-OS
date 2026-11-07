@@ -2283,7 +2283,7 @@ async def archive_session(req: SessionArchiveRequest):
         try:
             from core.llm import call_llm_json
             entities_prompt = f"从以下对话中提取关键实体(项目名/人名/技术名/概念)，输出JSON: {{\"entities\": [\"实体1\", \"实体2\"]}}\n\n对话片段:\n{content[:1500]}"
-            entities_result = call_llm_json(entities_prompt, tier=2)
+            entities_result = await asyncio.to_thread(call_llm_json, entities_prompt, tier=2)
             entities_data = json.loads(entities_result.get("content", "{}"))
             entities = entities_data.get("entities", [])
             if entities:
@@ -2295,7 +2295,8 @@ async def archive_session(req: SessionArchiveRequest):
         summary = ""
         try:
             from core.llm import call_llm_fast
-            summary_result = call_llm_fast(f"用一句话概括这段对话(不超过30字):\n{content[:1000]}")
+            summary_result = await asyncio.to_thread(
+                call_llm_fast, f"用一句话概括这段对话(不超过30字):\n{content[:1000]}")
             summary = summary_result.get("content", "")[:100]
         except Exception:
             summary = content[:100]

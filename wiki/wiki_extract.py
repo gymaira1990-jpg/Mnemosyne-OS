@@ -52,7 +52,7 @@ async def extract_page(conn, page):
     content = (page["content"] or "")[:6000]  # 截断防超长
     prompt = PROMPT.replace("{content}", content)
     try:
-        res = call_llm_json(prompt, tier=3)
+        res = await asyncio.to_thread(call_llm_json, prompt, tier=3)
         raw = res.get("content") if isinstance(res, dict) else None
         if isinstance(raw, str):
             data = json.loads(raw)
