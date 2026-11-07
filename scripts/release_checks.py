@@ -323,8 +323,9 @@ def check_numbers_consistency(max_age_days: int = 90) -> int:
         # (人类名, 文件, 首页正则, 详表正则)
         ("记忆总量", "README.md", r"\*\*Memories\*\* \| ([\d,]+) ", r"\| Memories \| \*\*([\d,]+)\*\*"),
         ("记忆总量", "README_CN.md", r"\*\*记忆量\*\* \| ([\d,]+) 条", r"\| 记忆总量 \| \*\*([\d,]+)\*\*"),
-        ("著录卡", "README.md", r"\(([\d,]+) catalog cards", r"\| Catalog cards \| \*\*([\d,]+)\*\*"),
-        ("著录卡", "README_CN.md", r"（([\d,]+) 张著录卡", r"\| 著录卡 \| \*\*([\d,]+) 张\*\*"),
+        # 首页正则不绑括号位置：文案会改（加 live 数、加口径注），绑排版就会变成「检查假装在跑」
+        ("著录卡", "README.md", r"([\d,]+) catalog cards", r"\| Catalog cards \| \*\*([\d,]+)\*\*"),
+        ("著录卡", "README_CN.md", r"([\d,]+) 张著录卡", r"\| 著录卡 \| \*\*([\d,]+) 张\*\*"),
     ]
     vals: dict[str, dict[str, str]] = {}
     problems: list[str] = []

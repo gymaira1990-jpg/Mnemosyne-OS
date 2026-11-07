@@ -132,7 +132,7 @@ async def init_palace(pool) -> dict:
     返回: {tables: [...], classified: N, cards: N}
     """
     import asyncpg
-    result = {"tables": [], "classified": 0, "cards": 0}
+    result = {"tables": [], "classified": 0, "cards": 0, "failed": 0, "errors": []}
     async with pool.acquire() as conn:
         # 1. 建表
         for name, sql in [
@@ -147,11 +147,13 @@ async def init_palace(pool) -> dict:
                 result["tables"].append(f"{name}(err:{e})")
 
         # 2. 存量归类: 无档号的记忆 → 分类 + 生成档号 + 建卡片
+        # 2026-11-07 修：原来硬编码 user_id='default' ⇒ 多 Agent 写入的记忆（dsh-* / nen-* /
+        # catnest-agent 等）永远不会被归档，卡片覆盖率永远差一截，而且没人报错。
+        # 归档是「给记忆建卡」，与谁写的无关 ⇒ 不再按 user 过滤。
         rows = await conn.fetch(
-            "SELECT id, content, category FROM memories "
-            "WHERE user_id=$1 AND is_deleted=FALSE AND (archive_no IS NULL OR archive_no='') "
-            "ORDER BY id DESC LIMIT 500",
-            "default"
+            "SELECT id, user_id, content, category FROM memories "
+            "WHERE is_deleted=FALSE AND (archive_no IS NULL OR archive_no='') "
+            "ORDER BY id DESC LIMIT 500"
         )
         for r in rows:
             cls = classify(r["content"] or "", r["category"] or "")
@@ -171,8 +173,10 @@ async def init_palace(pool) -> dict:
                     r["id"], title, summary, archive_no, cls["wing"], cls["room"], cls["shelf"], [r["category"] or "unfiled"])
                 result["classified"] += 1
                 result["cards"] += 1
-            except Exception:
-                pass
+            except Exception as e:      # 别静默吞：计失败数，并在返回值里暴露前 3 条
+                result["failed"] += 1
+                if len(result["errors"]) < 3:
+                    result["errors"].append(f"id={r['id']}: {e}")
     return result
 
 

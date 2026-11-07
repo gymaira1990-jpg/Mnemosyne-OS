@@ -36,7 +36,7 @@
 
 | | |
 |---|---|
-| **Memories** | 38,507 (3,863 catalog cards) — snapshot 2026-11-07 |
+| **Memories** | 38,514 (33,038 live, 3,897 catalog cards) — snapshot 2026-11-07 |
 | **Recall** | 4 channels fused (server: E/C/T · client: S) · 90% recall@10 measured first-party |
 | **Trace** | archive no → card → `sid` → original transcript |
 | **Butler** | polish / dedupe / diary / gap-sweep — server-side, 7×24 |
@@ -332,8 +332,8 @@ One user, one modest cloud instance (4 vCPU), 7×24:
 
 | Metric | Value |
 |---|---|
-| Memories | **38,507** (snapshot: 2026-11-07) |
-| Catalog cards | **3,863** — 100% with archive no, 99.97% with vectors |
+| Memories | **38,514** (33,038 live) — snapshot: 2026-11-07 |
+| Catalog cards | **3,897** — 100% with archive no, 99.97% with vectors · every live memory has a card |
 | Average card length | 376 characters (from transcripts averaging ~33,000) |
 | Recall@10 — general set | **9/10 (90%)** |
 | Recall@10 — anti-overfit set | **9/10 (90%)** |

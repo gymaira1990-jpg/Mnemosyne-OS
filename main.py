@@ -2032,8 +2032,9 @@ async def palace_archive(user_id: str = "default", limit: int = 500):
     """手动触发存量归档 (幂等, 分批)"""
     import palace
     result = await palace.init_palace(pool)
-    # 返回本次归档数 (只数新处理的)
-    return {"classified": result["classified"], "cards": result["cards"]}
+    # 返回本次归档数 (只数新处理的) + 失败数（原来 except 静默吞，外部只能看到 0）
+    return {"classified": result["classified"], "cards": result["cards"],
+            "failed": result.get("failed", 0), "errors": result.get("errors", [])}
 
 @app.get("/api/v1/palace/summon")
 async def palace_summon(q: str, user_id: str = "default", top_k: int = 5,
