@@ -166,6 +166,15 @@ import api.injection as injection_module
 from api.injection import router as injection_router
 app.include_router(injection_router)
 
+# 2026-11-07 多 Agent 身份卡（T-0678 第 1 步）：只读，卡片存在 users.metadata
+try:
+    import api.agents as agents_module
+    from api.agents import router as agents_router
+    app.include_router(agents_router)
+    agents_module.pool = None
+except Exception as _e:      # 加载失败不能拖垮主服务
+    print(f"[warn] agents router 未加载: {_e}")
+
 # Memory OS 9.0：四通道召回 / 精确查 / 多词 BM25 / 两级跳 trace / 卡片体检
 # 物理隔离在 /api/v1/memory-os/*，不碰 8.x 的老端点
 try:
@@ -707,6 +716,11 @@ async def startup():
     security_module.pool = pool
     skills_module.pool = pool
     injection_module.pool = pool
+    try:
+        import api.agents as _agents_module
+        _agents_module.pool = pool
+    except Exception:
+        pass
     tmt_module.embed_fn = get_embedding
     tmt_module.llm_url = "http://127.0.0.1:11435/v1/chat/completions"
     # v7.0 魔法记忆宫殿: 初始化 (建表+存量归档, 幂等)

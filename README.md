@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.19-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.20-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -401,6 +401,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.0.20](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.20) | 2026-11-07 | Agent identity cards — `GET /api/v1/agents` lists every agent's role/status/boundary plus memory count |
 | [v9.0.19](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.19) | 2026-11-07 | Scoped irreversible purge · sync LLM calls off the event loop · embedding cache namespaced |
 | [v9.0.18](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.18) | 2026-11-07 | Silent-failure fixes: search category filter, archive user scope, PG16 schema · CI now runs a real database |
 | [v9.0.17](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.17) | 2026-11-07 | Deploy fingerprint (`make prod-diff`) + number gate (`make numbers-check`) · README numbers corrected |

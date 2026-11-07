@@ -1,3 +1,21 @@
+## [9.0.20] — 2026-11-07 · 多 Agent 身份卡（个人版 OPC 第 1 步）
+
+> 不做多租户，但要让每个 Agent **有身份**：能说出它是什么岗、归谁管、还在不在职、边界在哪。
+> 卡片就存在已有的 `users` 表 `metadata` 里 —— 不新建表，避免又多一个真相源。
+
+### Added
+
+- `GET /api/v1/agents`：列出全部 Agent 身份卡（`role / status / model / owner / boundary / capabilities`），
+  附各自记忆量与最后活跃时间。
+- 🔴 用 `FULL OUTER JOIN` 而不是 INNER：**只写过记忆、没建卡的 Agent 也会被列出来**（`has_card=false`），
+  缺口是看得见的。反证：把 JOIN 改成 INNER，`test_agent_without_card_is_listed` 立刻红。
+- 生产已为 `default`（老板）+ 5 个 `dsh-*`（随 DSH 线暂停，标 `paused`）建卡；其余 Agent 留空，
+  等主人逐个确认留或退 —— **不给没确认过的 Agent 编身份**。
+
+### Docs
+
+- `docs/MULTI-AGENT-SEAM.md`：不改表结构的前提下，按 `user_id` 隔离的当前契约与越权反证样例。
+
 ## [9.0.19] — 2026-11-07 · 越权净化 / 事件循环阻塞 / 缓存串模型
 
 > 三条都是「平时跑不出问题」的那种：单用户、串行、不换模型时，一切正常。
