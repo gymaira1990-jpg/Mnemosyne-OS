@@ -52,28 +52,26 @@ def post(url: str, payload: dict, timeout: int = 30) -> dict:
         return json.loads(r.read())
 
 
-def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool) -> list[str]:
-    """返回候选正文列表（按服务端排序）。E/C/T 必有；semantic=True 再叠一路 S。"""
-    out: list[str] = []
+def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
+                     sim_floor: float = 0.40) -> list[str]:
+    """返回候选正文列表（按服务端排序）。
+
+    2026-11-07 修两个坑：
+      1. 以前传的是 `k`，而端点只认 `limit` ⇒ 永远只回 10 条，`--k 50` 是空操作；
+      2. 以前把语义结果**追加**在 E/C/T 之后再截断到 k ⇒ E/C/T 满额时 S 永远进不了榜，
+         于是「叠加语义」看着没效果。现在 S 由服务端合并打分，一次请求出结果。
+    """
     try:
         d = post(f"{base.rstrip('/')}/api/v1/memory-os/recall",
-                 {"user_id": user, "query": q, "k": k})
-        for c in d.get("candidates", []) or []:
-            txt = c.get("head") or c.get("content") or ""
-            if txt:
-                out.append(txt)
+                 {"user_id": user, "query": q, "limit": k,
+                  "semantic": semantic, "sim_floor": sim_floor})
     except urllib.error.URLError as e:
         raise SystemExit(f"❌ 连不上服务 {base}：{e}\n   先跑 `bash scripts/bootstrap.sh` 或确认 BASE_URL")
-    if semantic:
-        try:
-            d2 = post(f"{base.rstrip('/')}/api/v1/memories/search",
-                      {"user_id": user, "query": q, "top_k": k})
-            for m in (d2.get("memories") or d2.get("results") or []):
-                txt = m.get("content") or ""
-                if txt and txt not in out:
-                    out.append(txt)
-        except urllib.error.URLError:
-            pass  # 语义那路失败不致命：E/C/T 的结果仍作数（与生产一致：S 是叠加）
+    out: list[str] = []
+    for c in d.get("candidates", []) or []:
+        txt = c.get("head") or c.get("content") or ""
+        if txt:
+            out.append(txt)
     return out[:k]
 
 
@@ -108,10 +106,10 @@ def _score(cases: list[dict], results: dict[int, list[str]], k: int) -> tuple[fl
 
 
 def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: bool,
-        strict: bool = False) -> int:
+        strict: bool = False, sim_floor: float = 0.40) -> int:
     results: dict[int, list[str]] = {}
     for i, c in enumerate(cases):
-        results[i] = fetch_candidates(base, c["q"], user, k, semantic)
+        results[i] = fetch_candidates(base, c["q"], user, k, semantic, sim_floor)
 
     rate, hits = _score(cases, results, k)
     tight_rate, tight_hits = _score(cases, results, min(TIGHT_K, k))
@@ -194,6 +192,7 @@ def main() -> int:
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true", help="区分度不足或零命中时返回非零（CI 用）")
+    ap.add_argument("--sim-floor", type=float, default=0.40, help="语义通道相似度下限（仅 --semantic 生效）")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
 
@@ -208,11 +207,11 @@ def main() -> int:
         import contextlib, io
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = run(cases, a.base_url, a.user, a.k, a.semantic, True, a.strict)
+            rc = run(cases, a.base_url, a.user, a.k, a.semantic, True, a.strict, a.sim_floor)
         print(json.dumps({"cases": len(cases), "rc": rc, "detail": buf.getvalue().strip()},
                          ensure_ascii=False))
         return rc
-    return run(cases, a.base_url, a.user, a.k, a.semantic, a.quiet, a.strict)
+    return run(cases, a.base_url, a.user, a.k, a.semantic, a.quiet, a.strict, a.sim_floor)
 
 
 if __name__ == "__main__":

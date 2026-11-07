@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.20-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.0.21-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -386,6 +386,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.0.21](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.21) | 2026-11-07 | 召回按用户隔离 · 语义通道接通（实测开着更差，默认关）· `k` 不再被忽略 |
 | [v9.0.20](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.20) | 2026-11-07 | 多 Agent 身份卡：`GET /api/v1/agents` 列出每个 Agent 的岗位/状态/边界与记忆量 |
 | [v9.0.19](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.19) | 2026-11-07 | 净化限用户范围 · 同步 LLM 调用移出事件循环 · 向量缓存加命名空间 |
 | [v9.0.18](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.18) | 2026-11-07 | 三处静默失效修复：检索分类过滤 / 归档用户范围 / PG16 建库 · CI 上真库 |

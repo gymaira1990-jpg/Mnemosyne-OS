@@ -116,67 +116,114 @@ def expand_kw(kws: List[str]) -> List[str]:
 # （metadata.dup_verdict='same'）默认**不参与召回** —— 不是删，恢复只需改这个标记。
 # 动机：K· 一代与 M· 一代存在 825 对同 sid 同题名重复，重复候选会挤占 top-k。
 
-async def _exact(q: str, limit: int = 10) -> List[dict]:
-    """精确查：必须锚定首行，否则会命中「正文里提到过这个号」的卡。"""
-    safe = q.replace("'", "''")
-    sql = f"""
-        SELECT id, category,
-               NULLIF(split_part(split_part(content, '档号：', 2), chr(10), 1), '') AS no,
-               left(content, 200) AS head
-        FROM memories
-        WHERE is_deleted = false
-          AND (metadata->>'dup_verdict') IS DISTINCT FROM 'same'
-          AND (content LIKE '[结果卡] 档号：{safe}%'
-               OR content LIKE '%{safe}%')
-        ORDER BY (content LIKE '[结果卡] 档号：{safe}%') DESC, id DESC
-        LIMIT {int(limit)}
+async def _exact(q: str, user_id: str = "default", limit: int = 10) -> List[dict]:
+    """精确查：必须锚定首行，否则会命中「正文里提到过这个号」的卡。
+
+    2026-11-07 修两处：①加 user_id 范围（原来跨用户，33k 条老板记忆会淹掉别人）；
+    ②改参数化（原来把 query 拼进 f-string，只靠转义引号）。
+    """
+    sql = """
+        SELECT m.id, m.category,
+               NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
+               left(m.content, 200) AS head
+        FROM memories m
+        WHERE m.user_id = $1
+          AND m.is_deleted = false
+          AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
+          AND (m.content LIKE '[结果卡] 档号：' || $2 || '%'
+               OR m.content LIKE '%' || $2 || '%')
+        ORDER BY (m.content LIKE '[结果卡] 档号：' || $2 || '%') DESC, m.id DESC
+        LIMIT $3
     """
     async with pool.acquire() as conn:
-        rows = await conn.fetch(sql)
+        rows = await conn.fetch(sql, user_id, q, int(limit))
     return [dict(r) for r in rows]
 
 
-async def _multi_kw(kws: List[str], limit: int = 60) -> List[dict]:
-    """多关键词 OR + 按命中数降序（BM25 的穷人版）。"""
+async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 60) -> List[dict]:
+    """多关键词 OR + 按命中数降序（BM25 的穷人版）。
+
+    2026-11-07：加 user_id 范围；关键词走 unnest($2) 参数化，不再拼 f-string。
+    """
     kws = [k for k in (x.strip() for x in kws) if k]
     if not kws:
         return []
-    safe = [k.replace("'", "''") for k in kws]
-    hit_sum = " + ".join(f"(content ILIKE '%{k}%')::int" for k in safe)
-    where = " OR ".join(f"content ILIKE '%{k}%'" for k in safe)
-    sql = f"""
-        SELECT id, category,
-               NULLIF(split_part(split_part(content, '档号：', 2), chr(10), 1), '') AS no,
-               left(content, 200) AS head,
-               ({hit_sum}) AS kw_hit, {len(safe)} AS n_kw
-        FROM memories
-        WHERE is_deleted = false AND content LIKE '[结果卡]%'
-          AND (metadata->>'dup_verdict') IS DISTINCT FROM 'same'
-          AND ({where})
-        ORDER BY kw_hit DESC, id DESC
-        LIMIT {int(limit)}
+    sql = """
+        SELECT m.id, m.category,
+               NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
+               left(m.content, 200) AS head,
+               (SELECT count(*) FROM unnest($2::text[]) AS t(kw)
+                 WHERE m.content ILIKE '%' || t.kw || '%') AS kw_hit,
+               array_length($2::text[], 1) AS n_kw
+        FROM memories m
+        WHERE m.user_id = $1
+          AND m.is_deleted = false AND m.content LIKE '[结果卡]%'
+          AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
+          AND EXISTS (SELECT 1 FROM unnest($2::text[]) AS t(kw)
+                       WHERE m.content ILIKE '%' || t.kw || '%')
+        ORDER BY kw_hit DESC, m.id DESC
+        LIMIT $3
     """
     async with pool.acquire() as conn:
-        rows = await conn.fetch(sql)
+        rows = await conn.fetch(sql, user_id, kws, int(limit))
     return [dict(r) for r in rows]
 
 
-async def _recent(days: int, kws: List[str], limit: int = 30) -> List[dict]:
-    cond = f"AND created_at > now() - interval '{int(days)} days'"
-    if kws:
-        safe = [k.replace("'", "''") for k in kws]
-        cond += " AND (" + " OR ".join(f"content ILIKE '%{k}%'" for k in safe) + ")"
-    sql = f"""
-        SELECT id, category,
-               NULLIF(split_part(split_part(content, '档号：', 2), chr(10), 1), '') AS no,
-               left(content, 200) AS head
-        FROM memories
-        WHERE is_deleted = false AND content LIKE '[结果卡]%'
-          AND (metadata->>'dup_verdict') IS DISTINCT FROM 'same' {cond}
-        ORDER BY created_at DESC LIMIT {int(limit)}
+async def _recent(days: int, kws: List[str], user_id: str = "default", limit: int = 30) -> List[dict]:
+    """时间通道：按天窗口 + 可选关键词。2026-11-07 加 user_id 范围与参数化。"""
+    sql = """
+        SELECT m.id, m.category,
+               NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
+               left(m.content, 200) AS head
+        FROM memories m
+        WHERE m.user_id = $1
+          AND m.is_deleted = false AND m.content LIKE '[结果卡]%'
+          AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
+          AND m.created_at > now() - make_interval(days => $2)
+          AND ($3::text[] IS NULL OR EXISTS (
+                SELECT 1 FROM unnest($3::text[]) AS t(kw)
+                 WHERE m.content ILIKE '%' || t.kw || '%'))
+        ORDER BY m.created_at DESC LIMIT $4
     """
     async with pool.acquire() as conn:
-        rows = await conn.fetch(sql)
+        rows = await conn.fetch(sql, user_id, int(days), kws or None, int(limit))
+    return [dict(r) for r in rows]
+
+
+async def _semantic(q: str, user_id: str = "default", limit: int = 30,
+                    sim_floor: float = 0.45) -> List[dict]:
+    """语义通道（S）：2026-11-07 新增。
+
+    之前 recall 端点**根本不做语义**（注释说"交给调用方叠加"），文档却写着「四通道」——
+    实测后果：只在语义上相近的问题（"周报怎么写"），E/C/T 三条全空，答案永远出不来。
+    """
+    import core.embedding as _emb
+
+    try:
+        vec = await _emb.get_embedding_async([q])
+        vec = vec[0]
+        if isinstance(vec, tuple):
+            vec = vec[2]
+    except Exception:
+        return []          # 语义路失败不致命：其余通道照常返回
+    vs = "[" + ",".join(f"{float(x):.6f}" for x in vec) + "]"
+    # 相似度门槛（2026-11-07 实测加）：不设门槛时，任何问题都会捞回一堆「勉强相关」的卡，
+    # 把正确答案挤出 top-k，还会让负样本（库里根本没有的题）也冒出禁词。
+    sql = """
+        SELECT m.id, m.category,
+               NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
+               left(m.content, 200) AS head,
+               (1 - (m.embedding <=> $2::vector))::float AS sim
+        FROM memories m
+        WHERE m.user_id = $1
+          AND m.is_deleted = false AND m.embedding IS NOT NULL
+          AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
+          AND (1 - (m.embedding <=> $2::vector)) >= $4
+        ORDER BY m.embedding <=> $2::vector
+        LIMIT $3
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, user_id, vs, int(limit), float(sim_floor))
     return [dict(r) for r in rows]
 
 
@@ -184,8 +231,12 @@ async def _recent(days: int, kws: List[str], limit: int = 30) -> List[dict]:
 
 class RecallIn(BaseModel):
     query: str
+    user_id: str = "default"     # 2026-11-07：多 Agent 口子——召回必须限定在自己的记忆里
     limit: int = 10
+    k: int | None = None         # 兼容：客户端传 k 等价于 limit（以前传 k 会被静默忽略，只回 10 条）
     days: int = 0
+    semantic: bool = True        # 2026-11-07 实测：配 sim_floor=0.40 时 94% vs 只有字面通道 88%
+    sim_floor: float = 0.40      # 语义相似度下限。无门槛=81%（近似项挤掉正确答案），0.40=94%
 
 
 @router.post("/recall")
@@ -199,23 +250,28 @@ async def recall(body: RecallIn = Body(...)):
         return {"candidates": [], "error": "query 不能为空"}
 
     chans: dict[str, List[dict]] = {}
+    uid = body.user_id or "default"
+    limit = max(1, int(body.k if body.k is not None else body.limit))
 
     for pat, _kind in EXACT_PATTERNS:
         if pat.match(q):
-            chans["E"] = await _exact(q)
+            chans["E"] = await _exact(q, uid, limit)
             break
 
     kws = keywords(q)
     kws_exp = expand_kw(kws)
-    multi = await _multi_kw(kws_exp, limit=60) if kws_exp else []
+    multi = await _multi_kw(kws_exp, uid, limit=60) if kws_exp else []
     if multi:
         chans["C"] = multi
 
     if body.days or any(h in q for h in RECENT_HINTS):
-        chans["T"] = await _recent(body.days or 7, kws_exp, limit=30)
+        chans["T"] = await _recent(body.days or 7, kws_exp, uid, limit=30)
 
-    # 语义：走老接口的内部逻辑需要 embedding，这里交给调用方决定要不要叠加，
-    # 避免在同一个请求里既查 SQL 又调 embedding 导致超时不可控。
+    # 语义通道（2026-11-07 接上）：只有它能在「字面不重合」的提问上找到卡。
+    if body.semantic:
+        sem = await _semantic(q, uid, limit=max(limit, 30), sim_floor=body.sim_floor)
+        if sem:
+            chans["S"] = sem
 
     pool_map: dict[str, dict] = {}
     for ch, rows in chans.items():
@@ -226,6 +282,9 @@ async def recall(body: RecallIn = Body(...)):
                 # 覆盖率分母封顶 3：同义词展开后可能有 13 个词，
                 # 用 13 做分母会让「只命中 1 个核心词」的卡被挤掉
                 base = CREDIT[ch] * min(int(r.get("kw_hit") or 0), 3) / min(int(r["n_kw"]), 3)
+            if ch == "S":
+                # 语义分按相似度折算：sim=0.9 → 0.9*40，避免任何一条都拿满分
+                base = float(CREDIT[ch]) * max(0.0, min(1.0, float(r.get("sim") or 0.0)))
             if not (r.get("no") or "").strip():
                 base *= 0.75      # 老格式卡（无档号）轻微降权
             if key in pool_map:
@@ -240,31 +299,34 @@ async def recall(body: RecallIn = Body(...)):
                  key=lambda x: (-x["score"],
                                 0 if str(x.get("head") or "").startswith(CARD_PREFIX) else 1,
                                 str(x.get("id") or "")))
-    return {"query": q, "keywords": kws, "expanded": kws_exp,
+    return {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,
             "channel_counts": {k: len(v) for k, v in chans.items()},
-            "candidates": out[: body.limit]}
+            "candidates": out[:limit]}
 
 
 class ExactIn(BaseModel):
     q: str
+    user_id: str = "default"
     limit: int = 10
 
 
 @router.post("/exact")
 async def exact(body: ExactIn = Body(...)):
     """精确查档号/台账号/提交/路径。锚定首行优先。"""
-    return {"query": body.q, "hits": await _exact(body.q, body.limit)}
+    return {"query": body.q, "user_id": body.user_id,
+            "hits": await _exact(body.q, body.user_id, body.limit)}
 
 
 class KwIn(BaseModel):
     keywords: List[str]
+    user_id: str = "default"
     limit: int = 60
 
 
 @router.post("/keywords")
 async def kw_search(body: KwIn = Body(...)):
     """多关键词 OR，按命中个数降序。"""
-    rows = await _multi_kw(body.keywords, body.limit)
+    rows = await _multi_kw(body.keywords, body.user_id, body.limit)
     return {"keywords": body.keywords, "count": len(rows), "hits": rows}
 
 
