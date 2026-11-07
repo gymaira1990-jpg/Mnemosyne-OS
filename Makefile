@@ -12,7 +12,7 @@ BASE ?= http://127.0.0.1:8010
 K ?= 10
 LABEL_USER ?= demo
 
-.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-live eval-selftest
+.PHONY: verify lint test clean backup card-check demo eval eval-semantic eval-live eval-selftest staging smoke
 
 ## card-check: 著录卡规范校验（Card Spec v1，内置正反例自检）
 card-check:
@@ -47,6 +47,14 @@ eval-live:
 ## eval-selftest: 只验判据逻辑，不联网
 eval-selftest:
 	$(PY) scripts/eval_recall.py --selftest
+
+## staging: 部署到预发布并冒烟（任何上线前必须走这一步，见 docs/STAGING.md）
+staging:
+	bash scripts/deploy_staging.sh
+
+## smoke: 生产冒烟（库=生产库）
+smoke:
+	python3 scripts/prod_smoke.py $(BASE)
 
 ## backup: 一次可验证的数据库备份（dump → pg_restore 校验 → 记 sha256 → 保留 KEEP 份）
 backup:
