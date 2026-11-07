@@ -866,6 +866,11 @@ def compute_write_fingerprint(content: str, category: str, user_id: str, *,
 
 @app.post("/api/v1/memories")
 async def create_memory(mem: MemoryCreate):
+    # 🔴 2026-11-08 边界审计：空/全空白 content 会被直接送去算向量，
+    #   embedding API 回 400 ⇒ RuntimeError ⇒ 调用方收到 500。
+    #   这是**请求非法**，不是服务器故障，必须在入口挡成 400。
+    if not (mem.content or "").strip():
+        raise HTTPException(status_code=400, detail="content 不能为空（空白字符也不行）")
     _vec_src = (mem.vec_text or mem.content)   # 有 vec_text 就只拿它算向量
     raw_vec = (await get_embedding([_vec_src]))[0]
     vec_str = "[" + ",".join(str(x) for x in raw_vec) + "]"

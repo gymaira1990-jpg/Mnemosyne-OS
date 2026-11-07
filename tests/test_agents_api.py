@@ -93,3 +93,17 @@ def test_counts_are_reported(db):
     data = _list()
     assert data["count"] == len(data["agents"])
     assert data["without_card"] >= 1
+
+
+def test_empty_content_rejected_before_embedding():
+    """空内容必须在入口被挡（400），不能送到 embedding API 变 500。
+
+    2026-11-08 边界审计实测：POST /api/v1/memories 空 content →
+    embedding 返回 400 → RuntimeError → 调用方看到 500（像服务器故障）。
+    """
+    import inspect
+    import main as app_main
+    src = inspect.getsource(app_main.create_memory)
+    assert 'content 不能为空' in src, "入口必须显式拒绝空内容"
+    assert src.index('content 不能为空') < src.index('get_embedding'), \
+        "拒绝必须发生在算向量之前（否则照样打 API）"
