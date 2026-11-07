@@ -57,8 +57,20 @@ ssh "$HOST" "set -e
   git add -A && git -c user.name=g-cat -c user.email=meow@g-cat.cn commit -q -m 'snapshot(prod): 部署前 $HEAD_SHA / $TS' || echo '   （无需新快照）'
   echo \"   备份: .backup-$TS\""
 
-echo "── 3/6 上传并覆盖代码 ──"
-git archive --format=tar.gz HEAD -o /tmp/mne-prod.tar.gz
+echo "── 3/6 上传并覆盖代码（只发部署清单里的文件）──"
+# 🔴 2026-11-08 实测：全量 tar 铺开会把开发脚本（release.py/privacy_scan.py 等 8 个）
+#   也铺到生产上 —— 生产该只放运行需要的文件，不该是仓库镜像。
+#   修法：按 deploy/prod-manifest.json 的 deploy 清单打包（git archive 支持 pathspec）。
+python3 - <<'PY' > /tmp/mne-deploy-files.txt
+import fnmatch, json, subprocess, sys
+m = json.load(open("deploy/prod-manifest.json"))
+tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split()
+picks = [f for f in tracked
+         if any(fnmatch.fnmatch(f, pat) for pat in m["deploy"])]
+print("\n".join(sorted(picks)))
+print(f"待打包 {len(picks)} 个文件（清单 {len(m['deploy'])} 条）", file=sys.stderr)
+PY
+git archive --format=tar.gz HEAD -o /tmp/mne-prod.tar.gz $(tr '\n' ' ' < /tmp/mne-deploy-files.txt)
 scp -q /tmp/mne-prod.tar.gz "$HOST:/tmp/"
 ssh "$HOST" "set -e
   sudo tar -xzf /tmp/mne-prod.tar.gz -C $PROD_DIR
