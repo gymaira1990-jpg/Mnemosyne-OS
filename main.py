@@ -125,6 +125,7 @@ def normalize_category(cat: str) -> str:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import PG_USER, PG_PASSWORD, PG_DB, PG_HOST, PG_PORT, HOST, PORT
 from core.embedding import get_embedding_async
+from core.ranking import WEIGHTS, build_order_sql, TEMPORAL_WEIGHT_SQL
 from core.llm import call_llm as llm_call
 # TMT (兼容现有 v2.1 路由)
 import tmt.router as tmt_module
@@ -262,15 +263,11 @@ async def dialectic_search(req: DialecticRequest):
                         "WHERE k.memory_id = m.id AND k.token = ANY($4::text[]))")
         else:
             bm25_sql = "0"
-        temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
+        # 权重与时近性表达式统一在 core/ranking.py（单一真源，测试可执行它）
         rows = await conn.fetch(
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.created_at, m.session_id "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
-            "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
-            "  + 0.15 * (" + bm25_sql + ") "
-            "  + 0.15 * (" + temporal_sql + ") "
-            "  + 0.10 * m.reliability "
-            "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
+            "ORDER BY (" + build_order_sql(bm25_sql) + ") DESC "
             "LIMIT $3", user_id, q_str, req.max_memories * 2, q_tokens
         )
         if not rows:
@@ -1076,7 +1073,6 @@ async def search_memories(req: MemorySearch):
                     "WHERE k.memory_id = m.id AND k.token = ANY($4::text[]))")
     else:
         bm25_sql = "0"
-    temporal_sql = "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
     
     async with pool.acquire() as conn:
         # v7.3 区域化检索: 先在高 Rank 区(hot+normal)检索 → 不足再全库 (frozen 默认排除)
@@ -1099,11 +1095,7 @@ async def search_memories(req: MemorySearch):
             "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
             "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
             + region_filter + extra_filter +
-            "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
-            "  + 0.15 * (" + bm25_sql + ") "
-            "  + 0.15 * (" + temporal_sql + ") "
-            "  + 0.10 * m.reliability "
-            "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
+            "ORDER BY (" + build_order_sql(bm25_sql) + ") DESC "
             "LIMIT $3",
             *_params
         )
@@ -1113,11 +1105,7 @@ async def search_memories(req: MemorySearch):
                 "SELECT m.id, m.content, m.category, m.tier, m.heat_score, m.reliability, m.access_count, m.created_at "
                 "FROM memories m WHERE m.user_id=$1 AND m.is_deleted=FALSE AND (m.valid_to IS NULL OR m.valid_to > NOW()) AND m.embedding IS NOT NULL "
                 + extra_filter +
-                "ORDER BY (0.50 * (1.0 - (m.embedding <=> $2::vector)) "
-                "  + 0.15 * (" + bm25_sql + ") "
-                "  + 0.15 * (" + temporal_sql + ") "
-                "  + 0.10 * m.reliability "
-                "  + 0.10 * GREATEST(0.0, m.heat_score)) DESC "
+                "ORDER BY (" + build_order_sql(bm25_sql) + ") DESC "
                 "LIMIT $3",
                 *_params
             )
