@@ -51,7 +51,9 @@ ssh "$HOST" "set -e
   cd $PROD_DIR
   sudo mkdir -p .backup-$TS
   sudo chown -R ubuntu:ubuntu .backup-$TS   # 目录归 ubuntu，否则后面写子目录会 permission denied（实测踩过）
-  for f in \$(git ls-files | head -400); do
+  # 🔴 排除 .backup-*：这些备份目录本身在生产 git 里，不过滤会把「备份的备份」再复制一遍
+  #   （2026-11-08 实测：400 个文件里大量嵌套旧备份，真正的回滚点被稀释）
+  for f in \$(git ls-files | grep -v '^\.backup-' | head -400); do
     if [ -f \"\$f\" ]; then mkdir -p .backup-$TS/\$(dirname \$f); cp -p \"\$f\" .backup-$TS/\$f 2>/dev/null || true; fi
   done
   git add -A && git -c user.name=g-cat -c user.email=meow@g-cat.cn commit -q -m 'snapshot(prod): 部署前 $HEAD_SHA / $TS' || echo '   （无需新快照）'
