@@ -27,6 +27,7 @@ scripts/prod_smoke.py — 正式环境冒烟测试（P4 阶段门禁命令）
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -34,6 +35,9 @@ import urllib.error
 import urllib.request
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:18010"
+# 库名必须可指定：同一套冒烟要能打生产库，也能打预发布库（mnemosyne_staging）。
+# 写死库名 = 验预发布时实际在查生产库，是最坏的一种「验过了」。
+DB = os.getenv("MEMOS_DB", "mnemosyne")
 
 
 def req(method: str, path: str, body=None, timeout: int = 45):
@@ -96,7 +100,7 @@ def main() -> int:
     if ids:
         q = ("SELECT id||'|'||COALESCE(metadata->>'layer','NULL') FROM memories WHERE id IN ("
              + ",".join(map(str, ids)) + ") ORDER BY id")
-        p = subprocess.run(["ssh", "gz", f'sudo -u postgres psql -d mnemosyne -tAc "{q}"'],
+        p = subprocess.run(["ssh", "gz", f'sudo -u postgres psql -d {DB} -tAc "{q}"'],
                            capture_output=True, text=True, timeout=60)
         rows = [l.strip() for l in p.stdout.splitlines()
                 if l.strip() and not any(k in l for k in ("perl", "LANG", "LC_", "supported", "Falling"))]
