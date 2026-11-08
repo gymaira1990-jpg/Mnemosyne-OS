@@ -155,6 +155,30 @@ def test_label_can_be_exported_as_case(db):
     assert any(lab["chosen_no"] == "K·IT·L1" for lab in out["labels"]), out["labels"]
 
 
+def test_label_rejects_forged_selected_no(db):
+    """伪造档号必须被拒（2026-11-08 DSH 审计 P0-2，已核实）。
+
+    档号会经 labels_to_cases 变成**评测标准答案** ⇒ 客户端给什么就落什么，
+    等于允许污染自己的尺子。现在一律以库为准，不一致就 400。
+    """
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as e:
+        _label({"user_id": USER, "query": "伪造档号尝试",
+                "chosen_id": _mid(USER), "selected_no": "K·FAKE·9999"})
+    assert e.value.status_code == 400
+    assert "不一致" in str(e.value.detail) or "不存在" in str(e.value.detail)
+
+
+def test_label_rejects_selected_no_without_id(db):
+    """只给一个库里不存在的档号、不给 id —— 也必须拒，不许凭空写裁决。"""
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as e:
+        _label({"user_id": USER, "query": "凭空档号", "selected_no": "K·NOTHING·0000"})
+    assert e.value.status_code == 400
+
+
 # ── 冲突裁决（2026-11-07 加）：动的是 reliability，不是 heat ──
 
 def _rel(uid):

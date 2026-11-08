@@ -1290,19 +1290,28 @@ async def resolve_pending_conflict(req: ConflictResolveReq):
             raise HTTPException(status_code=409, detail="metadata.conflicts_with 缺失，无法裁决")
 
         invalidated = False
-        if req.action == "invalidate_old":
-            await conn.execute(
-                "UPDATE memories SET valid_to=NOW(), invalid_at=NOW() WHERE id=$1 AND valid_to IS NULL",
-                old_id)
-            await conn.execute(
-                "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
-                old_id, json.dumps({"superseded_by": req.new_id, "by": "human_resolve"}))
-            invalidated = True
+        # 🔴 2026-11-08 修（DSH 审计 P0-1，已核实成立）：三次写库原来没有事务，
+        #   中途失败会留下「旧条已作废但新条标记还没清」的半状态。
+        async with conn.transaction():
+            if req.action == "invalidate_old":
+                await conn.execute(
+                    "UPDATE memories SET valid_to=NOW(), invalid_at=NOW() WHERE id=$1 AND valid_to IS NULL",
+                    old_id)
+                await conn.execute(
+                    "INSERT INTO memory_traces (memory_id, action, details) VALUES ($1, 'superseded', $2)",
+                    old_id, json.dumps({"superseded_by": req.new_id, "by": "human_resolve"}))
+                invalidated = True
 
-        meta.pop("conflict_type", None)
-        meta["conflict_resolved_as"] = req.action
-        await conn.execute("UPDATE memories SET metadata=$1::jsonb WHERE id=$2",
-                           json.dumps(meta), req.new_id)
+            meta.pop("conflict_type", None)
+            # 🔴 必须同时清 conflicts_with —— 否则裁决后该条仍然满足
+            #   `GET /memories/conflicts` 的 `metadata->>'conflicts_with' IS NOT NULL`，
+            #   它会永远留在冲突列表里，total 只增不减。原值挪到 conflict_resolved_with 留痕。
+            if "conflicts_with" in meta:
+                meta["conflict_resolved_with"] = meta.pop("conflicts_with")
+            meta["conflict_resolved_as"] = req.action
+            meta["conflict_resolved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            await conn.execute("UPDATE memories SET metadata=$1::jsonb WHERE id=$2",
+                               json.dumps(meta), req.new_id)
     return {"ok": True, "new_id": req.new_id, "old_id": old_id,
             "action": req.action, "old_invalidated": invalidated}
 

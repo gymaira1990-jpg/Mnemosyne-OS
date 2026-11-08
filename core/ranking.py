@@ -16,10 +16,14 @@ WEIGHTS = {
     "heat": 0.10,
 }
 
-# 时近性：7 天内给满 0.15，30 天内 0.08，更早 0
+# 时近性：**归一系数**，最终由 WEIGHTS["temporal"] 加权。
+# 🔴 2026-11-08 修（DSH 审计 P0-3，已核实成立）：
+#   原来这里直接写绝对值 0.15/0.08，而 build_order_sql 外层又乘了一次 WEIGHTS["temporal"]
+#   ⇒ 7 天内的实际贡献是 0.15 × 0.15 = 0.0225，只剩 15% 的效果，五维有效和也只有 0.8725。
+#   「新记忆优先」这个设计实际上一直是失效的。现在改成 1.0 / 0.533 / 0（保持原来 0.15:0.08 的比例）。
 TEMPORAL_WEIGHT_SQL = (
-    "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 0.15 "
-    "WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.08 ELSE 0 END"
+    "CASE WHEN m.created_at > NOW() - INTERVAL '7 days' THEN 1.0 "
+    "WHEN m.created_at > NOW() - INTERVAL '30 days' THEN 0.533 ELSE 0.0 END"
 )
 
 # 语义相似度用余弦距离换算：1 - (embedding <=> query)

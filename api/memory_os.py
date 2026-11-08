@@ -467,22 +467,40 @@ async def record_label(body: LabelIn = Body(...)):
         raise HTTPException(status_code=400, detail="query 不能为空")
     uid = body.user_id or "default"
     cands = body.candidates or []
-    chosen_no = body.selected_no
-    if not chosen_no and body.chosen_id is not None:
-        chosen_no = next((str(c.get("no") or "") or None for c in cands
-                          if str(c.get("id")) == str(body.chosen_id)), None)
+    # 🔴 2026-11-08 修（DSH 审计 P0-2，已核实成立）：
+    #   原来这里 `chosen_no = body.selected_no` 客户端给什么就落什么 ——
+    #   而档号会经 labels_to_cases 变成**评测标准答案**，等于允许污染自己的尺子。
+    #   现在：档号一律以库为准（下面在事务里回填/校验），客户端给的只作对照。
+    chosen_no = (body.selected_no or "").strip() or None
     async with pool.acquire() as conn:
         async with conn.transaction():
             if body.chosen_id is not None:
-                owned = await conn.fetchval(
-                    "SELECT 1 FROM memories WHERE id=$1 AND user_id=$2", body.chosen_id, uid)
+                owned = await conn.fetchrow(
+                    "SELECT substring(content from '档号：\\s*([^\\s]+)') AS no "
+                    "FROM memories WHERE id=$1 AND user_id=$2 AND is_deleted=FALSE",
+                    body.chosen_id, uid)
                 if not owned:
                     raise HTTPException(status_code=400,
-                                        detail=f"chosen_id={body.chosen_id} 不属于 {uid} 或已不存在")
+                                        detail=f"chosen_id={body.chosen_id} 不属于 {uid} 或已删除")
+                db_no = (owned["no"] or "").strip() or None
+                if chosen_no and db_no and chosen_no != db_no:
+                    raise HTTPException(status_code=400,
+                                        detail=f"selected_no={chosen_no} 与库内档号 {db_no} 不一致（拒绝伪造）")
+                chosen_no = db_no or chosen_no
+            elif chosen_no:
+                # 只给了档号没给 id：按档号反查，必须真实存在且未删除，否则不收
+                row = await conn.fetchrow(
+                    "SELECT substring(content from '档号：\\s*([^\\s]+)') AS no "
+                    "FROM memories WHERE user_id=$1 AND is_deleted=FALSE "
+                    "AND content LIKE '%档号：' || $2 || '%' LIMIT 1", uid, chosen_no)
+                if not row:
+                    raise HTTPException(status_code=400,
+                                        detail=f"selected_no={chosen_no} 在库中不存在（拒绝凭空档号）")
             rejected_ids = list(body.rejected_ids or [])
             if rejected_ids:
                 owned_ids = await conn.fetch(
-                    "SELECT id FROM memories WHERE id = ANY($1::bigint[]) AND user_id=$2",
+                    "SELECT id FROM memories WHERE id = ANY($1::bigint[]) AND user_id=$2 "
+                    "AND is_deleted=FALSE",
                     rejected_ids, uid)
                 owned_set = {r["id"] for r in owned_ids}
                 rejected_ids = [i for i in rejected_ids if i in owned_set]

@@ -53,7 +53,11 @@ ssh "$HOST" "set -e
   sudo chown -R ubuntu:ubuntu .backup-$TS   # 目录归 ubuntu，否则后面写子目录会 permission denied（实测踩过）
   # 🔴 排除 .backup-*：这些备份目录本身在生产 git 里，不过滤会把「备份的备份」再复制一遍
   #   （2026-11-08 实测：400 个文件里大量嵌套旧备份，真正的回滚点被稀释）
-  for f in \$(git ls-files | grep -v '^\.backup-' | head -400); do
+  # 🔴 2026-11-08 修（DSH 审计 P1-8，已核实）：原来这里是 `| head -400`，
+  #   超过 400 个文件就**静默截断**——回滚点不完整而脚本还报成功。现改为全量并报数量。
+  N=\$(git ls-files | grep -v '^\.backup-' | wc -l)
+  echo \"   回滚点覆盖 \$N 个文件\"
+  for f in \$(git ls-files | grep -v '^\.backup-'); do
     if [ -f \"\$f\" ]; then mkdir -p .backup-$TS/\$(dirname \$f); cp -p \"\$f\" .backup-$TS/\$f 2>/dev/null || true; fi
   done
   # 提交者身份走中性地址：这里写真实邮箱会把内部域名带进公开仓库（CI 隐私门禁会红）

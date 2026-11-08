@@ -37,6 +37,24 @@ def test_write_path_does_not_auto_invalidate():
     assert "conflict_flagged" in branch, "应记录 conflict_flagged 供接口返回提示"
 
 
+# ── 1b. 源码契约：裁决后必须从冲突列表消失（2026-11-08 DSH 审计 P0-1，已核实） ──
+def test_resolve_clears_conflict_flag_from_list():
+    """`GET /memories/conflicts` 的过滤条件是 `metadata->>'conflicts_with' IS NOT NULL`。
+
+    原实现裁决时只 `pop("conflict_type")`，于是条目**永远留在冲突列表里**，total 只增不减。
+    这里锁三件事：清 conflicts_with、留痕原值、三次写库在同一事务。
+    """
+    src = open(MAIN_PY, encoding="utf-8").read()
+    m = re.search(r"async def resolve_pending_conflict.*?(?=\n@app\.|\nasync def |\ndef )", src, re.S)
+    assert m, "main.py 找不到 resolve_pending_conflict —— 请同步本测试"
+    body = m.group(0)
+    assert 'meta.pop("conflicts_with"' in body, \
+        "裁决必须清掉 conflicts_with，否则该条永远出现在 /memories/conflicts 里（total 只增不减）"
+    assert 'meta["conflict_resolved_with"]' in body, "原值要挪到 conflict_resolved_with 留痕，不能直接丢"
+    assert "async with conn.transaction()" in body, \
+        "三次写库（作废旧条 / 记 trace / 更新标记）必须在一个事务里，否则中途失败留半状态"
+
+
 # ── 2. 真库行为：裁决接口只在被要求时作废 ──
 async def _db_ready() -> bool:
     try:

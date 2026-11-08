@@ -129,7 +129,7 @@ def _score(cases: list[dict], results: dict[int, list[str]], k: int) -> tuple[fl
 
 def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: bool,
         strict: bool = False, sim_floor: float = 0.40, abstain_below: float = 0.0,
-        confirm_margin: float = 0.0) -> int:
+        confirm_margin: float = 0.0, min_rate: float = 0.80) -> int:
     results: dict[int, list[str]] = {}
     asked = 0
     for i, c in enumerate(cases):
@@ -171,7 +171,12 @@ def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: 
         for q in miss:
             print(f"  · {q}")
 
-    if strict and (hits == 0 or rate >= 1.0):
+    # 🔴 2026-11-08 修（DSH 审计 P0-4，已核实成立）：
+    #   原来写的是 `strict and (hits == 0 or rate >= 1.0)` —— 逻辑反了：
+    #   8% 召回照样 exit 0（等于没有门禁），而**满分**反而 exit 1。
+    #   现在改成真正的下限门禁：rate < min_rate 就失败。满分只留区分度警告（上面已打）。
+    if strict and rate < min_rate:
+        print(f"\n❌ --strict：recall@{k} = {rate:.0%} < 门槛 {min_rate:.0%}，判失败")
         return 1
     return 0
 
@@ -221,7 +226,9 @@ def main() -> int:
     ap.add_argument("--semantic", action="store_true", help="额外叠加 S 语义通道")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--strict", action="store_true", help="区分度不足或零命中时返回非零（CI 用）")
+    ap.add_argument("--strict", action="store_true", help="召回率低于 --min-rate 时返回非零（CI 用）")
+    ap.add_argument("--min-rate", type=float, default=0.80,
+                    help="--strict 的门槛，默认 0.80（低于它判失败）")
     ap.add_argument("--sim-floor", type=float, default=0.40, help="语义通道相似度下限（仅 --semantic 生效）")
     ap.add_argument("--abstain-below", type=float, default=0.0, help="弃权阈值：最高分低于它就返回空（0=关闭）")
     ap.add_argument("--confirm-margin", type=float, default=0.0, help="求证阈值：top1-top2 差小于它就问人（0=关闭）")
@@ -244,12 +251,12 @@ def main() -> int:
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = run(cases, a.base_url, a.user, a.k, a.semantic, True, a.strict, a.sim_floor,
-                     a.abstain_below, a.confirm_margin)
+                     a.abstain_below, a.confirm_margin, a.min_rate)
         print(json.dumps({"cases": len(cases), "rc": rc, "detail": buf.getvalue().strip()},
                          ensure_ascii=False))
         return rc
     return run(cases, a.base_url, a.user, a.k, a.semantic, a.quiet, a.strict, a.sim_floor,
-               a.abstain_below, a.confirm_margin)
+               a.abstain_below, a.confirm_margin, a.min_rate)
 
 
 if __name__ == "__main__":

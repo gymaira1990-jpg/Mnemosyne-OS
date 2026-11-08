@@ -62,21 +62,25 @@ def conn():
 
 
 def test_temporal_weights_are_executed_not_asserted(conn):
-    """把真源表达式放进 SQL 跑：1 天=0.15，15 天=0.08，365 天=0。"""
-    from core.ranking import TEMPORAL_WEIGHT_SQL
+    """把真源表达式放进 SQL 跑：**有效贡献** 1 天=0.15，15 天≈0.08，365 天=0。
+
+    2026-11-08：CASE 里的系数改成归一值（1.0/0.533/0），所以这里必须乘上
+    WEIGHTS['temporal'] 再断言 —— 断言的正是「新记忆能拿到多少分」这件事本身。
+    """
+    from core.ranking import TEMPORAL_WEIGHT_SQL, WEIGHTS
 
     async def go():
         c = await _connect()
         try:
             return await c.fetch(
-                "SELECT m.content, " + TEMPORAL_WEIGHT_SQL + " AS w FROM memories m "
-                "WHERE m.user_id=$1 ORDER BY w DESC", USER)
+                "SELECT m.content, " + str(WEIGHTS["temporal"]) + " * (" + TEMPORAL_WEIGHT_SQL
+                + ") AS w FROM memories m WHERE m.user_id=$1 ORDER BY w DESC", USER)
         finally:
             await c.close()
 
     got = {r["content"]: float(r["w"]) for r in _run(go())}
-    assert got["一天前"] == pytest.approx(0.15), got
-    assert got["十五天前"] == pytest.approx(0.08), got
+    assert got["一天前"] == pytest.approx(0.15, abs=1e-6), got
+    assert got["十五天前"] == pytest.approx(0.08, abs=0.002), got
     assert got["一年前"] == pytest.approx(0.0), got
 
 

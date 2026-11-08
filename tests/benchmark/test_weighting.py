@@ -44,3 +44,18 @@ def test_no_dimension_dominates():
     """没有任何单一维度权重 ≥ 0.6 —— 单一维度碾压会让其余四维形同虚设。"""
     assert max(WEIGHTS.values()) < 0.6, WEIGHTS
     assert sum(WEIGHTS.values()) == pytest.approx(1.0), WEIGHTS
+
+
+def test_temporal_weight_is_not_double_multiplied():
+    """时近性的**有效贡献**必须等于 WEIGHTS['temporal']（0.15），不能被外层再乘一次。
+
+    2026-11-08 DSH 审计核实：原实现是 `0.15 * (CASE ... THEN 0.15)` = 0.0225，
+    「新记忆优先」只剩 15% 的效果，五维有效和也只有 0.8725。
+    原来的测试只断言「字典和 = 1.0」，这类「乘两次」它抓不到 ——
+    **断言必须落在实际交付给数据库的 SQL 上**，而不是字典本身。
+    """
+    sql = build_order_sql("0")
+    # 注意不能用 "0.15 *" 计数 —— bm25 的权重也是 0.15，会误伤。必须锚定到 temporal 那一项。
+    assert sql.count(f"{WEIGHTS['temporal']} * (CASE") == 1, f"时近权重系数被乘了不止一次：{sql}"
+    assert "THEN 1.0" in sql, f"7 天内分支必须是归一系数 1.0：{sql}"
+    assert "THEN 0.15" not in sql, f"7 天内分支又写成绝对值了，会被外层再乘一次：{sql}"

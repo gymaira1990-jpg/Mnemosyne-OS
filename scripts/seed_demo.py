@@ -66,6 +66,17 @@ async def run(user: str, clean: bool, cards: str | None = None) -> int:
         exist = await conn.fetchval(
             "select count(*) from memories where user_id=$1 and metadata->>'demo'='true'", user)
         if exist:
+            # 🔴 2026-11-08 修（DSH 审计 P1-4，已核实）：原来两种情况一律静默跳过。
+            #   先跑 demo-basic（5 条裸记忆）再跑 `make demo`（40 张卡片）会被跳过，
+            #   随后 `make eval` 拿 5 条裸记忆评分 ≈ 0/16 —— 分数毫无意义，却没人知道为什么。
+            if cards:
+                n_cards = await conn.fetchval(
+                    "select count(*) from memories where user_id=$1 and metadata->>'demo'='true' "
+                    "and content like '[结果卡]%'", user)
+                if not n_cards:
+                    print(f"❌ user={user} 已有 {exist} 条裸 demo 记忆，但没有卡片。"
+                          "\n   先跑 --clean 再补卡片；否则 make eval 会拿裸记忆评分，结果没有意义。")
+                    return 2
             print(f"已有 {exist} 条示例数据（user_id={user}）。要重来先跑 --clean")
             return 0
 
