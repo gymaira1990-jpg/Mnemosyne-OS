@@ -17,6 +17,15 @@
 </p>
 
 <p align="center">
+  <b>🏔️ v9.1.1 · Milestone — measure it, ask when unsure, ship through a gate</b><br>
+  <sub>
+  <b>Measurable</b>: eval with negative cases &amp; a discrimination self-check (re-score in reverse — if the score doesn't move, the ruler is broken)<br>
+  <b>Answerable</b>: when recall isn't sure it asks → your verdict reweights the memory → that verdict becomes a new test case<br>
+  <b>Releasable</b>: isolated pre-release instance; production deploys must match a commit already smoke-tested there
+  </sub>
+</p>
+
+<p align="center">
   <img src="docs/poster.png" alt="Mnemosyne OS architecture" width="640">
 </p>
 

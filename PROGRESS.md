@@ -1,18 +1,36 @@
 # Mnemosyne OS 状态
 
-## 当前版本: 9.1.1 — 里程碑：可度量 · 可求证 · 可预发布（两轮审计修 16 个缺陷）
+## 当前版本: 9.1.1 — 里程碑：可度量 · 可求证 · 可预发布
 
-## 状态
-- 本地：14 项客户端自检 + 9 项服务端端到端全绿
-- 生产：`/opt/mnemosyne`，`VERSION` 自报 **v9.0.16**；**代码与仓库不完全一致**（2026-11-07 审计：209 个入库文件中缺 64、内容不同 25）
-- 检索：A 集 90% / B 集 90%（`eval_recall.py` / `eval_recall_b.py` 可复现）
+## 状态（2026-11-08 实测，全部可复现）
+
+| 面 | 事实 | 判据 |
+|---|---|---|
+| 生产 | `/opt/mnemosyne` 自报 **v9.1.1**，`mnemosyne` active | `curl /api/v1/capabilities` |
+| 预发布 | `/opt/mnemosyne-staging`（`127.0.0.1:8020`，库 `mnemosyne_staging`）active | 同上 |
+| 代码一致性 | 部署面 **82 个文件全部命中**，**0 处未登记漂移**、**0 条欠账**；6 条实配例外（`.env`/crontab 等主机配置） | `make prod-diff` |
+| 测试 | **370 passed / 0 skipped**（空库只导 `docs/schema.sql` 也是全过） | `hermes verify --json` |
+| 冒烟 | 生产 **6/6**、预发布 **6/6** | `scripts/prod_smoke.py` |
+| 检索 | demo 16 题 recall@10 = **94%**（含 4 条负样本；区分度自检通过） | `make eval-semantic` |
+| 数据 | 记忆 38,858（未删除 33,171）· 著录卡 35,075 · 结果卡 3,622 · 向量覆盖 **100%** | SQL 对拍 |
+| 备份 | 本地 8 份 + 异地 HK 3 份；sha256 校验 OK、`pg_restore --list` 24 张表、异地字节数一致 | `noah-buffer/backups` |
+
+## 部署流程（2026-11-08 起强制）
+
+```
+本地 make test / lint / 反证
+  → bash scripts/deploy_staging.sh        （预发布 + 冒烟 6/6）
+  → 人工看一眼
+  → bash scripts/deploy_prod.sh           （要求该提交已在预发布验过）
+  → 生产冒烟 + prod-diff 0 漂移
+  → 阶段目标全绿 + 主人确认 → 才 tag / Release
+```
 
 ## 下一步
-1. ~~部署到生产并复验自报版号~~ ✅ 自报版号已对上（v9.0.16）——**但这只证明 `VERSION` 文件，不证明代码**；
-   代码级一致以 `make prod-diff` 归零为准（见 T-0672）
-2. 按 `ROADMAP.md` 推进 9.x；依赖升级与全量回归单独排一轮
-3. **部署一致性收口**：`make prod-diff`（部署指纹，判据=0 处未登记漂移）已被 `deploy/prod-manifest.json` 驱动；
-   当前仍有 13 条 `known_diff` 欠账（旧版 `tmt/router.py` 缺失败日志、`security/*` 的 except 收口、`cron/*.sh` 路径漂移等），
-   逐条到期时间为 2026-11-30 / 2026-12-31 —— 这些必须在下个部署窗口随重启一起清掉，否则清单会变成新的免检名单
+
+1. **评测集补盲**：现有 16 题全是「结果卡」，量不到占 89% 的非卡片记忆（已知边界，不是 bug）
+2. **跨进程查询向量缓存**：召回首问约 500ms 花在 embedding 往返，复问约 95ms（进程内缓存已生效）
+3. **自动回滚与部署告警**：目前回滚靠人执行 `cp -a .backup-<ts>/. .`，部署失败靠人看脚本输出
+4. **多 Agent 可见域**：`scope`（private/shared/project）设计已留口子，等主人拍板取值
 
 > 历史状态与逐版明细在 `CHANGELOG.md` —— 本文件只留当前快照，不再累积。
