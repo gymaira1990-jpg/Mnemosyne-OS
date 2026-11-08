@@ -134,7 +134,7 @@ from tmt.router import router as tmt_router
 def _version_label() -> str:
     """版本号的唯一真源 = VERSION 文件（根治硬编码漏同步：v8.0 曾漏升 title 与 systemd 描述）"""
     try:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as f:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION"), encoding="utf-8") as f:
             return f.read().strip()
     except Exception:
         return "unknown"
@@ -1959,7 +1959,7 @@ async def layers_classify(category: str = "knowledge", has_artifact: bool = Fals
 # ── 自描述化 API ──
 def _read_version() -> str:
     try:
-        return open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")).read().strip()
+        return open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION"), encoding="utf-8").read().strip()
     except Exception:
         return "unknown"
 
@@ -2020,7 +2020,7 @@ async def capabilities():
 async def echo():
     # v7.8: 版本读 VERSION 文件, 根治硬编码漏同步
     try:
-        ver = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")).read().strip()
+        ver = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION"), encoding="utf-8").read().strip()
     except Exception:
         ver = "unknown"
     return {"status": "ok", "service": "Mnemosyne OS", "version": ver}

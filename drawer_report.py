@@ -83,7 +83,9 @@ async def main():
             "health": "✅" if (forget and len(forget) > 50) else "📋",
         }
         fname = f"/tmp/drawer_report_{datetime.now().strftime('%Y%m%d')}.json"
-        with open(fname, "w") as f:
+        with open(fname, "w", encoding="utf-8") as f:
+            # 🔴 2026-11-08：这行原来没有 encoding。report 里有 emoji/中文，
+            #   Windows 默认 GBK 写入会直接 UnicodeEncodeError（DSH 审计 P1-3 的范围，核实成立）。
             json.dump(report, f, ensure_ascii=False, indent=2)
         print(json.dumps(report, ensure_ascii=False))
         print(f"报告已存: {fname}")
