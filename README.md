@@ -397,12 +397,13 @@ We publish the regressions, not just the wins:
 |---|---|
 | [INSTALL.md](INSTALL.md) | Installation (Linux / macOS / WSL2), model backends, FAQ |
 | [AGENTS.md](AGENTS.md) | Manual for AI agents: API surface, env vars, Hermes/MCP |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internals: layers, fusion, storage |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · **[English edition](docs/en/)** | Internals: layers, fusion, storage |
 | [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **Card Spec v1**: 7-line structure, archive numbers, evidence ranks, embedding rules |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | **Verify it yourself**: `make demo && make eval` · two measured runs (92% / 100%) and the two traps |
 | [evals/](evals/) | 40 demo cards + 12 questions + raw outputs (reproducible) |
 | [integrations/card-builder/](integrations/card-builder/) | Reference implementation: dialogue → card (stdlib only) · [`evals/`](evals/) recall cases |
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST reference · every environment variable |
+| [docs/en/STAGING.md](docs/en/STAGING.md) | Pre-release environment: why it's mandatory, isolation proof, deploy flow |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | Design philosophy |
 | [docs/design/](docs/design/) · [docs/adr/](docs/adr/) | Design docs · architecture decision records |
 | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) | Where it is going · what changed |

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 640px; overflow: hidden;
+    font-family: "Noto Sans CJK SC", "DejaVu Sans", system-ui, sans-serif;
+    background: radial-gradient(1100px 500px at 8% -12%, #2a1c11 0%, #131110 52%, #0a0908 100%);
+    color: #f4efe7; position: relative;
+  }
+  .grid { position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,159,67,.06) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,159,67,.06) 1px, transparent 1px);
+    background-size: 42px 42px; }
+  .wrap { position: relative; height: 100%; padding: 54px 64px; display: flex; gap: 34px; }
+  .col { display: flex; flex-direction: column; flex: 1; }
+  .kicker { display: flex; align-items: center; gap: 12px; font-size: 17px; letter-spacing: .18em;
+            color: #ff9f43; font-weight: 700; text-transform: uppercase; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #ff9f43; box-shadow: 0 0 14px #ff9f43; }
+  h1 { font-size: 66px; font-weight: 800; line-height: 1.05; margin-top: 20px; letter-spacing: -.02em; }
+  h1 .accent { color: #ff9f43; }
+  .tag { font-size: 21px; color: #c8bcaa; line-height: 1.5; margin-top: 16px; max-width: 700px; }
+  .pillars { display: flex; gap: 14px; margin-top: auto; }
+  .p { flex: 1; border: 1px solid rgba(255,159,67,.26); border-radius: 12px; padding: 16px 16px 18px;
+       background: linear-gradient(180deg, rgba(255,159,67,.10), rgba(255,159,67,.015)); }
+  .p b { display: block; font-size: 18px; color: #ffb26b; margin-bottom: 7px; }
+  .p span { font-size: 14px; color: #a99d8c; line-height: 1.42; }
+  /* 立牌 */
+  .standee { width: 330px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .frame { position: relative; }
+  .frame img { width: 330px; height: 440px; object-fit: cover; border-radius: 14px;
+                border: 2.5px solid rgba(255,159,67,.55); box-shadow: 0 14px 40px rgba(0,0,0,.55); display: block; }
+  .label { position: absolute; left: 50%; bottom: -17px; transform: translateX(-50%);
+           background: #1a1512; border: 1px solid rgba(255,159,67,.5); color: #ffb26b;
+           font-size: 13px; padding: 6px 14px; border-radius: 999px; white-space: nowrap; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="wrap">
+    <div class="col">
+      <div class="kicker"><span class="dot"></span> v9.1.1 · Milestone</div>
+      <h1>Mnemosyne <span class="accent">OS</span></h1>
+      <div class="tag">A memory operating system for AI agents.<br>
+        Every conversation becomes a cataloged card — archive number, entities, evidence, and a pointer back to the transcript.</div>
+      <div class="pillars">
+        <div class="p"><b>Measurable</b><span>Eval with negative cases + a discrimination self-check: re-score in reverse, and if the score doesn't move, the ruler is broken.</span></div>
+        <div class="p"><b>Answerable</b><span>When recall isn't sure, it asks. Your verdict reweights the memory and becomes a new test case.</span></div>
+        <div class="p"><b>Releasable</b><span>Isolated pre-release; a production deploy must match a commit already smoke-tested there.</span></div>
+      </div>
+    </div>
+    <div class="standee">
+      <div class="frame">
+        <img src="data:image/jpeg;base64,__STANDEE_B64__" alt="Xiao Xiao Ju">
+        <div class="label">🐱 Memory Palace · Xiao Xiao Ju</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

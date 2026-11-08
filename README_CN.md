@@ -383,6 +383,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 | [INSTALL.md](INSTALL.md) | 安装（Linux / macOS / WSL2）、模型后端、FAQ |
 | [AGENTS.md](AGENTS.md) | 给 AI Agent 的手册：API 面、环境变量、Hermes/MCP |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 内部结构：分层、融合、存储 |
+| [docs/STAGING.md](docs/STAGING.md) | 预发布环境：为什么必须有、隔离证明、四条判据 |
 | [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **著录卡规范 v1**：7 行结构 · 档号规则 · 证据分级 · 向量化口径 |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | **自己验**：`make demo && make eval` · 两组实测（92% / 100%）与两个必踩的坑 |
 | [evals/](evals/) | 40 张演示卡 + 12 道题 + 原始跑分输出（可复现） |
@@ -390,6 +391,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST 参考 · 全部环境变量 |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | 设计哲学 |
 | [docs/design/](docs/design/) · [docs/adr/](docs/adr/) | 设计文档 · 架构决策记录 |
+| [docs/en/](docs/en/) | 英文版核心文档（ARCHITECTURE / API / STAGING） |
 | [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) | 往哪走 · 改了什么 |
 
 ## 版本

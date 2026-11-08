@@ -25,6 +25,7 @@
 | [WHITEPAPER.md](WHITEPAPER.md) | 设计哲学（为什么是宫殿不是抽屉） | 想理解取舍 |
 | [palace-architecture.md](palace-architecture.md) | 分类树 / 索书号的详细设计 | 用 Palace 层的人 |
 | [schema.sql](schema.sql) | 完整表结构（21 张表） | 建库 |
+| [en/](en/) | 英文版核心文档（ARCHITECTURE / API / STAGING） | 给不看中文的读者 |
 | [adr/](adr/) | 架构决策记录 | 想知道「为什么不用 X」 |
 | [design/](design/) | 逐版设计稿 | 考古 |
 
