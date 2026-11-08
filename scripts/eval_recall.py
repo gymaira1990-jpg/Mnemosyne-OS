@@ -179,6 +179,19 @@ def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: 
     print(f"\nrecall@{k} = {hits}/{n} = {rate:.0%}"
           f"（{user} · {'E/C/T + S' if semantic else 'E/C/T'}）")
     sep = rate - tight_rate
+    # T-0684（2026-11-09）：正负样本分开报，否则「弃权能力」被平均分吃掉看不见。
+    # 以前 16 题里 12 正 + 4 负，一个总分 94% 完全看不出「负样本其实只对了 3/4」。
+    pos_i = [i for i, c in enumerate(cases) if not c.get("forbid")]
+    neg_i = [i for i, c in enumerate(cases) if c.get("forbid")]
+    if pos_i:
+        p_hit = sum(1 for i in pos_i
+                    if judge(results[i], cases[i].get("expect") or [], k, None)[0])
+        print(f"  ├ 正样本 recall@{k} = {p_hit}/{len(pos_i)} = {p_hit/len(pos_i):.0%}")
+    if neg_i:
+        n_ok = sum(1 for i in neg_i
+                   if judge(results[i], [], k, cases[i].get("forbid"), answers.get(i))[0])
+        print(f"  └ 负样本弃权率   = {n_ok}/{len(neg_i)} = {n_ok/len(neg_i):.0%}"
+              f"（口径：返回空 或 全部 answerability<0.3）")
     if confirm_margin > 0:
         print(f"求证率：{asked}/{n} = {asked / (n or 1):.0%}（拿不准就问人；问得太多=噪音）")
     print(f"区分度自检：recall@{k} {rate:.0%} ｜ recall@{min(TIGHT_K, k)} {tight_rate:.0%}"
