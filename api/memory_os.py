@@ -142,47 +142,62 @@ async def _exact(q: str, user_id: str = "default", limit: int = 10) -> List[dict
     return [dict(r) for r in rows]
 
 
-async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 60) -> List[dict]:
-    """多关键词 OR + 按命中数降序（BM25 的穷人版）。
+_PG_RE_SPECIAL = set(r".^$*+?()[]{}|\\-")
+
+
+def _kw_regex(kws: List[str]) -> str:
+    """把关键词数组编成一条 PG 正则的 alternation —— **一次全表扫描**代替 N 次 ILIKE。
+
+    为什么必须这么绕（2026-11-08 实测）：`content ILIKE '%kw%'` 在这套中文语料上
+    **走不了索引**（pg_trgm 对少于 3 个字符的 pattern 无效，中文两字词全部中招），
+    8 个关键词就是 8 次全表扫描。同一组词实测：
+        4 次 ILIKE = 807ms ／ 一条等价正则 = 220ms（快 3.7 倍，结果集完全相同 911 条）。
+    """
+    parts = []
+    for k in kws:
+        if not k:
+            continue
+        parts.append("".join(("\\" + c) if c in _PG_RE_SPECIAL else c for c in k))
+    return "|".join(parts)
+
+
+async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 5000) -> List[dict]:
+    """多关键词 OR 候选池（BM25 的穷人版）。
 
     2026-11-07：加 user_id 范围；关键词走 unnest($2) 参数化，不再拼 f-string。
+    2026-11-08：改「一次正则粗筛 + 候选行内算命中词」，**不再按 kw_hit 截断窗口**。
+      旧实现按 `kw_hit DESC` 取前 60/300 —— 命中泛词多的卡先把窗口占满，
+      命中稀有锚点的正确记忆根本进不来（实测「TMT 的 L3 表缺哪个字段」永远搜不到）。
+      现在全量返回候选，真正的排序交给调用方按 IDF 做。
     """
     kws = [k for k in (x.strip() for x in kws) if k]
     if not kws:
         return []
+    pattern = _kw_regex(kws)
     sql = """
-        SELECT m.id, m.category,
-               NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
-               left(m.content, 200) AS head,
-               (SELECT count(*) FROM unnest($2::text[]) AS t(kw)
-                 WHERE m.content ILIKE '%' || t.kw || '%') AS kw_hit,
-               -- 2026-11-08：把「命中了哪几个词」带回去，交给 Python 侧按 IDF 加权。
-               -- 只按命中个数排序是等权假设，实测被泛词吃死：问「TMT 的 L3 表缺哪个字段」时，
-               -- 一张只含「字段」二字的 SVG 卡拿到 60 分，真正的 TMT 记忆 20 分、连 60 条窗口都挤不进。
-               (SELECT array_agg(t.kw) FROM unnest($2::text[]) AS t(kw)
-                 WHERE m.content ILIKE '%' || t.kw || '%') AS hit_kws,
-               array_length($2::text[], 1) AS n_kw,
-               (m.content LIKE '[结果卡]%') AS is_card
-        FROM memories m
-        WHERE m.user_id = $1
-          AND m.is_deleted = false
-          -- 🔴 2026-11-08 审计：原来这里写死 `content LIKE '[结果卡]%'`，
-          --   而库里 33,165 条未删除记忆中只有 3,622 条（11%）是这个形态 ⇒
-          --   **89% 的记忆在关键词通道里彻底搜不到**（含全部 4,375 条蒸馏知识）。
-          --   改成「卡片优先排序」，不再把人挡在门外。
-          AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
-          AND EXISTS (SELECT 1 FROM unnest($2::text[]) AS t(kw)
-                       WHERE m.content ILIKE '%' || t.kw || '%')
-        -- 排序必须以**相关度**为先：先按命中关键词数，再让卡片优先。
-        -- 2026-11-08 实测：把 is_card 放第一位时，60 条卡片把非卡片全挤出窗口，
-        -- 结果「修了过滤但检索依旧看不到」——等于没修。
-        -- 🔴 2026-11-08 再修：这个窗口是「粗排」，只是取候选池；**真正的打分在 Python 侧按 IDF**。
-        --   窗口太小仍会把稀有词命中的正确记忆挡在外面（60 → 300，实测可捞回）。
-        ORDER BY kw_hit DESC, is_card DESC, m.id DESC
-        LIMIT $3
+        WITH cand AS (
+            SELECT m.id, m.category, m.content,
+                   NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
+                   (m.content LIKE '[结果卡]%') AS is_card
+            FROM memories m
+            WHERE m.user_id = $1
+              AND m.is_deleted = false
+              -- 🔴 2026-11-08 审计：原来这里写死 `content LIKE '[结果卡]%'`，
+              --   而库里 33,165 条未删除记忆中只有 3,622 条（11%）是这个形态 ⇒
+              --   **89% 的记忆在关键词通道里彻底搜不到**（含全部 4,375 条蒸馏知识）。
+              AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
+              -- 一次正则扫描拿候选；只对候选行逐词算命中（成本从 全表×N 降到 候选×N）
+              AND m.content ~* $2
+            LIMIT $4
+        )
+        SELECT c.id, c.category, c.no, left(c.content, 200) AS head, c.is_card,
+               (SELECT array_agg(t.kw ORDER BY t.kw) FROM unnest($3::text[]) AS t(kw)
+                 WHERE c.content ILIKE '%' || t.kw || '%') AS hit_kws,
+               array_length($3::text[], 1) AS n_kw
+        FROM cand c
     """
     async with pool.acquire() as conn:
-        rows = await conn.fetch(sql, user_id, kws, int(limit))
+        rows = await conn.fetch(sql, user_id, pattern, kws, int(limit))
     return [dict(r) for r in rows]
 
 
@@ -325,9 +340,9 @@ async def recall(body: RecallIn = Body(...)):
 
     kws = keywords(q)
     kws_exp = expand_kw(kws)
-    # 🔴 2026-11-08：窗口 60 → 300。这个窗口只是「粗排候选池」，真正的排序在下面按 IDF 做。
-    #   60 条时，一批命中泛词的卡片会把命中稀有词的记忆挡在池外（实测 TMT 那条就这么消失的）。
-    multi = await _multi_kw(kws_exp, uid, limit=300) if kws_exp else []
+    # 🔴 2026-11-08：窗口不再按 kw_hit 截断（60→300 仍会漏），改成「正则粗筛 + 全量候选」，
+    #   真正的排序在下面按 IDF 做。上限 5000 只是防爆保护（39k 库里 8 个词最多命中也才几千）。
+    multi = await _multi_kw(kws_exp, uid, limit=5000) if kws_exp else []
     if multi:
         chans["C"] = multi
 

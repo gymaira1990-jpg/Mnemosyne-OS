@@ -76,15 +76,25 @@ def test_keyword_channel_finds_non_card_memory(seeded):
 
 
 def test_keyword_channel_still_prefers_cards_on_tie(seeded):
-    """相关度相同时卡片优先 —— 但不能因此把非卡片挤出窗口（排序必须是 kw_hit 优先）。"""
+    """C 通道不许「按命中个数截窗口」，也不许再拿档号当相关性信号。
+
+    2026-11-08 第二轮：`ORDER BY kw_hit DESC ... LIMIT 60/300` 仍然会把命中稀有锚点的记忆挡在池外
+    （实测「TMT 的 L3 表缺哪个字段」—— 命中的是只因含「字段」二字的 SVG 卡）。
+    现改为：一次正则粗筛 + 全量候选 + 调用方按 IDF 打分。
+    """
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1] / "api" / "memory_os.py").read_text(encoding="utf-8")
-    assert "ORDER BY kw_hit DESC, is_card DESC" in src, \
-        "排序必须相关度优先；is_card 排第一会把非卡片挤出 60 条窗口（实测过）"
-    # 注意：注释里会引用旧 SQL 原文做说明，所以只匹配真正的 WHERE 子句写法
     multi = src.split("async def _recent")[0]
+
+    assert "ORDER BY kw_hit DESC" not in multi, \
+        "C 通道不许再按命中个数截窗口：泛词卡片会把稀有锚点的真答案挤出去"
+    assert "~*" in multi, "C 通道必须用一次正则粗筛（N 次 ILIKE 在中文语料上是 N 次全表扫描）"
+    assert "hit_kws" in multi, "C 通道必须把命中了哪几个词带回去，交给 IDF 打分"
+    # 注意：注释里会引用旧 SQL 原文做说明，所以只匹配真正的 WHERE 子句写法
     assert "AND m.content LIKE '[结果卡]%'" not in multi, \
         "C 通道不许再有『只认结果卡』的硬过滤"
+    assert "base *= 0.75" not in src, \
+        "不许再按「无档号」降权 —— 档号是元数据不是相关性信号，89% 的非卡片语料会先天少 25%"
 
 
 def test_time_channel_has_no_card_only_filter(seeded):
