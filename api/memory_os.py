@@ -167,7 +167,10 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 60) -
           AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
           AND EXISTS (SELECT 1 FROM unnest($2::text[]) AS t(kw)
                        WHERE m.content ILIKE '%' || t.kw || '%')
-        ORDER BY is_card DESC, kw_hit DESC, m.id DESC
+        -- 排序必须以**相关度**为先：先按命中关键词数，再让卡片优先。
+        -- 2026-11-08 实测：把 is_card 放第一位时，60 条卡片把非卡片全挤出窗口，
+        -- 结果「修了过滤但检索依旧看不到」——等于没修。
+        ORDER BY kw_hit DESC, is_card DESC, m.id DESC
         LIMIT $3
     """
     async with pool.acquire() as conn:
