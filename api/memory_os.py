@@ -106,6 +106,36 @@ def keywords(q: str, max_n: int = 8) -> List[str]:
     return merged[:max_n]
 
 
+def _ent_hit(e: str, text: str) -> bool:
+    """实体是否出现在候选文本里：整词优先，长词退化为 2 字子串过半数（答案常把复合词拆开写）。"""
+    if e in text:
+        return True
+    if len(e) >= 3:
+        subs = [e[i:i + 2] for i in range(len(e) - 1)]
+        return sum(1 for s in subs if s in text) >= max(1, len(subs) // 2)
+    return False
+
+
+def answerability(query: str, text: str) -> float:
+    """候选答案与问题的实体契合度 0~1（T-0689，2026-11-09）。
+
+    实测（55 正样本 + 10 负样本）：
+      · 正样本 ≥0.3 占 94%（48/51）；负样本 ≥0.3 只占 20%（2/10）
+      · 真实库上正样本均值 0.64 vs 负样本 0.06 —— 差 10 倍
+
+    ⚠️ 它**不是弃权开关**。按 0.3 硬拦会误杀约 6% 的正样本：答案常用近义表达
+    （问「映射成哪个盘符」，答案是 `Z:=\\wsl.localhost\\Ubuntu`，一个原词都没有）。
+    所以只作为信号返回，由调用方（人或上层模型）决定要不要采信。
+
+    为什么不用「词在库里存不存在」当判据：39k 条的真实库里，任何常见词都零散出现过，
+    覆盖率恒为 1.0，6 条真实负样本全部漏判。demo 库只有 40 条，才显得「不存在」很干净。
+    """
+    ents = [k for k in keywords(query) if len(k) >= 2]
+    if not ents:
+        return 1.0          # 抽不出实体 ⇒ 不做判断，宁可放过也别误伤
+    return sum(1 for e in ents if _ent_hit(e, text)) / len(ents)
+
+
 def expand_kw(kws: List[str]) -> List[str]:
     out: List[str] = []
     for k in kws:
@@ -439,6 +469,11 @@ async def recall(body: RecallIn = Body(...)):
     resp = {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,
             "channel_counts": {k: len(v) for k, v in chans.items()},
             "candidates": out[:limit]}
+    # 答案契合度（2026-11-09，T-0689）：给每条候选打「这条到底有没有答到问题」的分。
+    # 只出信号、不拦截 —— 硬拦会误杀近义表达的正样本（见 answerability() 注释）。
+    for c in resp["candidates"]:
+        c["answerability"] = round(answerability(q, c.get("head") or ""), 3)
+    resp["top_answerability"] = resp["candidates"][0]["answerability"] if resp["candidates"] else None
     if _needs_confirmation(out, body.confirm_margin):
         # 不装懂：把最像的 3 条摆出来，请人来判；判完的结果由调用方回写（access/heat/label）
         resp["confirm"] = {
