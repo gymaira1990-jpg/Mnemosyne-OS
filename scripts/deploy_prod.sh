@@ -56,7 +56,9 @@ ssh "$HOST" "set -e
   for f in \$(git ls-files | grep -v '^\.backup-' | head -400); do
     if [ -f \"\$f\" ]; then mkdir -p .backup-$TS/\$(dirname \$f); cp -p \"\$f\" .backup-$TS/\$f 2>/dev/null || true; fi
   done
-  git add -A && git -c user.name=g-cat -c user.email=meow@g-cat.cn commit -q -m 'snapshot(prod): 部署前 $HEAD_SHA / $TS' || echo '   （无需新快照）'
+  # 提交者身份走中性地址：这里写真实邮箱会把内部域名带进公开仓库（CI 隐私门禁会红）
+  git add -A && git -c user.name=deploy -c user.email=deploy@localhost \
+      commit -q -m 'snapshot(prod): 部署前 $HEAD_SHA / $TS' || echo '   （无需新快照）'
   echo \"   备份: .backup-$TS\""
 
 echo "── 3/6 上传并覆盖代码（只发部署清单里的文件）──"
