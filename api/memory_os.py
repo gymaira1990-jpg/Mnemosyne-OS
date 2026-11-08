@@ -266,11 +266,20 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 5000)
     if not kws:
         return []
     pattern = _kw_regex(kws)
+    # T-0696（2026-11-09）：候选池按「命中词的 IDF 之和」排序后再截断。
+    # 旧写法是全量命中就 LOC 到 5000，泛词（hermes df=4216 / 记忆 df=3632）一条就能
+    # 撑满窗口，含真锚点的记忆（「verify 跑了 195 passed」）排在 5000 名之外 ⇒ 永远搜不到。
+    # 11-08 删掉过 `ORDER BY kw_hit DESC`（按命中**个数**排序同样会被泛词占满），
+    # 这里换成按**权重**排序，泛词权重低就占不住位置。
+    weights = [_kw_weight(k) for k in kws]
     sql = """
         WITH cand AS (
             SELECT m.id, m.category, m.content,
                    NULLIF(split_part(split_part(m.content, '档号：', 2), chr(10), 1), '') AS no,
-                   (m.content LIKE '[结果卡]%') AS is_card
+                   (m.content LIKE '[结果卡]%') AS is_card,
+                   (SELECT COALESCE(SUM(w.idf), 0)
+                      FROM unnest($3::text[], $5::float8[]) AS w(kw, idf)
+                     WHERE m.content ILIKE '%' || w.kw || '%') AS kw_score
             FROM memories m
             WHERE m.user_id = $1
               AND m.is_deleted = false
@@ -280,6 +289,7 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 5000)
               AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
               -- 一次正则扫描拿候选；只对候选行逐词算命中（成本从 全表×N 降到 候选×N）
               AND m.content ~* $2
+            ORDER BY kw_score DESC
             LIMIT $4
         )
         SELECT c.id, c.category, c.no, left(c.content, 200) AS head, c.is_card,
@@ -289,7 +299,7 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 5000)
         FROM cand c
     """
     async with pool.acquire() as conn:
-        rows = await conn.fetch(sql, user_id, pattern, kws, int(limit))
+        rows = await conn.fetch(sql, user_id, pattern, kws, int(limit), weights)
     return [dict(r) for r in rows]
 
 

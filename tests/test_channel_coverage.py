@@ -82,16 +82,29 @@ def test_keyword_channel_still_prefers_cards_on_tie(seeded):
     （实测「TMT 的 L3 表缺哪个字段」—— 命中的是只因含「字段」二字的 SVG 卡）。
     现改为：一次正则粗筛 + 全量候选 + 调用方按 IDF 打分。
     """
+    import ast
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1] / "api" / "memory_os.py").read_text(encoding="utf-8")
-    multi = src.split("async def _recent")[0]
+    # ⚠️ 用 AST 只取 `_multi_kw` 里的 **SQL 字符串字面量**，不扫注释/docstring。
+    #   2026-11-09 实测踩到两次自伤：① 新加的中文注释里引用了旧写法 → 断言失败
+    #   ② 文件头 docstring 里也有历史说明 → 仍然失败。字符串级匹配在「注释里会引用自己」
+    #   的代码里天生不可靠。
+    tree = ast.parse(src)
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, (ast.AsyncFunctionDef, ast.FunctionDef)) and n.name == "_multi_kw")
+    doc = ast.get_docstring(fn) or ""
+    code = "\n".join(
+        n.value for n in ast.walk(fn)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value != doc
+    )
 
-    assert "ORDER BY kw_hit DESC" not in multi, \
-        "C 通道不许再按命中个数截窗口：泛词卡片会把稀有锚点的真答案挤出去"
-    assert "~*" in multi, "C 通道必须用一次正则粗筛（N 次 ILIKE 在中文语料上是 N 次全表扫描）"
-    assert "hit_kws" in multi, "C 通道必须把命中了哪几个词带回去，交给 IDF 打分"
-    # 注意：注释里会引用旧 SQL 原文做说明，所以只匹配真正的 WHERE 子句写法
-    assert "AND m.content LIKE '[结果卡]%'" not in multi, \
+    assert "ORDER BY kw_hit DESC" not in code, \
+        "C 通道不许再按命中**个数**截窗口：泛词卡片会把稀有锚点的真答案挤出去"
+    assert "ORDER BY kw_score DESC" in code, \
+        "C 通道必须按命中词的 IDF 加权和排序后再截断（T-0696：泛词权重低，占不住窗口）"
+    assert "~*" in code, "C 通道必须用一次正则粗筛（N 次 ILIKE 在中文语料上是 N 次全表扫描）"
+    assert "hit_kws" in code, "C 通道必须把命中了哪几个词带回去，交给 IDF 打分"
+    assert "AND m.content LIKE '[结果卡]%'" not in code, \
         "C 通道不许再有『只认结果卡』的硬过滤"
     assert "base *= 0.75" not in src, \
         "不许再按「无档号」降权 —— 档号是元数据不是相关性信号，89% 的非卡片语料会先天少 25%"
