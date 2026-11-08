@@ -10,6 +10,15 @@ import subprocess
 import sys
 import pathlib
 
+# GBK 控制台打 emoji 会直接崩（DSH 审计 P1-3，2026-11-08 实测确认）；errors=replace 兜底
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _reconf = getattr(_stream, "reconfigure", None)
+        if _reconf is not None:
+            _reconf(errors="replace")
+    except Exception:
+        pass
+
 P0 = [
     ("OpenAI/DS key", re.compile("sk" + "-[A-Za-z0-9]{16,}")),
     ("Tavily key", re.compile("tv" + "ly-[A-Za-z0-9]{16,}")),

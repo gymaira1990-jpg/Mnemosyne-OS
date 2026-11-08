@@ -232,7 +232,8 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true", help="召回率低于 --min-rate 时返回非零（CI 用）")
     ap.add_argument("--min-rate", type=float, default=0.80,
-                    help="--strict 的门槛，默认 0.80（低于它判失败）")
+                    help="--strict 的门槛（默认 0.80）。注意：demo 卡片题集用 0.80 合适；"
+                         "真实语料题集（如非卡片 39 题基线 74%%）请传 --min-rate 0.70，否则会误红")
     ap.add_argument("--sim-floor", type=float, default=0.40, help="语义通道相似度下限（仅 --semantic 生效）")
     ap.add_argument("--abstain-below", type=float, default=0.0, help="弃权阈值：最高分低于它就返回空（0=关闭）")
     ap.add_argument("--confirm-margin", type=float, default=0.0, help="求证阈值：top1-top2 差小于它就问人（0=关闭）")

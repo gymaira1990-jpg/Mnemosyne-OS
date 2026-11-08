@@ -171,10 +171,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="著录卡规范校验（docs/CARD-SPEC.md）")
     ap.add_argument("path", nargs="?", help="卡片文件路径；`-` = stdin")
     ap.add_argument("--selftest", action="store_true", help="跑内置正反例自检")
+    ap.add_argument("--jsonl", action="store_true",
+                    help="把 path 当 JSONL，逐行取 content 校验（evals/demo_cards.jsonl 用这个）")
     a = ap.parse_args()
 
     if a.selftest:
         return selftest()
+    if a.jsonl:
+        if not a.path:
+            print("需要 JSONL 路径", file=sys.stderr)
+            return 2
+        return _check_jsonl(a.path)
     if not a.path:
         ap.print_help()
         return 2
@@ -192,5 +199,46 @@ def main() -> int:
     return 0
 
 
+def _check_jsonl(path: str) -> int:
+    """JSONL 逐条校验（DSH 审计 D-2，2026-11-08）。
+
+    以前 `card_check.py evals/demo_cards.jsonl` 会直接 exit 1 ——
+    因为它把整个 JSONL 当成一张卡的正文去校验。"40 卡全过"只能人工抽，无法自动化。
+    """
+    import json
+
+    total = bad = 0
+    with open(path, encoding="utf-8") as f:
+        for lineno, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            total += 1
+            try:
+                content = json.loads(line).get("content") or ""
+            except Exception as e:  # noqa: BLE001
+                bad += 1
+                print(f"❌ 第 {lineno} 行 JSON 解析失败：{e}")
+                continue
+            problems, _warnings = check(content)
+            if problems:
+                bad += 1
+                print(f"❌ 第 {lineno} 行不合格（{len(problems)} 项）：{'; '.join(problems[:3])}")
+    print(f"\n共 {total} 条，不合格 {bad} 条")
+    return 1 if bad else 0
+
+
+def _safe_console() -> None:
+    """GBK 控制台打 emoji 会直接崩（DSH 审计 P1-3）。errors=replace 兜底，不中断。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            reconf = getattr(stream, "reconfigure", None)
+            if reconf is not None:
+                reconf(errors="replace")
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
+    _safe_console()
     sys.exit(main())

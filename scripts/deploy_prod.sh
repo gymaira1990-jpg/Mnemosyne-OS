@@ -24,6 +24,13 @@ PROD_DIR="${PROD_DIR:-/opt/mnemosyne}"
 STAGING_SHA_FILE="${STAGING_SHA_FILE:-/opt/mnemosyne-staging/DEPLOYED_SHA}"
 SKIP_STAGING=0
 [[ "${1:-}" == "--skip-staging-check" ]] && SKIP_STAGING=1
+# 🔴 2026-11-08（DSH 审计 D-8）：光有 `--skip-staging-check` 一个参数太容易顺手跳过预发布
+#   （习惯性跳过 = 预发布环节消失）。改成必须同时设环境变量，两道门。
+if [[ "$SKIP_STAGING" -eq 1 && "${I_KNOW_SKIP_STAGING:-}" != "yes" ]]; then
+  echo "❌ --skip-staging-check 必须同时设置 I_KNOW_SKIP_STAGING=yes"
+  echo "   用法：I_KNOW_SKIP_STAGING=yes bash scripts/deploy_prod.sh --skip-staging-check"
+  exit 1
+fi
 
 cd "$REPO"
 TS="$(date +%Y%m%d-%H%M%S)"

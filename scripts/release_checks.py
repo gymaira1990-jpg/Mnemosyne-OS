@@ -435,5 +435,22 @@ def main() -> int:
     return 2
 
 
+def _safe_console() -> None:
+    """GBK 控制台打 emoji 会直接崩（DSH 审计 P1-3，2026-11-08 实测确认）。
+
+    `PYTHONIOENCODING=gbk python3 scripts/release_checks.py version-consistency`
+    在 print("\u2705 ...") 处抛 UnicodeEncodeError —— 门禁脚本在中文 Windows 上跑不了。
+    这里把 errors 换成 replace（显示成 ?），脚本不再中断，退出码仍反映真实结论。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            reconf = getattr(stream, "reconfigure", None)
+            if reconf is not None:
+                reconf(errors="replace")
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
+    _safe_console()
     raise SystemExit(main())

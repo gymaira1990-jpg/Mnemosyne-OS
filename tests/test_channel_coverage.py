@@ -102,3 +102,72 @@ def test_time_channel_has_no_card_only_filter(seeded):
     src = (pathlib.Path(__file__).resolve().parents[1] / "api" / "memory_os.py").read_text(encoding="utf-8")
     recent = src.split("async def _recent")[1].split("async def ")[0]
     assert "[结果卡]" not in recent, "时间通道同样不能只认结果卡形态"
+
+
+# ── 正则转义（2026-11-08 我自己新写的 ~* 粗筛；DSH 审计 §4.1 点名要审的地方） ──
+
+_KW_DANGEROUS = [
+    "a|b", "(x", "back\\slash", "50%", "a_b", "1.5", "^start", "end$",
+    "中文mix", "🐱", "[br]acket", "{n}", "*star", "+plus", "?q", "a.b",
+]
+
+
+def test_kw_regex_does_not_break_pg(seeded):
+    """关键词来自用户 query，直接进 `content ~* $1`。
+
+    漏转义不是「匹配不准」，而是**整个查询 500**（正则语法错误）。
+    这条把 PG 正则的元字符全喂一遍，断言 PostgreSQL 都能接受。
+    """
+    from api.memory_os import _kw_regex
+
+    async def go():
+        c = await _connect()
+        try:
+            bad = []
+            for kw in _KW_DANGEROUS:
+                pat = _kw_regex([kw])
+                try:
+                    await c.fetchval("SELECT $1::text ~* $2", "sample", pat)
+                except Exception as e:  # noqa: BLE001
+                    bad.append((kw, pat, type(e).__name__, str(e)[:90]))
+            return bad
+        finally:
+            await c.close()
+
+    bad = _run(go())
+    assert not bad, f"这些关键词会让 PG 正则报错（转义不完备）：{bad}"
+
+
+def test_kw_regex_matches_literally(seeded):
+    """转义之后必须**按字面**匹配。
+
+    `a|b` 若没转义会变成「a 或 b」——于是问「a|b」能匹配到几千条只含 a 的记忆，
+    正确的那条被淹没。这里断言字面语义。
+    """
+    from api.memory_os import _kw_regex
+
+    async def go():
+        c = await _connect()
+        try:
+            out = {}
+            for kw, text in [
+                ("a|b", "只有 a 没有竖线"),      # 不该匹配
+                ("a|b", "包含 a|b 字面"),        # 该匹配
+                ("(x", "只有 x 没括号"),          # 不该匹配
+                ("(x", "包含 (x 字面"),           # 该匹配
+                ("1.5", "版本 15 没有点"),        # 不该匹配（. 不是通配）
+                ("1.5", "版本 1.5 有点"),         # 该匹配
+            ]:
+                pat = _kw_regex([kw])
+                out[(kw, text)] = await c.fetchval("SELECT $1::text ~* $2", text, pat)
+            return out
+        finally:
+            await c.close()
+
+    got = _run(go())
+    assert got[("a|b", "只有 a 没有竖线")] is False, "「a|b」被当成了「a 或 b」—— 竖线没转义"
+    assert got[("a|b", "包含 a|b 字面")] is True
+    assert got[("(x", "只有 x 没括号")] is False, "「(x」被当成了分组符 —— 括号没转义"
+    assert got[("(x", "包含 (x 字面")] is True
+    assert got[("1.5", "版本 15 没有点")] is False, "「.」被当成了任意字符 —— 点没转义"
+    assert got[("1.5", "版本 1.5 有点")] is True

@@ -32,7 +32,10 @@ DOCS = ("README.md", "README_CN.md", "AGENTS.md", "PROGRESS.md", "ROADMAP.md", "
 
 def sh(cmd, cwd):
     """固定命令、无外部输入：一律用 argv 列表，不开 shell（避免命令注入面）。"""
-    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    # 🔴 2026-11-08：原来只有 text=True。在 GBK 控制台（PYTHONIOENCODING=gbk）下，
+    #   子进程返回的字节用 utf-8 解码会抛 UnicodeDecodeError —— 门禁脚本直接崩，
+    #   比 stdout 打不出 emoji 更致命。errors="replace" 兜底，解码不中断。
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, errors="replace")
 
 
 def main() -> int:
@@ -136,5 +139,17 @@ def main() -> int:
     return 1 if fails else 0
 
 
+def _safe_console() -> None:
+    """GBK 控制台打 emoji 会直接崩（DSH 审计 P1-3）。errors=replace 兜底，不中断。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            reconf = getattr(stream, "reconfigure", None)
+            if reconf is not None:
+                reconf(errors="replace")
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
+    _safe_console()
     sys.exit(main())
