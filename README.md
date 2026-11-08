@@ -46,7 +46,7 @@
 | | |
 |---|---|
 | **Memories** | 38,858 (33,171 live · 35,075 catalog cards · 3,622 result cards) — snapshot 2026-11-08 |
-| **Recall** | 4 channels fused (server: E/C/T · client: S) · 90% recall@10 measured first-party |
+| **Recall** | 4 channels fused **server-side in one call** (E/C/T/S) · 94% recall@10 on the demo card set, **74% on a real non-card corpus** (first-party) |
 | **Trace** | archive no → card → `sid` → original transcript |
 | **Butler** | polish / dedupe / diary / gap-sweep — server-side, 7×24 |
 | **Diary** | one entry a day, written from real cards only — quiet days included |
@@ -91,18 +91,18 @@ version / path / URL / number-with-unit / date / project name), evidence by grad
 A model only improves the **wording** afterwards, and is forbidden from touching the archive number,
 evidence or entity lines. The card is a legal document, not a summary.
 
-### 2. Find it back — four channels (server does E/C/T in one call, client adds S)
+### 2. Find it back — four channels in one server call (E/C/T/S)
 
 | Channel | Mechanism | Weight | Runs on |
 |---|---|---|---|
 | **E** exact | archive no / issue id / commit hash / path — anchored at line start first, full-text fallback | 100 | server |
 | **C** keyword | multi-term OR, scored by coverage (hits ÷ terms, denominator capped at 3) | 60 | server |
 | **T** time | hits inside a recent window, filtered by topic keywords | 45 | server |
-| **S** semantic | 1024-d pgvector HNSW | 40 | client |
+| **S** semantic | 1024-d pgvector HNSW | 40 | server (on by default) |
 
-> **Straight answer**: `/api/v1/memory-os/recall` returns **E/C/T only** in one call — pure SQL, because embedding
-> inside the same request turns a measurable timeout into an uncontrollable one. **S is fetched by the client and
-> merged with the other three**, so the four-channel fusion happens client-side, not inside one REST call.
+> **Straight answer**: `/api/v1/memory-os/recall` returns all **four channels in one call** (E/C/T/S), fused and
+> scored server-side. Pass `semantic: false` to compare without S — on a real non-card corpus that drops
+> recall@10 from **74% to 38%**, which is exactly why S is on by default.
 
 Within each channel, score decays by rank (`K/(K+rank)`, K=10). This matters: flattening a channel into a
 single score destroys the ordering the ranking itself produced — we learned that the hard way (§Negative results).
@@ -356,10 +356,11 @@ One user, one modest cloud instance (4 vCPU), 7×24:
 > The `tome_cards` table also holds report / Q&A / import cards (34,073 rows in total). Comparing that raw count against this
 > number is an apples-to-oranges mistake, not a discrepancy — the SQL to recompute either figure is in `docs/VERIFICATION.md`.
 
-**Neither eval script ships with the repo** — the labels point at the author's real memories, so they can't be
-published. The 90% is a **first-party measurement**, not second-party evidence you can reproduce; verify it
-yourself with `scripts/seed_demo.py` and the same criterion (expected card within top 10). The second one deliberately avoids the
-domain lexicon, so tuning against the first cannot fake the second.
+**The eval *harness* ships; the *labelled cases* don't** — `scripts/eval_recall.py` is in the repo, but the case
+labels point at the author's real memories, so they can't be published. The numbers above are **first-party
+measurements**, not second-party evidence you can reproduce. Verify it yourself: `make demo` then `make eval`
+(expected card within top 10); the criterion deliberately avoids the domain lexicon, so tuning against one set
+cannot fake the other.
 
 ---
 
@@ -399,8 +400,8 @@ We publish the regressions, not just the wins:
 | [AGENTS.md](AGENTS.md) | Manual for AI agents: API surface, env vars, Hermes/MCP |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · **[English edition](docs/en/)** | Internals: layers, fusion, storage |
 | [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **Card Spec v1**: 7-line structure, archive numbers, evidence ranks, embedding rules |
-| [docs/VERIFICATION.md](docs/VERIFICATION.md) | **Verify it yourself**: `make demo && make eval` · two measured runs (92% / 100%) and the two traps |
-| [evals/](evals/) | 40 demo cards + 12 questions + raw outputs (reproducible) |
+| [docs/VERIFICATION.md](docs/VERIFICATION.md) | **Verify it yourself**: `make demo && make eval` · four measured groups (demo 94% / real corpus 38%→74%) and the two traps |
+| [evals/](evals/) | 40 demo cards + 16 questions (12 positive + 4 negatives) + raw outputs (reproducible) |
 | [integrations/card-builder/](integrations/card-builder/) | Reference implementation: dialogue → card (stdlib only) · [`evals/`](evals/) recall cases |
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST reference · every environment variable |
 | [docs/en/STAGING.md](docs/en/STAGING.md) | Pre-release environment: why it's mandatory, isolation proof, deploy flow |

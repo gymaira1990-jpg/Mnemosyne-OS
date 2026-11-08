@@ -46,7 +46,7 @@
 | | |
 |---|---|
 | **记忆量** | 38,858 条（未删除 33,171 · 35,075 张著录卡 · 3,622 张结果卡 · 快照 2026-11-08） |
-| **召回** | 四通道融合（服务端 E/C/T · 客户端 S）· 两个评测集各 90% recall@10（第一方自测，脚本不在公开仓） |
+| **召回** | 四通道**服务端一次调用**融合（E/C/T/S）· demo 卡片题集 94% recall@10，**真实非卡片语料 74%**（第一方自测） |
 | **追溯** | 档号 → 卡片 → `sid` → 原始对话 |
 | **管家** | 精修 / 判重 / 日记 / 漏卡巡检 —— 跑在服务器上，7×24 |
 | **小本本** | 每天一段人话，只写真实发生的事；没聊的日子也写 |
@@ -89,18 +89,17 @@
 
 模型只负责后续润色措辞，**禁止**碰档号、证据、实体行。**卡片是法律文书，不是摘要。**
 
-### 2. 找得回：四通道（服务端一次出 E/C/T，S 由客户端叠加）
+### 2. 找得回：四通道，服务端一次调用出齐（E/C/T/S）
 
 | 通道 | 机制 | 权重 | 跑在哪 |
 |---|---|---|---|
 | **E** 精确 | 档号 / 台账号 / 提交 hash / 路径——先锚定行首，再全文兜底 | 100 | 服务端 |
 | **C** 关键词 | 多词 OR，按覆盖率打分（命中数 ÷ 词数，分母封顶 3） | 60 | 服务端 |
 | **T** 时间 | 最近窗口内、且主题词命中 | 45 | 服务端 |
-| **S** 语义 | 1024 维 pgvector HNSW | 40 | 客户端叠加 |
+| **S** 语义 | 1024 维 pgvector HNSW | 40 | 服务端（默认开） |
 
-> **一句实话**：`/api/v1/memory-os/recall` 一次调用只出 **E/C/T** 三路（纯 SQL —— 同一个请求里再调 embedding，超时就从「可测」变成「不可控」）。
-> **S 由客户端取向量后与三路合并**，四通道融合发生在客户端，不是在一次 REST 调用里完成的。
-> 只要三路：直接调 `recall`；要四路：照 `integrations/` 的客户端接法叠一次向量检索再合并。
+> **一句实话**：`/api/v1/memory-os/recall` 一次调用就出**四路**（E/C/T/S），融合与打分都在服务端。
+> 想对比就传 `semantic: false` —— 在真实非卡片语料上，关掉 S 会让 recall@10 从 **74% 掉到 38%**，这就是 S 默认开着的理由。
 
 通道内部按排名衰减（`K/(K+rank)`，K=10）。这条很关键：**把通道拍平成一个分数，等于把排序本身丢掉**——我们踩过这个坑（见「负结果」）。
 
@@ -385,8 +384,8 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 内部结构：分层、融合、存储 |
 | [docs/STAGING.md](docs/STAGING.md) | 预发布环境：为什么必须有、隔离证明、四条判据 |
 | [docs/CARD-SPEC.md](docs/CARD-SPEC.md) | **著录卡规范 v1**：7 行结构 · 档号规则 · 证据分级 · 向量化口径 |
-| [docs/VERIFICATION.md](docs/VERIFICATION.md) | **自己验**：`make demo && make eval` · 两组实测（92% / 100%）与两个必踩的坑 |
-| [evals/](evals/) | 40 张演示卡 + 12 道题 + 原始跑分输出（可复现） |
+| [docs/VERIFICATION.md](docs/VERIFICATION.md) | **自己验**：`make demo && make eval` · 四组实测（demo 94% / 真实语料 38%→74%）与两个必踩的坑 |
+| [evals/](evals/) | 40 张演示卡 + 16 道题（12 正向 + 4 负样本）+ 原始跑分输出（可复现） |
 | [integrations/card-builder/](integrations/card-builder/) | 参考实现：对话 → 卡（纯标准库，可跑通）· [`evals/`](evals/) 召回评测用例 |
 | [docs/API.md](docs/API.md) · [docs/ENV.md](docs/ENV.md) | REST 参考 · 全部环境变量 |
 | [docs/WHITEPAPER.md](docs/WHITEPAPER.md) · [docs/palace-architecture.md](docs/palace-architecture.md) | 设计哲学 |

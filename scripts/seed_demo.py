@@ -144,7 +144,7 @@ def main() -> int:
     ap.add_argument("--user", default="demo", help="user_id，默认 demo")
     ap.add_argument("--clean", action="store_true", help="删除示例数据")
     ap.add_argument("--cards", metavar="FILE",
-                    help="从 JSONL 灌著录卡（每行需含 content 字段）；recall 只捞卡，想验证四通道就用这个")
+                    help="从 JSONL 灌著录卡（每行需含 content 字段）；要验证四通道召回就灌这个")
     a = ap.parse_args()
     try:
         from dotenv import load_dotenv

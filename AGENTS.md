@@ -20,7 +20,7 @@ pytest tests/          # 296 用例（服务端 + MCP 桥契约 + 冲突人工�
 
 | 端点 | 用途 | 备注 |
 |---|---|---|
-| `POST /api/v1/memory-os/recall` | **三通道召回**（E 精确 / C 关键词 / T 时间） | 返回 `channel_counts`，每条候选带命中通道。**S 语义在客户端叠加**（服务端不做，避免同请求里调 embedding 把超时变不可控） |
+| `POST /api/v1/memory-os/recall` | **四通道召回**（E 精确 / C 关键词 / T 时间 / S 语义） | 返回 `channel_counts`，每条候选带命中通道。**S 在服务端默认开启**（`semantic: true`，`sim_floor` 0.40）；传 `semantic: false` 可对比 —— 真实非卡片语料上关掉 S 会让 recall@10 从 74% 掉到 38% |
 | `POST /api/v1/memory-os/exact` | 档号 / 台账号 / 提交 / 路径精确查 | 先锚定首行，再全文兜底 |
 | `POST /api/v1/memory-os/keywords` | 多词 OR + 覆盖率排序 | 不调 embedding，最便宜 |
 | `GET  /api/v1/memory-os/trace/{no}` | 档号 → 卡片 → `sid` → 原文 | 两级跳取证 |
