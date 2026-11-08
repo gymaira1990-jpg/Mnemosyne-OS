@@ -31,6 +31,11 @@ async def purify_memory(req: DeleteRequest):
     from security.purifier import soft_delete_memory
     async with pool.acquire() as conn:
         result = await soft_delete_memory(conn, req.memory_id, req.reason, req.user_id)
+        # 🔴 2026-11-08 边界审计：找不到时原来返回 200 + {"error": ...}。
+        #   200 会让调用方以为「净化成功了」，而越权请求（别人的 id）也走这条路 ⇒
+        #   必须用 404 表达「这条不属于你或不存在」，语义才不会被误读。
+        if isinstance(result, dict) and result.get("error"):
+            raise HTTPException(status_code=404, detail=result["error"])
         return result
 
 

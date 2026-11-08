@@ -94,3 +94,38 @@ def test_purify_reason_with_quotes_does_not_break_jsonb(ready):
             await c.close()
 
     assert _run(check()) == weird
+
+
+def test_purify_endpoint_maps_not_found_to_404(monkeypatch):
+    """API 层必须把「不属于你/不存在」映射成 404，而不是 200 + {"error": ...}。
+
+    2026-11-08 边界审计实测：越权净化返回 200，调用方会误以为成功了。
+    """
+    import asyncio
+
+    from fastapi import HTTPException
+
+    import api.security as sec
+    import security.purifier as pur
+
+    async def fake(conn, mid, reason, uid):
+        return {"error": "Memory not found or already deleted"}
+
+    monkeypatch.setattr(pur, "soft_delete_memory", fake)
+
+    class _Ctx:
+        async def __aenter__(self):
+            return None
+
+        async def __aexit__(self, *a):
+            return False
+
+    class _Pool:
+        def acquire(self):
+            return _Ctx()
+
+    sec.pool = _Pool()
+    req = sec.DeleteRequest(memory_id=1, reason="probe", user_id="not-mine")
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(sec.purify_memory(req))
+    assert e.value.status_code == 404
