@@ -6,7 +6,7 @@
 | Document | What it covers |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module layout, the four retrieval channels, merged scoring weights, the ask-when-unsure loop |
-| [API.md](API.md) | Endpoint quick reference (core / palace / recall / graph-wiki-beliefs / ops) + the v9.1.1 error contract |
+| [API.md](API.md) | Endpoint quick reference (core / palace / recall / graph-wiki-beliefs / ops) + the v9.1.2 error contract |
 | [STAGING.md](STAGING.md) | Pre-release environment: why it's mandatory, isolation proof, deploy flow, pass criteria |
 
 Chinese originals: [../README.md](../README.md) (full index).

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.1.1-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.1.2-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b>🏔️ v9.1.1 · Milestone — measure it, ask when unsure, ship through a gate</b><br>
+  <b>🏔️ v9.1.2 · Milestone — measure it, ask when unsure, ship through a gate</b><br>
   <sub>
   <b>Measurable</b>: eval with negative cases &amp; a discrimination self-check (re-score in reverse — if the score doesn't move, the ruler is broken)<br>
   <b>Answerable</b>: when recall isn't sure it asks → your verdict reweights the memory → that verdict becomes a new test case<br>
@@ -412,6 +412,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.1.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.2) | 2026-11-08 | **Patch**: recall scoring rewritten — 62% → 74% on a real non-card corpus; plus 5 P0 from an external audit (temporal weight double-multiplied, conflict ghosts never cleared, eval `--strict` inverted, `/label` accepting forged archive numbers) |
 | [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **Milestone**: measurable (eval with negatives + discrimination), answerable (ask-on-uncertain → verdict write-back → new cases), pre-releasable (staging + deploy gates). 13 real defects found and fixed — incl. 89% of memories invisible to keyword/time channels |
 | [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | Numeric conflict detector (`conflict_scan.py`) — samples first, adjudication rules later |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | Topic-drift detection + automatic widening to earlier sessions when context is thin |

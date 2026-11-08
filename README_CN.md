@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.1.1-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.1.2-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b>🏔️ v9.1.1 · 里程碑 —— 量得准、问得出口、发得出去</b><br>
+  <b>🏔️ v9.1.2 · 里程碑 —— 量得准、问得出口、发得出去</b><br>
   <sub>
   <b>可度量</b>：评测带负样本 + 区分度自检（同一批结果倒序重判，分数不变即尺子失效）<br>
   <b>可求证</b>：召回拿不准就问人 → 你的裁决给记忆调权 → 这次裁决自动变成一道新评测题<br>
@@ -398,6 +398,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.1.2](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.2) | 2026-11-08 | **修复版**：召回打分重写 —— 真实非卡片语料 62% → 74%；另修外部审计的 5 个 P0（时近性权重乘两次、冲突残影清不掉、eval `--strict` 逻辑反、`/label` 可写伪造档号） |
 | [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **里程碑**：可度量（负样本+区分度）、可求证（问人→裁决回写→出新题）、可预发布（staging+部署闸门）。两轮审计挖出并修好 13 个真实缺陷，含「89% 记忆在关键词/时间通道隐形」 |
 | [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | 冲突检测器：先抓真实样本，再定裁决规则 |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | 话题漂移判定 + 上下文不足时自动回捞历史会话 |
