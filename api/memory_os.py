@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any, List, Optional
 
@@ -155,6 +156,11 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 60) -
                left(m.content, 200) AS head,
                (SELECT count(*) FROM unnest($2::text[]) AS t(kw)
                  WHERE m.content ILIKE '%' || t.kw || '%') AS kw_hit,
+               -- 2026-11-08：把「命中了哪几个词」带回去，交给 Python 侧按 IDF 加权。
+               -- 只按命中个数排序是等权假设，实测被泛词吃死：问「TMT 的 L3 表缺哪个字段」时，
+               -- 一张只含「字段」二字的 SVG 卡拿到 60 分，真正的 TMT 记忆 20 分、连 60 条窗口都挤不进。
+               (SELECT array_agg(t.kw) FROM unnest($2::text[]) AS t(kw)
+                 WHERE m.content ILIKE '%' || t.kw || '%') AS hit_kws,
                array_length($2::text[], 1) AS n_kw,
                (m.content LIKE '[结果卡]%') AS is_card
         FROM memories m
@@ -170,6 +176,8 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 60) -
         -- 排序必须以**相关度**为先：先按命中关键词数，再让卡片优先。
         -- 2026-11-08 实测：把 is_card 放第一位时，60 条卡片把非卡片全挤出窗口，
         -- 结果「修了过滤但检索依旧看不到」——等于没修。
+        -- 🔴 2026-11-08 再修：这个窗口是「粗排」，只是取候选池；**真正的打分在 Python 侧按 IDF**。
+        --   窗口太小仍会把稀有词命中的正确记忆挡在外面（60 → 300，实测可捞回）。
         ORDER BY kw_hit DESC, is_card DESC, m.id DESC
         LIMIT $3
     """
@@ -317,7 +325,9 @@ async def recall(body: RecallIn = Body(...)):
 
     kws = keywords(q)
     kws_exp = expand_kw(kws)
-    multi = await _multi_kw(kws_exp, uid, limit=60) if kws_exp else []
+    # 🔴 2026-11-08：窗口 60 → 300。这个窗口只是「粗排候选池」，真正的排序在下面按 IDF 做。
+    #   60 条时，一批命中泛词的卡片会把命中稀有词的记忆挡在池外（实测 TMT 那条就这么消失的）。
+    multi = await _multi_kw(kws_exp, uid, limit=300) if kws_exp else []
     if multi:
         chans["C"] = multi
 
@@ -330,20 +340,40 @@ async def recall(body: RecallIn = Body(...)):
         if sem:
             chans["S"] = sem
 
+    # ---- C 通道按 IDF 加权（2026-11-08）----
+    # 旧的等权算法：命中 3 个词 = 满分。可「字段 / 原因 / 标准」这种泛词在几千条里都有，
+    # 而「TMT / 2438 / 192.168.1.177」这种强锚点只出现在一两条里 —— 等权等于让泛词淹掉锚点。
+    # 实测：问「TMT 的 L3 表缺哪个字段」，命中的是「SVG 箭头」卡（只因含「字段」二字），真答案没影。
+    # 用候选池内的文档频率近似 IDF：出现在越多候选里的词越不值钱。
+    c_rows = chans.get("C") or []
+    df: dict[str, int] = {}
+    for r in c_rows:
+        for k in set(r.get("hit_kws") or []):
+            df[k] = df.get(k, 0) + 1
+    n_c = len(c_rows) or 1
+    idf = {k: math.log(1 + n_c / (1 + v)) for k, v in df.items()}
+    idf_max = math.log(1 + n_c)
+
+    def _c_got(row: dict) -> float:
+        return sum(idf.get(k, idf_max) for k in (row.get("hit_kws") or []))
+
+    max_got = max((_c_got(r) for r in c_rows), default=0.0) or 1.0
+
     pool_map: dict[str, dict] = {}
     for ch, rows in chans.items():
         for r in rows:
             key = r.get("no") or f"id:{r['id']}"
             base = float(CREDIT[ch])
-            if ch == "C" and r.get("n_kw"):
-                # 覆盖率分母封顶 3：同义词展开后可能有 13 个词，
-                # 用 13 做分母会让「只命中 1 个核心词」的卡被挤掉
-                base = CREDIT[ch] * min(int(r.get("kw_hit") or 0), 3) / min(int(r["n_kw"]), 3)
+            if ch == "C":
+                # 归一化到池内最强候选（相对分），避免「分母用全部查询词」导致只命中 1 个词的
+                # 正确答案永远拿不到高分。
+                base = CREDIT[ch] * _c_got(r) / max_got
             if ch == "S":
                 # 语义分按相似度折算：sim=0.9 → 0.9*40，避免任何一条都拿满分
                 base = float(CREDIT[ch]) * max(0.0, min(1.0, float(r.get("sim") or 0.0)))
-            if not (r.get("no") or "").strip():
-                base *= 0.75      # 老格式卡（无档号）轻微降权
+            # 🔴 2026-11-08 删掉「无档号 × 0.75」：档号是卡片的元数据，不是相关性信号。
+            #   这条降权让占 89% 的非卡片记忆先天少 25%，是「修了过滤仍然搜不到」的第二个原因。
+            #   「卡片优先」已经由下面的 tie-break 承担，不该再拿分数惩罚。
             if key in pool_map:
                 pool_map[key]["channels"] = pool_map[key]["channels"] + ch
                 pool_map[key]["score"] += base
