@@ -145,25 +145,64 @@ def expand_kw(kws: List[str]) -> List[str]:
     return out
 
 
+# ── 全库 df 缓存（2026-11-09，T-0696）──────────────────────────────
+# 2026-11-08 的结论「全库 df 在请求路径上算不起」只在**每次现算**时成立：
+# 中文 ILIKE 走不了 pg_trgm（<3 字符），8 个词就是 8 次全表扫 → 800ms+。
+# 但 memory_keywords 表已经把词频物化好了（164.8 万行 / 79,879 个 token），
+# 全量 GROUP BY 实测 323ms，缓存后每次请求只查 dict。
+_DF_CACHE: dict = {}
+_DF_N_TOTAL: int = 0
+_DF_LOADED_AT: float = 0.0
+_DF_TTL: float = 600.0
+
+
+async def _load_df(force: bool = False) -> None:
+    """刷新全库词频缓存（TTL 10 分钟）。拿不到就保持旧值，不影响主流程。"""
+    global _DF_CACHE, _DF_N_TOTAL, _DF_LOADED_AT
+    import time as _t
+    now = _t.time()
+    if not force and _DF_CACHE and (now - _DF_LOADED_AT) < _DF_TTL:
+        return
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT token, count(*) AS n FROM memory_keywords GROUP BY token")
+            cache = {r["token"]: int(r["n"]) for r in rows}
+            n_total = int(await conn.fetchval(
+                "SELECT count(*) FROM memories WHERE is_deleted = false") or 0)
+            if cache and n_total:
+                _DF_CACHE, _DF_N_TOTAL, _DF_LOADED_AT = cache, n_total, now
+    except Exception:
+        pass        # df 拿不到 ⇒ 退回静态权重，绝不让它拖垮召回
+
+
 def _kw_weight(k: str) -> float:
-    """关键词的「辨识度」权重（2026-11-08）。
+    """关键词权重：有全库 df 缓存时用真 IDF，没有则退回静态辨识度近似。
 
-    为什么不用 IDF：① 候选池本身就是按「命中任一词」筛出来的，池内 df 分布被压缩，
-    稀有词算不出稀有（实测 recall 72% → 67%，反效果）；② 全库 df 在请求路径上算不起 ——
-    中文 ILIKE 走不了索引（pg_trgm 对 <3 字符无效），8 个词就是 8 次全表扫描，实测 800ms+。
+    2026-11-08 放弃 IDF 的原因写在这里备忘：**当时用的是「候选池内 df」** ——
+    池子本身就按「命中任一词」筛出来，df 分布被压缩，稀有词算不出稀有（实测 72%→67%）。
+    2026-11-09 改用 memory_keywords 的**全库 df**，语义完全不同。
 
-    静态权重是能解释的近似：
-      · ascii / 含数字 / 路径 / 档号 → 3.0（专名，最 specific：TMT / 2438 / K·ABC·2026-0123）
-      · 中文 ≥3 字                  → 2.0
-      · 中文 2 字（多为常用词）      → 1.0
+    IDF 除以 3 并截到 [0.5, 4.0]，是为了让分数留在原来静态权重的量级（1~3），
+    不至于把 channels 之间的 CREDIT 配比冲垮。
     """
     if not k:
         return 1.0
+    # 静态兜底
     if k.isascii() or any(c.isdigit() for c in k):
-        return 3.0
-    if len(k) >= 3:
-        return 2.0
-    return 1.0
+        static = 3.0
+    elif len(k) >= 3:
+        static = 2.0
+    else:
+        static = 1.0
+
+    if not _DF_CACHE or not _DF_N_TOTAL:
+        return static
+    df = _DF_CACHE.get(k)
+    if df is None:
+        return static          # 词不在物化表里（新词/切碎的专名）→ 用静态值，别给凭空高权重
+    idf = math.log((_DF_N_TOTAL - df + 0.5) / (df + 0.5) + 1.0)
+    return max(0.5, min(4.0, idf / 3.0))
 
 
 # ---------- 数据访问 ----------
@@ -381,6 +420,9 @@ async def recall(body: RecallIn = Body(...)):
     q = body.query.strip()
     if not q:
         return {"candidates": [], "error": "query 不能为空"}
+
+    # T-0696：刷新全库 df 缓存（TTL 10 分钟，命中缓存时是纯 dict 判断，0 查询）
+    await _load_df()
 
     chans: dict[str, List[dict]] = {}
     uid = body.user_id or "default"
