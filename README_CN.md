@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.28-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.1.1-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -36,7 +36,7 @@
 
 | | |
 |---|---|
-| **记忆量** | 38,514 条（未删除 33,038 · 3,897 张著录卡 · 快照 2026-11-07） |
+| **记忆量** | 38,858 条（未删除 33,171 · 35,075 张著录卡 · 3,622 张结果卡 · 快照 2026-11-08） |
 | **召回** | 四通道融合（服务端 E/C/T · 客户端 S）· 两个评测集各 90% recall@10（第一方自测，脚本不在公开仓） |
 | **追溯** | 档号 → 卡片 → `sid` → 原始对话 |
 | **管家** | 精修 / 判重 / 日记 / 漏卡巡检 —— 跑在服务器上，7×24 |
@@ -318,8 +318,9 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 指标 | 数值 |
 |---|---|
-| 记忆总量 | **38,514**（未删除 33,038 · 快照：2026-11-07） |
-| 著录卡 | **3,897 张** —— 100% 有档号，99.97% 有向量 · 未删除记忆 100% 有卡 |
+| 记忆总量 | **38,858**（未删除 33,171 · 快照：2026-11-08） |
+| 著录卡 | **35,075 张** —— 100% 有档号 · 结果卡 **3,622 张**，100% 有向量 |
+| 向量覆盖 | **100%**（未删除 33,171 条全部有向量） |
 | 平均卡长 | 376 字（原始对话平均 ~33,000 字） |
 | recall@10（通用集） | **9/10（90%）** |
 | recall@10（防过拟合集） | **9/10（90%）** |
@@ -386,6 +387,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
+| [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **里程碑**：可度量（负样本+区分度）、可求证（问人→裁决回写→出新题）、可预发布（staging+部署闸门）。两轮审计挖出并修好 16 个真实缺陷，含「89% 记忆在关键词/时间通道隐形」 |
 | [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | 冲突检测器：先抓真实样本，再定裁决规则 |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | 话题漂移判定 + 上下文不足时自动回捞历史会话 |
 | [v9.0.26](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.26) | 2026-11-07 | 三段式采样（前/中/后）落地：`context_pack.py`，含「上下文够不够」的可计算判定 |

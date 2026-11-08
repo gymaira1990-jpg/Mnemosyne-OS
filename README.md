@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-9.0.28-brightgreen?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-9.1.1-brightgreen?style=flat-square" alt="version">
   <img src="https://img.shields.io/github/actions/workflow/status/gymaira1990-jpg/Mnemosyne-OS/test.yml?style=flat-square&label=CI" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -36,7 +36,7 @@
 
 | | |
 |---|---|
-| **Memories** | 38,514 (33,038 live, 3,897 catalog cards) — snapshot 2026-11-07 |
+| **Memories** | 38,858 (33,171 live · 35,075 catalog cards · 3,622 result cards) — snapshot 2026-11-08 |
 | **Recall** | 4 channels fused (server: E/C/T · client: S) · 90% recall@10 measured first-party |
 | **Trace** | archive no → card → `sid` → original transcript |
 | **Butler** | polish / dedupe / diary / gap-sweep — server-side, 7×24 |
@@ -332,8 +332,9 @@ One user, one modest cloud instance (4 vCPU), 7×24:
 
 | Metric | Value |
 |---|---|
-| Memories | **38,514** (33,038 live) — snapshot: 2026-11-07 |
-| Catalog cards | **3,897** — 100% with archive no, 99.97% with vectors · every live memory has a card |
+| Memories | **38,858** (33,171 live) — snapshot: 2026-11-08 |
+| Catalog cards | **35,075** — 100% with archive no · result cards **3,622**, 100% vectored |
+| Vector coverage | **100%** of live memories (33,171 / 33,171) |
 | Average card length | 376 characters (from transcripts averaging ~33,000) |
 | Recall@10 — general set | **9/10 (90%)** |
 | Recall@10 — anti-overfit set | **9/10 (90%)** |
@@ -401,6 +402,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
+| [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **Milestone**: measurable (eval with negatives + discrimination), answerable (ask-on-uncertain → verdict write-back → new cases), pre-releasable (staging + deploy gates). 16 real defects found and fixed — incl. 89% of memories invisible to keyword/time channels |
 | [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | Numeric conflict detector (`conflict_scan.py`) — samples first, adjudication rules later |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | Topic-drift detection + automatic widening to earlier sessions when context is thin |
 | [v9.0.26](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.26) | 2026-11-07 | Three-stage sampling (`context_pack.py`): prior history → current session → output constraints, with a computed "context sufficient?" verdict |
