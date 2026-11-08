@@ -92,7 +92,9 @@ def keywords(q: str, max_n: int = 8) -> List[str]:
         part = part.strip("?？!！。，,、 ")
         if not part:
             continue
-        if part.isascii() or len(part) <= 3:
+        if part.isascii() or len(part) <= 2:
+            # 2026-11-08：阈值 3 → 2。3 字段原来整段保留，于是「分级按」这种
+            # 停用词残留段会被当成一个关键词去库里做子串匹配 —— 纯噪音，还占候选名额。
             out.append(part)
         else:
             out += [part[i:i + 2] for i in range(0, len(part) - 1, 2)]
@@ -372,7 +374,9 @@ async def recall(body: RecallIn = Body(...)):
 
     # 语义通道（2026-11-07 接上）：只有它能在「字面不重合」的提问上找到卡。
     if body.semantic:
-        sem = await _semantic(q, uid, limit=max(limit, 30), sim_floor=body.sim_floor)
+        # 2026-11-08：S 通道从 30 → 200。语义检索是向量索引，多捞几乎不要钱；
+        # 而 eval --k 10 时原来只捞 30 条，很多「字面不重合、只能靠语义」的记忆根本进不了池。
+        sem = await _semantic(q, uid, limit=max(limit, 200), sim_floor=body.sim_floor)
         if sem:
             chans["S"] = sem
 
