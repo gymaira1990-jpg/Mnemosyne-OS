@@ -871,6 +871,10 @@ async def create_memory(mem: MemoryCreate):
     #   这是**请求非法**，不是服务器故障，必须在入口挡成 400。
     if not (mem.content or "").strip():
         raise HTTPException(status_code=400, detail="content 不能为空（空白字符也不行）")
+    # 🔴 2026-11-08 边界审计：NUL 字节（\x00）PostgreSQL 的 text 存不了，
+    #   走到 asyncpg 会抛 500。这是客户端传了二进制垃圾，该拒不该崩。
+    if "\x00" in (mem.content or ""):
+        raise HTTPException(status_code=400, detail="content 含 NUL 字节（\\x00），请先清洗")
     _vec_src = (mem.vec_text or mem.content)   # 有 vec_text 就只拿它算向量
     raw_vec = (await get_embedding([_vec_src]))[0]
     vec_str = "[" + ",".join(str(x) for x in raw_vec) + "]"

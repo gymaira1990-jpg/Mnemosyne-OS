@@ -107,3 +107,15 @@ def test_empty_content_rejected_before_embedding():
     assert 'content 不能为空' in src, "入口必须显式拒绝空内容"
     assert src.index('content 不能为空') < src.index('get_embedding'), \
         "拒绝必须发生在算向量之前（否则照样打 API）"
+
+
+def test_nul_byte_rejected_before_db():
+    """NUL 字节必须在入口拒绝：PostgreSQL 的 text 存不了 \\x00，走到 asyncpg 就是 500。
+
+    2026-11-08 边界审计实测：content 含 \\x00 → 500 Internal Server Error。
+    """
+    import inspect
+    import main as app_main
+    src = inspect.getsource(app_main.create_memory)
+    assert "NUL 字节" in src
+    assert src.index("NUL 字节") < src.index("get_embedding"), "拒绝必须早于算向量/入库"
