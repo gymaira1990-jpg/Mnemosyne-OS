@@ -15,7 +15,7 @@
 | [ENV.md](ENV.md) | 全部环境变量与默认值 | 部署调参 |
 | [STAGING.md](STAGING.md) | 预发布环境：为什么必须有、隔离证明、四条判据、其他项目怎么套 | 任何上线前 |
 | [RELEASE-PLAN.md](RELEASE-PLAN.md) | 版本规划与发布节奏（一个阶段 = 一个版本） | 想发版之前 |
-| [AUDIT-20261108.md](AUDIT-20261108.md) | 流程与功能深度审计：16 个缺陷、反证记录、性能基线、已知边界 | 想确认「这东西可靠吗」 |
+| [AUDIT-20261108.md](AUDIT-20261108.md) | 流程与功能深度审计：13 个缺陷、反证记录、性能基线、已知边界 | 想确认「这东西可靠吗」 |
 | [VERIFICATION.md](VERIFICATION.md) | 验收判据与复算 SQL（怎么自己核一遍） | 不信 README 的数字 |
 | [MULTI-AGENT-SEAM.md](MULTI-AGENT-SEAM.md) | 多 Agent 的隔离口子：user_id 范围、可见域设计 | 要让多个 Agent 共用 |
 | [CARD-SPEC.md](CARD-SPEC.md) | 著录卡规格：档号、实体、证据行、字段约定 | 写卡片/改召回 |

@@ -396,7 +396,7 @@ python3 scripts/seed_demo.py   # 可选：写入 5 条示例记忆并真跑一�
 
 | 版本 | 日期 | 发布内容 |
 |---|---|---|
-| [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **里程碑**：可度量（负样本+区分度）、可求证（问人→裁决回写→出新题）、可预发布（staging+部署闸门）。两轮审计挖出并修好 16 个真实缺陷，含「89% 记忆在关键词/时间通道隐形」 |
+| [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **里程碑**：可度量（负样本+区分度）、可求证（问人→裁决回写→出新题）、可预发布（staging+部署闸门）。两轮审计挖出并修好 13 个真实缺陷，含「89% 记忆在关键词/时间通道隐形」 |
 | [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | 冲突检测器：先抓真实样本，再定裁决规则 |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | 话题漂移判定 + 上下文不足时自动回捞历史会话 |
 | [v9.0.26](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.26) | 2026-11-07 | 三段式采样（前/中/后）落地：`context_pack.py`，含「上下文够不够」的可计算判定 |

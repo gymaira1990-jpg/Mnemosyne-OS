@@ -411,7 +411,7 @@ We publish the regressions, not just the wins:
 
 | Version | Date | Ships |
 |---|---|---|
-| [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **Milestone**: measurable (eval with negatives + discrimination), answerable (ask-on-uncertain → verdict write-back → new cases), pre-releasable (staging + deploy gates). 16 real defects found and fixed — incl. 89% of memories invisible to keyword/time channels |
+| [v9.1.1](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.1.1) | 2026-11-08 | **Milestone**: measurable (eval with negatives + discrimination), answerable (ask-on-uncertain → verdict write-back → new cases), pre-releasable (staging + deploy gates). 13 real defects found and fixed — incl. 89% of memories invisible to keyword/time channels |
 | [v9.0.28](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.28) | 2026-11-07 | Numeric conflict detector (`conflict_scan.py`) — samples first, adjudication rules later |
 | [v9.0.27](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.27) | 2026-11-07 | Topic-drift detection + automatic widening to earlier sessions when context is thin |
 | [v9.0.26](https://github.com/gymaira1990-jpg/Mnemosyne-OS/releases/tag/v9.0.26) | 2026-11-07 | Three-stage sampling (`context_pack.py`): prior history → current session → output constraints, with a computed "context sufficient?" verdict |
