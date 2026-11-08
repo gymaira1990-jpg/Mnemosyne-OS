@@ -412,10 +412,22 @@ async def recall(body: RecallIn = Body(...)):
                                  "head": r.get("head") or "",
                                  "channels": ch, "score": base}
 
+    def _id_num(x: dict) -> int:
+        """id 必须是**数值**排序（2026-11-08 DSH P1，已核实）。
+
+        原来用 str 比较："100" < "99"（逐字符 '1'<'9'）⇒ 排序结果随 id 位数变化而抖动，
+        看起来「新记忆靠前」纯属歪打正着，一旦 id 到 4-5 位就不可控。
+        现在显式按数值降序（id 自增 ⇒ 越大越新），行为与原来一致但可控。
+        """
+        try:
+            return int(x.get("id") or 0)
+        except (TypeError, ValueError):
+            return 0
+
     out = sorted(pool_map.values(),
                  key=lambda x: (-x["score"],
                                 0 if str(x.get("head") or "").startswith(CARD_PREFIX) else 1,
-                                str(x.get("id") or "")))
+                                -_id_num(x)))
     # 弃权（2026-11-07）：以前无论多不相干都硬返 top-k，负样本必然被污染。
     if _should_abstain(out, body.abstain_below):
         return {"query": q, "user_id": uid, "keywords": kws, "expanded": kws_exp,

@@ -74,7 +74,7 @@ def post(url: str, payload: dict, timeout: int = 30) -> dict:
 
 def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
                      sim_floor: float = 0.40, abstain_below: float = 0.0,
-                     confirm_margin: float = 0.0) -> tuple[list[str], bool]:
+                     confirm_margin: float = 0.0) -> tuple[list[str], bool, dict]:
     """返回候选正文列表（按服务端排序）。
 
     2026-11-07 修两个坑：
@@ -94,7 +94,7 @@ def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
         txt = c.get("head") or c.get("content") or ""
         if txt:
             out.append(txt)
-    return out[:k], bool(d.get("confirm"))
+    return out[:k], bool(d.get("confirm")), (d.get("channel_counts") or {})
 
 
 def judge(rows: list[str], expect: list[str], k: int,
@@ -131,11 +131,13 @@ def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: 
         strict: bool = False, sim_floor: float = 0.40, abstain_below: float = 0.0,
         confirm_margin: float = 0.0, min_rate: float = 0.80) -> int:
     results: dict[int, list[str]] = {}
+    chans: dict[int, dict] = {}
     asked = 0
     for i, c in enumerate(cases):
-        rows, wants_confirm = fetch_candidates(base, c["q"], user, k, semantic, sim_floor,
-                                               abstain_below, confirm_margin)
+        rows, wants_confirm, cc = fetch_candidates(base, c["q"], user, k, semantic, sim_floor,
+                                                   abstain_below, confirm_margin)
         results[i] = rows
+        chans[i] = cc
         asked += wants_confirm
 
     rate, hits = _score(cases, results, k)
@@ -146,7 +148,9 @@ def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: 
             ok, pos = judge(results[i], c.get("expect") or [], k, c.get("forbid"))
             kind = "负样本" if c.get("forbid") else "正向"
             mark = (f"✅ 第{pos}位" if ok else "❌ 未命中") if pos else ("✅ 未浮现" if ok else "❌ 被顶上来")
-            print(f"  {mark:10s} [{kind}] {c['q']}（返回 {len(results[i])} 条）")
+            cc = chans.get(i) or {}
+            ch_tag = ("  " + "/".join(f"{c_k}{c_v}" for c_k, c_v in cc.items())) if cc else ""
+            print(f"  {mark:10s} [{kind}] {c['q']}（返回 {len(results[i])} 条{ch_tag}）")
 
     n = len(cases)
     print(f"\nrecall@{k} = {hits}/{n} = {rate:.0%}"
