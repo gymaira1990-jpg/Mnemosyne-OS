@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """wiki_graph — WIKI 图谱扩展检索通道 (v7.5 P1)
 
-设计: 实体锚定 + 1跳 RELATED_TO
+设计: 实体锚定（**不再有图数据库跳数**）
 1. 查询 → jieba 分词 → entities 表匹配 (name ILIKE) → 候选实体 id
-2. 沿 AGE RELATED_TO 边 1 跳 → 关联实体 id
-3. 关联实体 → wiki_entities 表 → 出现在哪些 wiki 页面 (加分)
+2. ~~沿 AGE RELATED_TO 边 1 跳~~ —— Apache AGE 已于 v7.8 完全移除，这一步不存在了
+3. 锚定实体 → wiki_entities 表 → 出现在哪些 wiki 页面 (加分)
 4. 返回 {page_id: graph_score, related_entities: [...]}
+
+⚠️ 2026-11-08 主人定调：AGE / 图数据库能力**功能上放弃、不再迭代**（历史记录留作查证）。
+   本模块保留的只是「实体锚定 + wiki_entities 关联」，不依赖任何图库。
 
 与向量/BM25 通道 RRF 融合 (search_wiki 调用)。
 """

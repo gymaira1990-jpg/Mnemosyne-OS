@@ -1,3 +1,27 @@
+## [9.1.3] — 2026-11-08 · 文档对齐 + AGE 能力冻结
+
+> 纯文档/说明修正，**零行为变更**。修的是「公开仓库里的说明与代码不一致」——这类错比代码 bug 更坏，
+> 因为它让人按错误的前提去理解一个能跑的系统。
+
+**改了什么（每一条都对照代码核实）**
+
+- **S 语义通道归属**：README / README_CN / AGENTS / VERIFICATION 都写着「S 由客户端叠加、四通道融合在客户端」。
+  实际 v9.0.21 起 S 就在服务端默认开启（`semantic: true`、`sim_floor` 0.40）。四处全部更正，并给出对比方法。
+- **实测数字作废重测**：旧文档写「12 题 → 92% / 100%」。换成 2026-11-08 的四组：
+  demo 16 题 E/C/T **94%**、+S **94%**（无边际差）；真实非卡片 39 题 E/C/T **38%**、+S **74%**（差 36 个点）。
+  这组数字更有说服力 —— 它同时说明「只拿 demo 量是不够的」。
+- **「recall 只捞卡」不再成立**：VERIFICATION 原来明确写着「要召回，先成卡」，而 v9.1.2 已删掉那个硬过滤。
+  改为如实记录：旧行为 ≤v9.1.1，新行为 v9.1.2 起。
+- **「Neither eval script ships」**：`scripts/eval_recall.py` 在仓里，不在的是标注数据。改成
+  「harness 在、labelled cases 不在」，并给出复现命令（`make demo && make eval`）。
+- **Apache AGE 正式冻结**：`/api/v1/graph/search` 标 `deprecated=True`，docstring 写明能力冻结不再迭代；
+  `wiki_graph.py` 去掉「沿 AGE 边 1 跳」的表述；`docs/schema.sql` 从「Apache AGE 可选」改成「不需要」；
+  capabilities 文案同步。代码层其实 v7.8 就已切除 AGE（现走 `entities` / `memory_entities` 普通表），
+  这次是把说明和标记一并收口。历史记录保留作查证。
+- **零散**：`eval_recall` 的通道说明、`seed_demo --cards` 的 help、README 文档索引里的「12 题 / 92%」。
+
+---
+
 ## [9.1.2] — 2026-11-08 · 修 bug：召回打分三处缺陷 + DSH 审计五组收口
 
 > patch 版，不强调新功能。修的是「明明修了，实际还是搜不到」的三个打分缺陷。

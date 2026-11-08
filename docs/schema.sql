@@ -7,7 +7,8 @@
 --
 -- 说明：
 --   · 由生产库 pg_dump --schema-only 导出，含 23 张表的全部索引与约束。
---   · 需要的扩展：pg_trgm、vector(pgvector)。Apache AGE 可选（实体图谱），本文件不含。
+--   · 需要的扩展：pg_trgm、vector(pgvector)。**Apache AGE 不需要**（实体图谱走普通表
+--     entities / memory_entities / wiki_entities；AGE 自 v7.8 起完全移除，2026-11-08 起功能冻结）。
 --   · 不含运维监控扩展（需超级用户，核心路径不依赖）。
 --   · 不含任何数据：建库后是空的。
 --

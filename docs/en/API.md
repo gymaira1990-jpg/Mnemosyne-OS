@@ -37,7 +37,7 @@
 | `/api/v1/palace/lifecycle` | POST | Lifecycle transitions |
 | `/api/v1/palace/pin` | POST | Pin (prevents decay) |
 
-## Recall (v9.1.2 milestone)
+## Recall (v9.1.3 patch)
 
 | Endpoint | Method | Purpose |
 |---|---|---|
@@ -72,7 +72,7 @@
 | `/api/v1/capabilities` | GET | Full capability manifest (self-describing) |
 | `/api/v1/dialectic` | POST | Dialectic retrieval (with context) |
 
-## Error contract (v9.1.2)
+## Error contract (v9.1.3)
 
 | Situation | Status |
 |---|---|

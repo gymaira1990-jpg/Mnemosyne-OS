@@ -1,12 +1,12 @@
 # Mnemosyne OS 状态
 
-## 当前版本: 9.1.2 — 里程碑：可度量 · 可求证 · 可预发布
+## 当前版本: 9.1.3 — 里程碑：可度量 · 可求证 · 可预发布
 
 ## 状态（2026-11-08 实测，全部可复现）
 
 | 面 | 事实 | 判据 |
 |---|---|---|
-| 生产 | `/opt/mnemosyne` 自报 **v9.1.2**，`mnemosyne` active | `curl /api/v1/capabilities` |
+| 生产 | `/opt/mnemosyne` 自报 **v9.1.3**，`mnemosyne` active | `curl /api/v1/capabilities` |
 | 预发布 | `/opt/mnemosyne-staging`（`127.0.0.1:8020`，库 `mnemosyne_staging`）active | 同上 |
 | 代码一致性 | 部署面 **82 个文件全部命中**，**0 处未登记漂移**、**0 条欠账**；6 条实配例外（`.env`/crontab 等主机配置） | `make prod-diff` |
 | 测试 | **370 passed / 0 skipped**（空库只导 `docs/schema.sql` 也是全过） | `hermes verify --json` |

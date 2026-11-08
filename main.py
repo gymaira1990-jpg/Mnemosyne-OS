@@ -1991,7 +1991,7 @@ async def capabilities():
             {"path": "POST /api/v1/beliefs/search", "purpose": "语义搜索信念", "tags": ["belief"]},
             {"path": "GET /api/v1/beliefs/{id}", "purpose": "获取信念详情(含置信度/轨迹/证据)", "tags": ["belief"]},
             {"path": "POST /api/v1/beliefs/{id}/evolve", "purpose": "演化信念: 调整置信度+添加证据, 状态自动演进", "tags": ["belief"]},
-            {"path": "POST /api/v1/graph/search", "purpose": "实体关联多跳检索(通过 entities/memory_entities 发现记忆；v7.8 起不再依赖 Apache AGE)", "tags": ["graph"]},
+            {"path": "POST /api/v1/graph/search", "purpose": "实体关联检索(实体锚定+memory_entities；AGE 已移除，能力冻结不再迭代)", "tags": ["graph"]},
             {"path": "POST /api/v1/wiki", "purpose": "创建Wiki页面(手动知识库)", "tags": ["wiki"]},
             {"path": "POST /api/v1/wiki/search", "purpose": "语义搜索Wiki", "tags": ["wiki"]},
             {"path": "POST /api/v1/extract-entities", "purpose": "从未处理记忆中批量提取实体到实体图谱(entities / memory_entities)", "tags": ["system"]},
@@ -2099,9 +2099,14 @@ async def palace_pin(memory_id: int, retention: str = "permanent"):
             "UPDATE tome_cards SET retention=$1 WHERE memory_id=$2", retention, memory_id)
     return {"memory_id": memory_id, "retention": retention}
 
-@app.post("/api/v1/graph/search")
+@app.post("/api/v1/graph/search", deprecated=True)
 async def graph_search(query: str, user_id: str, max_hops: int = 2):
-    """实体关联记忆检索 (v7.8: 移除 AGE 多跳 — 图已切除, max_hops 参数保留兼容)"""
+    """实体关联记忆检索（**能力冻结，不再迭代**）。
+
+    2026-11-08 主人定调：AGE / 图数据库能力在功能上放弃。
+    本端点不依赖任何图库 —— 走的是 entities（向量找锚定实体）+ memory_entities（实体→记忆）
+    两张普通表。`max_hops` 是 AGE 时代的多跳参数，v7.8 图切除后已无作用，保留只为不破坏老调用方。
+    """
     r_q = (await get_embedding([query]))[0]
     q_str = "[" + ",".join(str(x) for x in r_q) + "]"
     async with pool.acquire() as conn:
