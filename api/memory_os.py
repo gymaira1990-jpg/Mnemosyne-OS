@@ -155,14 +155,19 @@ async def _multi_kw(kws: List[str], user_id: str = "default", limit: int = 60) -
                left(m.content, 200) AS head,
                (SELECT count(*) FROM unnest($2::text[]) AS t(kw)
                  WHERE m.content ILIKE '%' || t.kw || '%') AS kw_hit,
-               array_length($2::text[], 1) AS n_kw
+               array_length($2::text[], 1) AS n_kw,
+               (m.content LIKE '[结果卡]%') AS is_card
         FROM memories m
         WHERE m.user_id = $1
-          AND m.is_deleted = false AND m.content LIKE '[结果卡]%'
+          AND m.is_deleted = false
+          -- 🔴 2026-11-08 审计：原来这里写死 `content LIKE '[结果卡]%'`，
+          --   而库里 33,165 条未删除记忆中只有 3,622 条（11%）是这个形态 ⇒
+          --   **89% 的记忆在关键词通道里彻底搜不到**（含全部 4,375 条蒸馏知识）。
+          --   改成「卡片优先排序」，不再把人挡在门外。
           AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
           AND EXISTS (SELECT 1 FROM unnest($2::text[]) AS t(kw)
                        WHERE m.content ILIKE '%' || t.kw || '%')
-        ORDER BY kw_hit DESC, m.id DESC
+        ORDER BY is_card DESC, kw_hit DESC, m.id DESC
         LIMIT $3
     """
     async with pool.acquire() as conn:
@@ -178,7 +183,9 @@ async def _recent(days: int, kws: List[str], user_id: str = "default", limit: in
                left(m.content, 200) AS head
         FROM memories m
         WHERE m.user_id = $1
-          AND m.is_deleted = false AND m.content LIKE '[结果卡]%'
+          AND m.is_deleted = false
+          -- 同 _multi_kw：不再只认结果卡形态（否则时间通道同样漏掉 89% 的记忆）。
+          -- 时间通道的排序本来就是「最近优先」，卡片不加特权也合理。
           AND (m.metadata->>'dup_verdict') IS DISTINCT FROM 'same'
           AND m.created_at > now() - make_interval(days => $2)
           AND ($3::text[] IS NULL OR EXISTS (

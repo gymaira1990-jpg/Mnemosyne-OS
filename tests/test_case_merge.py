@@ -47,3 +47,13 @@ def test_empty_file_is_zero_not_error(tmp_path):
     cases, per_file = load_cases([a])
     assert cases == []
     assert per_file[a] == 0
+
+
+def test_export_skips_labels_whose_memory_was_deleted():
+    """裁决之后记忆被软删 ⇒ 不能拿它出题（软删不触发 FK SET NULL）。
+
+    2026-11-08 实测：label 仍指向已删记忆，导出会把「已删档号」当标准答案。
+    """
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "scripts" / "labels_to_cases.py").read_text(encoding="utf-8")
+    assert "m.is_deleted = FALSE" in src, "导出查询必须排除已删记忆"

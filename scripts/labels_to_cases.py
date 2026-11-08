@@ -48,7 +48,11 @@ async def run(user: str, limit: int) -> list[dict]:
                    m.archive_no, m.content
               FROM memory_labels l
               LEFT JOIN memories m ON m.id = l.chosen_id
+             -- 🔴 必须排除「裁决之后被删掉的记忆」：软删除不走物理删，
+             --   FK 的 ON DELETE SET NULL 根本不会触发（2026-11-08 实测 label9）
+             --   ⇒ 若不过滤，就会拿一条已删记忆的档号当标准答案，题永远答不对。
              WHERE l.user_id = $1 AND l.chosen_id IS NOT NULL
+               AND m.id IS NOT NULL AND m.is_deleted = FALSE
              ORDER BY l.query, l.created_at DESC
              LIMIT $2
             """, user, limit)
