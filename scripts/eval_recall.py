@@ -77,7 +77,7 @@ def post(url: str, payload: dict, timeout: int = 30) -> dict:
 
 def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
                      sim_floor: float = 0.40, abstain_below: float = 0.0,
-                     confirm_margin: float = 0.0) -> tuple[list[str], bool, dict]:
+                     confirm_margin: float = 0.0) -> tuple[list[str], bool, dict, list[float]]:
     """返回候选正文列表（按服务端排序）。
 
     2026-11-07 修两个坑：
@@ -93,23 +93,39 @@ def fetch_candidates(base: str, q: str, user: str, k: int, semantic: bool,
     except urllib.error.URLError as e:
         raise SystemExit(f"❌ 连不上服务 {base}：{e}\n   先跑 `bash scripts/bootstrap.sh` 或确认 BASE_URL")
     out: list[str] = []
+    ans: list[float] = []
     for c in d.get("candidates", []) or []:
         txt = c.get("head") or c.get("content") or ""
         if txt:
             out.append(txt)
-    return out[:k], bool(d.get("confirm")), (d.get("channel_counts") or {})
+            a = c.get("answerability")
+            ans.append(float(a) if isinstance(a, (int, float)) else 1.0)
+    return out[:k], bool(d.get("confirm")), (d.get("channel_counts") or {}), ans[:k]
 
 
 def judge(rows: list[str], expect: list[str], k: int,
-          forbid: list[str] | None = None) -> tuple[bool, int | None]:
+          forbid: list[str] | None = None,
+          answerabilities: list[float] | None = None) -> tuple[bool, int | None]:
     """判定一条用例。
 
     正向（有 expect）：任一期望词出现在前 k 条 → 命中，返回首次位次。
-    负向（有 forbid） ：**任一**禁词出现在前 k 条 → 未命中（不该被检索出来）。
+    负向（有 forbid） ：
+      · 传了 answerabilities（推荐）→ **返回空 或 全部 answerability < 0.3 才算通过**。
+        这是 2026-11-09 修的：旧判据只看「有没有撞 forbid 词」，顶上来完全不相干的内容
+        照样算通过 —— 实测 4 条负样本里 3 条是假通过（问「灾难恢复演练」返回「讨厌加巡检」，
+        score 65，只因不含 forbid 词就判 PASS）。
+      · 没传（selftest 等场景）→ 退回旧判据：任一禁词出现即失败。
     两者都没有     ：判为无效用例，直接抛错（避免默默算成通过）。
     """
     head = rows[:k]
     if forbid:
+        if answerabilities is not None:
+            picked = answerabilities[:k]
+            if not head or not picked:
+                return True, None            # 一条都没返回 = 正确地弃权
+            if max(picked) < 0.3:
+                return True, None            # 顶上了东西，但全都答非所问
+            return False, picked.index(max(picked)) + 1
         for i, txt in enumerate(head, 1):
             if any(f in txt for f in forbid):
                 return False, i
@@ -122,10 +138,12 @@ def judge(rows: list[str], expect: list[str], k: int,
     return False, None
 
 
-def _score(cases: list[dict], results: dict[int, list[str]], k: int) -> tuple[float, int]:
+def _score(cases: list[dict], results: dict[int, list[str]], k: int,
+           answers: dict[int, list[float]] | None = None) -> tuple[float, int]:
     hit = 0
     for i, c in enumerate(cases):
-        ok, _pos = judge(results[i], c.get("expect") or [], k, c.get("forbid"))
+        ok, _pos = judge(results[i], c.get("expect") or [], k, c.get("forbid"),
+                         (answers or {}).get(i))
         hit += ok
     return hit / (len(cases) or 1), hit
 
@@ -134,21 +152,23 @@ def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: 
         strict: bool = False, sim_floor: float = 0.40, abstain_below: float = 0.0,
         confirm_margin: float = 0.0, min_rate: float = 0.80) -> int:
     results: dict[int, list[str]] = {}
+    answers: dict[int, list[float]] = {}
     chans: dict[int, dict] = {}
     asked = 0
     for i, c in enumerate(cases):
-        rows, wants_confirm, cc = fetch_candidates(base, c["q"], user, k, semantic, sim_floor,
-                                                   abstain_below, confirm_margin)
+        rows, wants_confirm, cc, ans = fetch_candidates(base, c["q"], user, k, semantic, sim_floor,
+                                                        abstain_below, confirm_margin)
         results[i] = rows
+        answers[i] = ans
         chans[i] = cc
         asked += wants_confirm
 
-    rate, hits = _score(cases, results, k)
-    tight_rate, tight_hits = _score(cases, results, min(TIGHT_K, k))
+    rate, hits = _score(cases, results, k, answers)
+    tight_rate, tight_hits = _score(cases, results, min(TIGHT_K, k), answers)
 
     if not quiet:
         for i, c in enumerate(cases):
-            ok, pos = judge(results[i], c.get("expect") or [], k, c.get("forbid"))
+            ok, pos = judge(results[i], c.get("expect") or [], k, c.get("forbid"), answers.get(i))
             kind = "负样本" if c.get("forbid") else "正向"
             mark = (f"✅ 第{pos}位" if ok else "❌ 未命中") if pos else ("✅ 未浮现" if ok else "❌ 被顶上来")
             cc = chans.get(i) or {}
@@ -172,7 +192,7 @@ def run(cases: list[dict], base: str, user: str, k: int, semantic: bool, quiet: 
         print(f"✅ 尺子有效：位次越紧分数越低（{sep:+.0%}）⇒ 分数确实反映排序质量")
 
     miss = [c["q"] for i, c in enumerate(cases)
-            if not judge(results[i], c.get("expect") or [], k, c.get("forbid"))[0]]
+            if not judge(results[i], c.get("expect") or [], k, c.get("forbid"), answers.get(i))[0]]
     if miss:
         print("未命中清单：")
         for q in miss:
