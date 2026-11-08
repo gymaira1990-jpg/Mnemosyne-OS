@@ -46,11 +46,13 @@ ssh "$HOST" "set -e
   # 记录「预发布验过哪个 commit」——生产部署脚本会比对它，防止跳过预发布
   echo '$HEAD_SHA' | sudo tee $STAGING_DIR/DEPLOYED_SHA >/dev/null
   sudo systemctl restart mnemosyne-staging
-  for i in \$(seq 1 20); do
+  for i in \$(seq 1 90); do
     if curl -sf -m 3 http://127.0.0.1:8020/api/v1/capabilities >/dev/null; then echo '   staging: active'; exit 0; fi
     sleep 1
   done
-  echo '❌ staging 未起来'; systemctl status mnemosyne-staging --no-pager | tail -5; exit 1"
+  # 2026-11-08 实测：4 个 uvicorn worker 各自加载 jieba，restart → startup complete 要 ~32s；
+  # 原来只等 20s ⇒ 报「未起来」而服务其实正常，白等一轮。窗口放宽到 90s。
+  echo '❌ staging 90s 内未起来'; systemctl status mnemosyne-staging --no-pager | tail -5; exit 1"
 
 if [[ $DO_SMOKE -eq 1 ]]; then
   echo "── 4/4 冒烟（DB=$DB）──"

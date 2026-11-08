@@ -113,6 +113,27 @@ def expand_kw(kws: List[str]) -> List[str]:
     return out
 
 
+def _kw_weight(k: str) -> float:
+    """关键词的「辨识度」权重（2026-11-08）。
+
+    为什么不用 IDF：① 候选池本身就是按「命中任一词」筛出来的，池内 df 分布被压缩，
+    稀有词算不出稀有（实测 recall 72% → 67%，反效果）；② 全库 df 在请求路径上算不起 ——
+    中文 ILIKE 走不了索引（pg_trgm 对 <3 字符无效），8 个词就是 8 次全表扫描，实测 800ms+。
+
+    静态权重是能解释的近似：
+      · ascii / 含数字 / 路径 / 档号 → 3.0（专名，最 specific：TMT / 2438 / 192.168.1.177）
+      · 中文 ≥3 字                  → 2.0
+      · 中文 2 字（多为常用词）      → 1.0
+    """
+    if not k:
+        return 1.0
+    if k.isascii() or any(c.isdigit() for c in k):
+        return 3.0
+    if len(k) >= 3:
+        return 2.0
+    return 1.0
+
+
 # ---------- 数据访问 ----------
 # 判重口径（2026-11-03 T-0594）：被管家判定为「同一张卡的另一代」的卡
 # （metadata.dup_verdict='same'）默认**不参与召回** —— 不是删，恢复只需改这个标记。
@@ -355,24 +376,15 @@ async def recall(body: RecallIn = Body(...)):
         if sem:
             chans["S"] = sem
 
-    # ---- C 通道按 IDF 加权（2026-11-08）----
-    # 旧的等权算法：命中 3 个词 = 满分。可「字段 / 原因 / 标准」这种泛词在几千条里都有，
-    # 而「TMT / 2438 / 192.168.1.177」这种强锚点只出现在一两条里 —— 等权等于让泛词淹掉锚点。
-    # 实测：问「TMT 的 L3 表缺哪个字段」，命中的是「SVG 箭头」卡（只因含「字段」二字），真答案没影。
-    # 用候选池内的文档频率近似 IDF：出现在越多候选里的词越不值钱。
-    c_rows = chans.get("C") or []
-    df: dict[str, int] = {}
-    for r in c_rows:
-        for k in set(r.get("hit_kws") or []):
-            df[k] = df.get(k, 0) + 1
-    n_c = len(c_rows) or 1
-    idf = {k: math.log(1 + n_c / (1 + v)) for k, v in df.items()}
-    idf_max = math.log(1 + n_c)
-
-    def _c_got(row: dict) -> float:
-        return sum(idf.get(k, idf_max) for k in (row.get("hit_kws") or []))
-
-    max_got = max((_c_got(r) for r in c_rows), default=0.0) or 1.0
+    # ---- C 通道：按「词的辨识度」加权，而不是按命中个数（2026-11-08）----
+    # 试过两条路，都留痕：
+    #   ① 等权命中计数 → 「字段/原因/标准」这些泛词和「TMT/2438」同分，实测让 SVG 卡登顶。
+    #   ② 候选池内 IDF → 池子本身是按「命中任一词」筛出来的，df 分布被压缩，
+    #      稀有词算不出稀有（39k 全库里 df=381 的词，在 2000 条池子里看起来只差 5 倍 ⇒ log 后几乎无差别）。
+    #      实测反而把分数拉平，recall 从 72% 掉到 67%，**因此放弃**。
+    # 现在用可解释的静态权重：专名（ascii / 含数字 / 长词）比两字常用词更 specific。
+    kw_w = {k: _kw_weight(k) for k in kws_exp}
+    top3_w = sum(sorted(kw_w.values(), reverse=True)[:3]) or 1.0
 
     pool_map: dict[str, dict] = {}
     for ch, rows in chans.items():
@@ -380,9 +392,8 @@ async def recall(body: RecallIn = Body(...)):
             key = r.get("no") or f"id:{r['id']}"
             base = float(CREDIT[ch])
             if ch == "C":
-                # 归一化到池内最强候选（相对分），避免「分母用全部查询词」导致只命中 1 个词的
-                # 正确答案永远拿不到高分。
-                base = CREDIT[ch] * _c_got(r) / max_got
+                got = sum(kw_w.get(k, 1.0) for k in (r.get("hit_kws") or []))
+                base = CREDIT[ch] * min(got, top3_w) / top3_w
             if ch == "S":
                 # 语义分按相似度折算：sim=0.9 → 0.9*40，避免任何一条都拿满分
                 base = float(CREDIT[ch]) * max(0.0, min(1.0, float(r.get("sim") or 0.0)))
