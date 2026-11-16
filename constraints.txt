@@ -15,12 +15,12 @@
 anyio==4.16.0
 asyncpg==0.32.0
 certifi==2026.10.23
-fastapi==0.162.0
+fastapi==0.162.5
 httpx==0.28.1
 jieba==0.42.1
 mcp==2.3.0
-numpy==2.4.6
+numpy==2.5.4
 psutil==7.2.2
-pydantic==2.14.2
+pydantic==2.14.3
 python-dotenv==1.2.4
-uvicorn==0.52.4
+uvicorn==0.54.0
